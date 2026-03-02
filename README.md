@@ -29,19 +29,23 @@ This layer is the transport & protocol layer of the server.
 
 Example raw request:
 
-`GET /index.html HTTP/1.1
+```
+GET /index.html HTTP/1.1
 Host: localhost:8080
-Content-Type: text/html`
+Content-Type: text/html
+```
 
 Example structure:
 
-`class Request {
+```
+class Request {
     std::string method;
     std::string path;
     std::string version;
     std::map<std::string, std::string> headers;
     std::string body;
-};`
+};
+```
 
 Must handle:
 - Request line parsing
@@ -88,7 +92,8 @@ This layer is the decision engine of the server.
 
 Parse configuration file such as:
 
-`server {
+```
+server {
     listen 8080;
     root ./www;
     index index.html;
@@ -97,7 +102,8 @@ Parse configuration file such as:
         root ./assets;
         allow_methods GET;
     }
-}`
+}
+```
 
 Must implement:
 - Tokenizer
@@ -107,19 +113,23 @@ Must implement:
 - Multiple server support
 
 Internal Structures
-`class LocationConfig {
+```
+class LocationConfig {
     std::string path;
     std::string root;
     std::vector<std::string> allowedMethods;
-};`
+};
+```
 
-`class ServerConfig {
+```
+class ServerConfig {
     int port;
     std::string root;
     std::string index;
     std::map<int, std::string> errorPages;
     std::vector<LocationConfig> locations;
-};`
+};
+```
 2️⃣ Routing Logic
 
 Given a Request, determine:
@@ -131,18 +141,22 @@ Given a Request, determine:
 - Status code (if error)
 
 Example result object:
-`class RouteResult {
+```
+class RouteResult {
     std::string fullPath;
     bool isDirectory;
     bool methodAllowed;
     int statusCode;
-};`
+};
+```
 
 ### Interface
 
 Inputs:
-`Request request;
-std::vector<ServerConfig> configs;`
+```
+Request request;
+std::vector<ServerConfig> configs;
+```
 
 Outputs:
 `RouteResult result;`
@@ -193,11 +207,13 @@ Must:
 - Never crash server
 
 3️⃣ Response Construction
-`class Response {
+```
+class Response {
     int statusCode;
     std::map<std::string, std::string> headers;
     std::string body;
-};`
+};
+```
 
 Must set:
 - Status line
@@ -209,12 +225,14 @@ Must set:
 
 Main loop structure:
 
-`while (true) {
+```
+while (true) {
     accept connection
     parse request (P1)
     route request (P2)
     build response (P3)
     send response (P1)
-}`
+}
+```
 
 Responsible for full system integration.
