@@ -53,13 +53,14 @@ std::string PathResolver::normalizePath(const std::string& path){
  */
 
 bool PathResolver::isPathSafe(const std::string& requested, const std::string& root){
-    PathResolver resolver;
+    if (requested == "path is not safe")
+        return false;
 
 //    std::string normalizedRequest;
     std::string normalizedRoot;
     std::string combined = root;
     
-    normalizedRoot = resolver.normalizePath(root);
+    normalizedRoot = normalizePath(root);
 /*    normalizedRequest = resolver.normalizePath(requested);
     
     if (!normalizedRoot.empty())
@@ -74,7 +75,7 @@ bool PathResolver::isPathSafe(const std::string& requested, const std::string& r
     else
         combined = requested;
 
-    combined = resolver.normalizePath(combined);
+    combined = normalizePath(combined);
 
     std::vector<std::string> vecRoot;
     std::stringstream splitRoot(normalizedRoot);
@@ -107,15 +108,14 @@ bool PathResolver::isPathSafe(const std::string& requested, const std::string& r
 }
 
 std::string PathResolver::resolveToFilesystem(const std::string& uriPath, const std::string& documentRoot) {
-    PathResolver resolver;
-    if (resolver.isPathSafe(uriPath, documentRoot)){
+    if (isPathSafe(uriPath, documentRoot)){
         std::string combined;
         if (!documentRoot.empty())
             combined = documentRoot + "/" + uriPath;
         else
             combined = uriPath;
-        combined = resolver.normalizePath(combined);
+        combined = normalizePath(combined);
         return combined;
     }
-    return "";
+    return "path is not safe";
 }
