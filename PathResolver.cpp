@@ -42,5 +42,57 @@ std::string PathResolver::normalizePath(const std::string& path){
     return normalizedPath;
 }
 
-bool isPathSafe(const std::string& requested, const std::string& root);
+bool PathResolver::isPathSafe(const std::string& requested, const std::string& root){
+    PathResolver resolver;
+
+//    std::string normalizedRequest;
+    std::string normalizedRoot;
+    std::string combined = root;
+    
+    normalizedRoot = resolver.normalizePath(root);
+/*    normalizedRequest = resolver.normalizePath(requested);
+    
+    if (!normalizedRoot.empty())
+        combined = normalizedRoot + "/" + normalizedRequest;
+    else
+        combined = normalizedRequest;
+    
+    combined = resolver.normalizePath(combined); */
+
+    if (!root.empty())
+        combined = root + "/" + requested;
+    else
+        combined = requested;
+
+    combined = resolver.normalizePath(combined);
+
+    std::vector<std::string> vecRoot;
+    std::stringstream splitRoot(normalizedRoot);
+    std::vector<std::string> vecRequestFullPath;
+    std::stringstream splitRequest(combined);
+    std::string temp;
+    
+    while (getline(splitRoot, temp, '/'))
+        if (!temp.empty())
+            vecRoot.push_back(temp);
+
+    while (getline(splitRequest, temp, '/'))
+        if (!temp.empty())
+            vecRequestFullPath.push_back(temp);
+
+    if (vecRoot.empty())
+        return true;
+
+    if (vecRequestFullPath.size() < vecRoot.size())
+        return false;
+
+    std::vector<std::string>::iterator itRoot = vecRoot.begin();
+    std::vector<std::string>::iterator itRequest = vecRequestFullPath.begin();
+    for (; itRoot != vecRoot.end(); itRoot++, itRequest++)
+    {
+        if (*itRoot != *itRequest)
+            return false;
+    }
+    return true;
+}
 
