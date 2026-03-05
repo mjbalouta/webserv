@@ -1,13 +1,12 @@
 #include "PathResolver.hpp"
 
-/*
-    * This function normalizes the path by removing redundant slashes and resolving any "." or ".." components.
-    * It splits the input path by '/' and processes each component to construct a normalized path.
-    * The resulting normalized path is returned as a string.
-    * 
-    * Handling only . and .. , need to make sure thats enough or need to handle special characters as well
-    * 
-    * */
+/**
+ * @brief Path normalization function that takes a path string and normalizes it 
+ *  by removing redundant slashes, resolving "." and ".." components, and ensuring a clean path structure.
+ * 
+ * @param path 
+ * @return std::string 
+ */
 
 std::string PathResolver::normalizePath(const std::string& path){
     std::string normalizedPath;
@@ -41,6 +40,17 @@ std::string PathResolver::normalizePath(const std::string& path){
     }
     return normalizedPath;
 }
+
+/**
+ * @brief Path checker to see if the requested path is safe to access based on the root directory.
+ *  It normalizes both the root and the requested path, combines them, and checks if the combined path starts with the normalized root path.
+ *  If the root is empty, it considers all paths as safe.
+ * 
+ * @param requested 
+ * @param root
+ * @return true 
+ * @return false 
+ */
 
 bool PathResolver::isPathSafe(const std::string& requested, const std::string& root){
     PathResolver resolver;
@@ -96,3 +106,16 @@ bool PathResolver::isPathSafe(const std::string& requested, const std::string& r
     return true;
 }
 
+std::string PathResolver::resolveToFilesystem(const std::string& uriPath, const std::string& documentRoot) {
+    PathResolver resolver;
+    if (resolver.isPathSafe(uriPath, documentRoot)){
+        std::string combined;
+        if (!documentRoot.empty())
+            combined = documentRoot + "/" + uriPath;
+        else
+            combined = uriPath;
+        combined = resolver.normalizePath(combined);
+        return combined;
+    }
+    return "";
+}
