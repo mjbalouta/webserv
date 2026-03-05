@@ -3,6 +3,7 @@
 // Standard C++ Library
 #include <string>      // std::string
 #include <map>         // std::map
+#include <vector>	   // std::vector
 #include <exception>   // std::exception
 #include <iostream>    // std::cout, std::cerr
 #include <sstream>     // std::ostringstream, std::istringstream
