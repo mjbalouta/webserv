@@ -22,6 +22,12 @@
 #include <signal.h>     // signal, sigaction, SIGINT, SIGPIPE
 #include <errno.h>      // errno, EINTR
 
+
+// Custom Class Implementations and .hpp headers
+#include "PathResolver.hpp"
+class PathResolver;
+
+
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
 #define B       "\033[1m"       // Bold
