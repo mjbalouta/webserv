@@ -6,6 +6,7 @@
 #include <exception>   // std::exception
 #include <iostream>    // std::cout, std::cerr
 #include <sstream>     // std::ostringstream, std::istringstream
+#include <vector>       // std::vector
 
 // C Standard Library
 #include <cstring>     // memset, strlen
@@ -20,6 +21,12 @@
 #include <unistd.h>     // read, write, close
 #include <signal.h>     // signal, sigaction, SIGINT, SIGPIPE
 #include <errno.h>      // errno, EINTR
+
+
+// Custom Class Implementations and .hpp headers
+#include "PathResolver.hpp"
+class PathResolver;
+
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
