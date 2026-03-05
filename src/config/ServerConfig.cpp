@@ -79,4 +79,3 @@ const std::vector<LocationConfig>& ServerConfig::getLocations() const
 {
 	return _locations;
 }
-
