@@ -4,6 +4,9 @@
 
 class MimeTypeResolver {
     public:
-        static std::string getMimeType(const std::string& extension);
+        MimeTypeResolver();
+        ~MimeTypeResolver() {};
         std::string getTypeByExtension(const std::string& filename);
+    private:
+        std::map<std::string, std::string> mimeTypes;
 };
