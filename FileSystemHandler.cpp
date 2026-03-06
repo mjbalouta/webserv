@@ -130,3 +130,14 @@ size_t FileSystemHandler::getFileSize(const std::string& path){
     std::ifstream file(path);
     return (file.tellg());
 }
+
+std::time_t FileSystemHandler::getLastMODTime(const std::string& path){
+    if (path.empty())
+        return 0;
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0)
+    {
+        return st.st_mtime;
+    }
+    return 0;
+}
