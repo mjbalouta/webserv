@@ -31,8 +31,8 @@
 // Custom Class Implementations and .hpp headers
 // #include "PathResolver.hpp"
 class PathResolver;
-#include "LocationConfig.hpp"
-#include "ServerConfig.hpp"
+#include "config/LocationConfig.hpp"
+#include "config/ServerConfig.hpp"
 #include "Utils.hpp"
 #include "Exception.hpp"
 
