@@ -62,9 +62,13 @@ bool FileSystemHandler::isReadable(const std::string& path){
  * @param path 
  * @return std::string 
  */
-std::string FileSystemHandler::readFile(const std::string& path){
+std::string FileSystemHandler::readFile(const std::string& path, size_t maxSize){
     if (path.empty())
         throw std::runtime_error("No file path");
+    if (!isReadable(path))
+        throw std::runtime_error("File is not readable");
+    if (getFileSize(path) > maxSize)
+        throw std::runtime_error("File size exceeds maximum allowed size");
     std::string fileContent;
     std::string line;
 
