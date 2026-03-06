@@ -21,6 +21,16 @@ public:
 	SocketException(const std::string &msg) : AppException(msg) {}
 };
 
+class FileException : public AppException {
+public:
+	FileException(const std::string &msg) : AppException(msg) {}
+};
+
+class ConfigException : public AppException {
+public:
+	ConfigException(const std::string &msg) : AppException(msg) {}
+};
+
 /* 
 exemplo para seguir caso novas exceptions
 

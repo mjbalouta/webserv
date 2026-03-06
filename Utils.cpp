@@ -21,3 +21,26 @@ std::string itostr(int value){
 	oss << value;
 	return oss.str();
 }
+
+/**
+ * @brief Searches for whitespaces in the beginning or end of a str
+ * and trims them
+ * 
+ * @param str 
+ * @return std::string& 
+ */
+std::string& trimSpaces(std::string& str)
+{
+	size_t start = str.find_first_not_of(" \t\n\r");
+	if (start == std::string::npos)
+	{
+		str.clear();
+		return str;
+	}
+
+	size_t end = str.find_last_not_of(" \t\n\r");
+	str.erase(0, start);
+	str.erase(end + 1);
+
+	return str;
+}
