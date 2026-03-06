@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Includes.hpp"
+#include "Exception.hpp"
 
 class ConfigParser
 {
