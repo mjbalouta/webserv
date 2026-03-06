@@ -5,9 +5,11 @@
 #include <vector>      // std::vector
 #include <map>         // std::map
 #include <exception>   // std::exception
+#include <stdexcept>   // std::runtime_error
 #include <iostream>    // std::cout, std::cerr
 #include <sstream>     // std::ostringstream, std::istringstream
-#include <fstream>     // std::ifstream
+#include <vector>       // std::vector
+#include <fstream>      // std::ifstream, std::ostream
 
 // C Standard Library
 #include <cstring>     // memset, strlen
@@ -15,9 +17,12 @@
 #include <cstdlib>     // atoi, strtol
 #include <cctype>      // isspace, tolower, toupper, isalnum
 #include <ctime>       // time
+#include <unistd.h>
+#include <dirent.h>    // DIR *
 
 // POSIX/System Headers
 #include <sys/socket.h> // socket, bind, listen, accept, send
+#include <sys/stat.h>   // stat
 #include <netinet/in.h> // sockaddr_in, INADDR_ANY, htons
 #include <unistd.h>     // read, write, close
 #include <signal.h>     // signal, sigaction, SIGINT, SIGPIPE
@@ -30,6 +35,11 @@
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
 #define KEEP_ALIVE_TIMEOUT 15
+
+// Custom Class Implementations and .hpp headers
+//#include "PathResolver.hpp"
+//class PathResolver;
+
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
