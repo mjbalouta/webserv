@@ -13,6 +13,9 @@ Connection::~Connection()
 {
 }
 
+/**
+ * @brief Closes the client socket and marks the connection as closing.
+ */
 void Connection::closeConnection()
 {
 	if (_fd >= 0)
@@ -23,7 +26,11 @@ void Connection::closeConnection()
 	_state = CLOSING;
 }
 
-void Connection::handleRequest(ServerManager sm){
+/**
+ * @brief Dispatches one processing step according to current connection state.
+ * @param maxUploadSize Maximum allowed request body size for this connection.
+ */
+void Connection::handleRequest(size_t maxUploadSize, int epollFd){
 	switch (_state)
 	{
 		case CLOSING:
@@ -31,13 +38,11 @@ void Connection::handleRequest(ServerManager sm){
 			closeConnection();
 			return;
 		case READING:
-			readRequest(sm);
+			readRequest(maxUploadSize, epollFd);
 			break;
-		case POSSESSING:
-			parseRequest();
+		case PROCESSING:
 			break;
 		case WRITING:
-			sendResponse();
 			break;
 		case IDLE:
 		default:
@@ -46,133 +51,104 @@ void Connection::handleRequest(ServerManager sm){
 	_lastActive = time(0);
 }
 
-/*void Connection::readRequest(ServerManager sm){
+/**
+ * @brief Reads incoming HTTP request bytes from the client socket.
+ * @param maxUploadSize Maximum allowed request body size for this connection.
+ *
+ * Flow:    
+ * 1) Validate that the socket fd is still valid.
+ * 2) Read bytes from the socket using recv().
+ * 3) Handle read outcomes:
+ *    - < 0: read error (connection moves to CLOSING)
+ *    - = 0: client disconnected (connection moves to CLOSING)
+ *    - > 0: append bytes to _readBuffer and update _totalReceived
+ * 4) If Content-Length is not known yet, try to parse it from headers.
+ */
+void Connection::readRequest(size_t maxUploadSize, int epollFd){
+
+	// 1) Guard against invalid socket descriptor.
 	if (_fd < 0){
 		printMessage("❌ No socket available", RED);
 		_state = CLOSING;
 		return;
 	}
 	
+	// 2) Read raw bytes from the socket.
 	char buffer[BUFFER_SIZE];
 	int readBytes = recv(_fd, buffer, sizeof(buffer), MSG_NOSIGNAL);
+	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
+	// Returns: >0 number of bytes read, 0 if client closed connection, -1 on error (check errno).
+	// MSG_NOSIGNAL prevents SIGPIPE-related signals during socket operations.
+
+	// 3a) Read failure.
 	if (readBytes < 0){
 		printMessage("❌ Failed to read from socket", RED);
 		_state = CLOSING;
 		return;
 	}
 
+	// 3b) Peer closed connection.
 	if (readBytes == 0){
 		printMessage("❌ Connection closed by client", RED);
 		_state = CLOSING;
 		return;
 	}
+
+	// 3c) Successful read: append chunk and account total bytes.
 	_readBuffer.append(buffer, readBytes);
 	_totalReceived += readBytes;
+
+	// 4) Parse Content-Length once (if not parsed yet).
 	if (_contentLength == 0){
+		const std::string header = "Content-Length:";
+		size_t pos = _readBuffer.find(header);
 
-	}
-}
-
-
-void Run::readRequest(Connection *conn)
-{
-	if (conn->fd <= 0) {
-		print_message("❌ No socket available", RED);
-		conn->state = Connection::CLOSING;
-		return;
-	}
-	if (!conn){
-		print_message("❌ Connection object is NULL", RED);
-		conn->state = Connection::CLOSING;
-		return;
-	}
-	char buffer[BUFFER_SIZE];
-	int read_bytes = recv(conn->fd, buffer, sizeof(buffer), MSG_NOSIGNAL);
-	if (read_bytes < 0) {
-		print_message("❌ Failed to read from socket", RED);
-		conn->state = Connection::CLOSING;
-		return;
-	}
-
-	if (read_bytes == 0) {
-		print_message("❌ Connection closed by client", RED);
-		conn->state = Connection::CLOSING;
-		return;
-	}
-	conn->read_buffer.append(buffer, read_bytes);
-	conn->total_received += read_bytes;
-	if (conn->content_length == 0) {
-		const std::string content_length_header = "Content-Length: ";
-		size_t pos = conn->read_buffer.find(content_length_header);
 		if (pos != std::string::npos) {
-			size_t start = pos + content_length_header.length();
-			size_t end = conn->read_buffer.find("\r\n", start);
+			// Move to header value start, skipping optional spaces/tabs.
+			size_t start = pos + header.length();
+			while (start < _readBuffer.size() && (_readBuffer[start] == ' ' || _readBuffer[start] == '\t'))
+				++start;
+
+			// Header value ends at CRLF.
+			size_t end = _readBuffer.find("\r\n", start);
+
 			if (end != std::string::npos) {
-				try {
-					conn->content_length = stolg(conn->read_buffer.substr(start, end - start));
-				} catch (const std::exception& e) {
-					print_message("❌ Error parsing Content-Length: " + itosg(e.what()), RED);
-					close_connection(conn);
-					return;
-				}
-			}
-		}
-	}
-	if ((long)conn->content_length > this->servers[this->currIndexServer]->getuploadSize() || (long)conn->content_length > 5000000000)
-	{
-		print_message("❌ Content-Length exceeds maximum limit", RED);
-		conn->state = Connection::POSSESSING;
-		conn->keep_alive = false; 
-		conn->status_code = 413;
-		mod_epoll(conn->fd, EPOLLOUT);
-	}
-	else if (conn->content_length > 0) {
-		size_t header_end = conn->read_buffer.find("\r\n\r\n");
-		if (header_end != std::string::npos) {
-			size_t header_size = header_end + 4;
-			if (conn->read_buffer.size() >= header_size + conn->content_length) {
-				conn->state = Connection::POSSESSING;
-				mod_epoll(conn->fd, EPOLLOUT);
-			}
-		}
-	}else if (conn->content_length == 0) {
-		conn->state = Connection::POSSESSING;
-		mod_epoll(conn->fd, EPOLLOUT);
-	}
+				std::string valueStr = _readBuffer.substr(start, end - start);
 
-}
-
-if (_contentLength == 0) {
-	const std::string header = "Content-Length: ";
-	size_t pos = _readBuffer.find(header);
-	
-	if (pos != std::string::npos) {
-		size_t start = pos + header.length();
-		size_t end = _readBuffer.find("\r\n", start);
-		
-		if (end != std::string::npos) {
-			std::string valueStr = _readBuffer.substr(start, end - start);
-			
-			// Trim whitespace
-			size_t first = valueStr.find_first_not_of(" \t");
-			size_t last = valueStr.find_last_not_of(" \t");
-			
-			if (first != std::string::npos) {
-				valueStr = valueStr.substr(first, last - first + 1);
-				
-				// Simple integer conversion without exception
-				char *endptr;
+				// Convert to integer and validate full consumption.
+				char *endptr = NULL;
 				long value = std::strtol(valueStr.c_str(), &endptr, 10);
-				
-				// Validate: all consumed, positive
-				if (*endptr == '\0' && value > 0) {
-					_contentLength = (size_t)value;
-				} else {
-					printMessage("❌ Invalid Content-Length value", RED);
+				if (endptr == valueStr.c_str() || *endptr != '\0' || value < 0) {
+					printMessage("❌ Invalid Content-Length", RED);
 					_state = CLOSING;
 					return;
 				}
+
+				// Valid Content-Length parsed successfully.
+				_contentLength = static_cast<size_t>(value);
 			}
 		}
 	}
-}*/
+	if ((long)_contentLength > static_cast<long>(maxUploadSize))
+	{
+		printMessage("❌ Content-Length exceeds maximum limit", RED);
+		_state = PROCESSING;
+		_keepAlive = false; //force close after response
+		_statusCode = 413; //payload too large
+		modEpoll(epollFd, _fd, EPOLLOUT);
+	}
+	else if (_contentLength > 0) {
+		size_t headerEnd = _readBuffer.find("\r\n\r\n");
+		if (headerEnd != std::string::npos) {
+			size_t headerSize = headerEnd + 4;
+			if (_readBuffer.size() >= headerSize + _contentLength) //full request body was read
+			{
+				_state = PROCESSING;
+				modEpoll(epollFd, _fd, EPOLLOUT);
+			}
+		}
+	}else if (_contentLength == 0) {
+		_state = PROCESSING;
+		modEpoll(epollFd, _fd, EPOLLOUT);
+	}
+}

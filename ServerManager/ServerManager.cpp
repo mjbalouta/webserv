@@ -76,7 +76,7 @@ void ServerManager::createServerSockets(){
 			
 			setnon_blocking(server_fd); //sets a socket to non-blocking mode, meaning socket operations won't wait (block) for completion.
 			
-			addToEpoll(server_fd, EPOLLIN); //EPOLLIN - Monitor for incoming data/connections (read readiness)
+			addToEpoll(_epollFd, server_fd, EPOLLIN); //EPOLLIN - Monitor for incoming data/connections (read readiness)
 			printMessage("✅ Server running at 🌐 http://" + serverInfo, BGRN);
 		}
 		catch (const std::exception& e)
@@ -108,7 +108,7 @@ void ServerManager::parseConfigServers() {
 			server.setPort(port);
 			server.setName(_configs[i].getServerName()[j]);
 			server.setIp(_configs[i].getHost()[j]);
-			server.setMaxBody(_configs[i].getClientMaxBodySize()[j]);
+			server.setMaxBody(std::stol(_configs[i].getClientMaxBodySize()[j]));
 			server.setRoot(_configs[i].getDefaultRoot()[j]);
 			server.setIndex(i);
 			_servers.push_back(server);
@@ -134,7 +134,7 @@ bool ServerManager::createConnection(int fd, int serverIndex)
 	if (client_fd < 0)
 		return (printMessage("❌ Failed to accept connection", RED), false);
 	setnon_blocking(client_fd);
-	addToEpoll(client_fd, EPOLLIN);
+	addToEpoll(_epollFd ,client_fd, EPOLLIN);
 	_connections[serverIndex][client_fd] = Connection(client_fd);
 	_connections[serverIndex][client_fd]._state = READING;
 	printMessage("🔗 New connection accepted", GRN);
@@ -211,40 +211,10 @@ void ServerManager::closeConnection(int serverIndex, int fd)
 	if (it == serverConnections.end())
 		return;
 
-	removeFromEpoll(fd);
+	removeFromEpoll(_epollFd, fd);
 	it->second.closeConnection();
 	serverConnections.erase(it);
 	printMessage("Closing connection: " + itostr(fd), MAG);
-}
-
-/**
- * @brief Adds a file descriptor to the epoll instance for monitoring
- * @param fd File descriptor to add
- * @param events Epoll events to monitor (e.g., EPOLLIN for read readiness)
- * @throw std::runtime_error if epoll_ctl fails
- */
-void ServerManager::addToEpoll(int fd, uint32_t events) {
-	struct epoll_event ev;
-	memset(&ev, 0, sizeof(ev));
-	ev.events = events;
-	ev.data.fd = fd;
-	
-	if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, fd, &ev) < 0) { //Calls epoll_ctl() to register this fd. _epollFd - epoll instance. EPOLL_CTL_ADD - operation: add a new fd. fd - the socket to monitor. &ev - pointer to the event config
-		throw std::runtime_error("Failed to add fd " + itostr(fd) + " to epoll");
-	}
-}
-
-/**
- * @brief Removes a file descriptor from the epoll instance for monitoring
- * @param fd File descriptor to remove
- * @throw std::runtime_error if epoll_ctl fails (fd was not registered)
- */
-void ServerManager::removeFromEpoll(int fd) {
-	if (fd < 0)
-		return;  // Skip invalid fds
-	if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, NULL) < 0) { //Calls epoll_ctl() to unregister this fd. _epollFd - epoll instance. EPOLL_CTL_DEL - operation: remove fd. fd - the socket to stop monitoring. NULL - not used for DEL operation
-		throw std::runtime_error("Failed to remove fd " + itostr(fd) + " from epoll");
-	}
 }
 
 ServerManager::~ServerManager(){

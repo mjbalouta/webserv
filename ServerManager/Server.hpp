@@ -6,9 +6,9 @@ class Server {
 		int _serverFd;
 		int _port;
 		int _index;
+		long _clientMaxBodySize;
 		std::string _serverIp;
 		std::string _serverName;
-		std::string _clientMaxBodySize;
 		std::string _defaultRoot;
 	
 	public:
@@ -20,13 +20,14 @@ class Server {
 		void setPort(int port);
 		void setIp(const std::string& ip);
 		void setName(const std::string& name);
-		void setMaxBody(const std::string& maxBody);
+		void setMaxBody(const long& maxBody);
 		void setRoot(const std::string& root);
 		void setIndex(int index);
 		
 		// Getters
 		int getServerfd() const;
 		int getPort() const;
+		long getMaxBody() const;
 		std::string getServerIp() const;
 		std::string getServerName() const;
 };

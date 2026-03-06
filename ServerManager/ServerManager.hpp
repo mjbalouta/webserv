@@ -20,8 +20,6 @@ class ServerManager {
 		void cleanupSockets();
 		void closeConnection(int serverIndex, int fd);
 		void cleanupConnections();
-		void addToEpoll(int fd, uint32_t events);
-		void removeFromEpoll(int fd);
 	public :
 		ServerManager(char **argv);
 		~ServerManager();

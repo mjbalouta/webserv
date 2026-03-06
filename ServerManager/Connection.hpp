@@ -2,8 +2,6 @@
 
 #include "../Includes.hpp"
 
-class ServerManager;
-
 enum Method{
 	GET,
 	POST,
@@ -12,11 +10,11 @@ enum Method{
 };
 
 enum State {
-	READING,
-	WRITING,
-	CLOSING,
-	POSSESSING,
-	IDLE
+	READING,    // Receiving request bytes from the client socket
+	WRITING,    // Sending response bytes back to the client
+	CLOSING,    // Connection is shutting down and socket will be closed
+	PROCESSING, // Request is fully received and being parsed/handled
+	IDLE        // Connection is open but currently waiting for next action
 };
 
 class Connection {
@@ -61,7 +59,7 @@ public:
 	bool areHeadersSent() const { return _headersSend; }
 
 	//class functions
-	void handleRequest(ServerManager sm);
+	void handleRequest(size_t maxUploadSize, int epollFd);
 	void closeConnection();
-	void readRequest(ServerManager sm);
+	void readRequest(size_t maxUploadSize, int epollFd);
 };

@@ -21,7 +21,7 @@ void Server::setName(const std::string& name) {
 	_serverName = name;
 }
 
-void Server::setMaxBody(const std::string& maxBody) {
+void Server::setMaxBody(const long& maxBody) {
 	_clientMaxBodySize = maxBody;
 }
 
@@ -40,6 +40,10 @@ int Server::getServerfd() const {
 
 int Server::getPort() const {
 	return _port;
+}
+
+long Server::getMaxBody() const {
+	return _clientMaxBodySize;
 }
 
 std::string Server::getServerIp() const {
