@@ -28,6 +28,17 @@ void ConfigParser::parse()
 	while(_currentLine < _lines.size())
 	{
 		std::string line = _lines[_currentLine];
-		
+		line = trim(line);
+
+		if (line.empty())
+		{
+			_currentLine++;
+			continue;
+		}
+
+		if (line.find("server") == 0)
+			parseServer();
+		else
+			throw ConfigException("Invalid configuration outside server block.");
 	}
 }

@@ -33,6 +33,8 @@
 class PathResolver;
 #include "LocationConfig.hpp"
 #include "ServerConfig.hpp"
+#include "Utils.hpp"
+#include "Exception.hpp"
 
 
 // ANSI Color Codes for Terminal Output

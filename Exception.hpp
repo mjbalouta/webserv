@@ -26,6 +26,11 @@ public:
 	FileException(const std::string &msg) : AppException(msg) {}
 };
 
+class ConfigException : public AppException {
+public:
+	ConfigException(const std::string &msg) : AppException(msg) {}
+};
+
 /* 
 exemplo para seguir caso novas exceptions
 
