@@ -1,5 +1,9 @@
 #include "LocationConfig.hpp"
 
+LocationConfig::LocationConfig(const std::string& path)
+: _path(path), _autoIndex(false)
+{}
+
 void LocationConfig::setRoot(const std::string& root)
 {
 	_root = root;

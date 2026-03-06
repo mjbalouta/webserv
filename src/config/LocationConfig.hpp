@@ -12,7 +12,7 @@ class LocationConfig
 	bool _autoIndex; //represents wether the server should generate a directory listing
 
 	public:
-	//MISSING CONSTRUTORS WITH DEFAULT VALUES AND ETC
+	LocationConfig(const std::string& path);
 
 	//path doesn't need a set because it is always fixed for a location
 	void setRoot(const std::string& root);

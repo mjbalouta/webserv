@@ -16,7 +16,7 @@ class ServerConfig
 	std::vector<LocationConfig> _locations; //all location blocks inside this server
 
 	public:
-	//MISSING DEFAULT CONSTRUCTORS
+	ServerConfig();
 
 	void setPort(int port);
 	void setPortDefined(bool portDefined);

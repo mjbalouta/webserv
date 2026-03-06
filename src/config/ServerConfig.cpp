@@ -1,5 +1,9 @@
 #include "ServerConfig.hpp"
 
+ServerConfig::ServerConfig()
+: _port(80), _portDefined(false), _root("."), _host("0.0.0.0")
+{}
+
 void ServerConfig::setPort(int port)
 {
 	_port = port;
