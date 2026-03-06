@@ -31,6 +31,8 @@
 // Custom Class Implementations and .hpp headers
 // #include "PathResolver.hpp"
 class PathResolver;
+#include "LocationConfig.hpp"
+#include "ServerConfig.hpp"
 
 
 // ANSI Color Codes for Terminal Output
