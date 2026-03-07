@@ -9,7 +9,8 @@ const std::vector<ServerConfig>& ConfigParser::getServers() const
 }
 
 /**
- * @brief Separates each work of the config file by a space
+ * @brief Separates each word of the config file by a space and pushes it into
+ * container of tokens
  * 
  */
 void ConfigParser::tokenize(std::string content)
@@ -45,6 +46,7 @@ void ConfigParser::tokenize(std::string content)
 	}
 }
 
+
 /**
  * @brief Opens the config file, stores each line in _lines and then goes
  * through the container and checks if the first word is 'server'
@@ -68,7 +70,7 @@ void ConfigParser::parse()
 	_currentToken = 0;
 	while (_currentToken < _tokens.size())
 	{
-		if (_tokens[_currentToken] == server)
+		if (_tokens[_currentToken] == "server")
 		{
 			_currentToken++;
 			parseServer();

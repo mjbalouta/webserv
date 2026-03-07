@@ -11,9 +11,11 @@ class ConfigParser
 	size_t _currentToken; //to store in which line i'm in
 
 	void parseServer();
+	void parseListen(ServerConfig& server);
 
 	public:
 	ConfigParser(const std::string& filename);
 	const std::vector<ServerConfig>& getServers() const;
 	void parse();
+	void tokenize(std::string content);
 };
