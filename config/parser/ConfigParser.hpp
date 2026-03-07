@@ -7,8 +7,8 @@ class ConfigParser
 	private:
 	std::vector<ServerConfig> _servers;
 	std::string _filename; //config file path
-	std::vector<std::string> _lines; //to store the lines of the config file
-	size_t _currentLine; //to store in which line i'm in
+	std::vector<std::string> _tokens; //to store the lines of the config file
+	size_t _currentToken; //to store in which line i'm in
 
 	void parseServer();
 

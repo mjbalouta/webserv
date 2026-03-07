@@ -8,7 +8,8 @@
 #include <stdexcept>   // std::runtime_error
 #include <iostream>    // std::cout, std::cerr
 #include <sstream>     // std::ostringstream, std::istringstream
-#include <fstream>      // std::ifstream, std::ostream
+#include <fstream>     // std::ifstream, std::ostream
+#include <limits>      // std::numeric_limits
 
 // C Standard Library
 #include <cstring>     // memset, strlen

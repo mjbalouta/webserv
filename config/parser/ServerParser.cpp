@@ -7,43 +7,15 @@
  */
 void ConfigParser::parseServer()
 {
-	//ola
 	ServerConfig server;
-	int foundBracket = 0;
-
-	//check if there are words between server and {
-	size_t serverPos = _lines[_currentLine].find("server");
-	size_t afterServerPos = serverPos + std::string("server").length();
-	std::string afterServer = _lines[_currentLine].substr(afterServerPos);
-	afterServer = trimSpaces(afterServer);
-	if (afterServer.find('{') != 0)
+	
+	if (_tokens[_currentToken] != "{")
 		throw ConfigException("Error: Expected '{' after server keyword.");
 
-	//look for the { start bracket in the same line as server
-	size_t bracketPos = _lines[_currentLine].find('{');
-	if (bracketPos == std::string::npos)
-	{
-		//look for the { start bracket in a different line
-		while (++_currentLine < _lines.size())
-		{
-			std::string line = _lines[_currentLine];
-			line = trimSpaces(line);
-			if (line.empty())
-				continue;
-			if (line == "{")
-			{
-				foundBracket = 1;
-				break;
-			}
-		}
-		if (!foundBracket)
-			throw ConfigException("Error: Expected '{' after server keyword.");
-	}
-
 	//look for the server block content
-	while (++_currentLine < _lines.size())
+	while (++_currentToken < _tokens.size())
 	{
-		std::string line = _lines[_currentLine];
+		std::string line = _tokens[_currentToken];
 		line = trimSpaces(line);
 
 		if (line.empty())
