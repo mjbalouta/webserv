@@ -59,7 +59,8 @@ public:
 	bool areHeadersSent() const { return _headersSend; }
 
 	//class functions
-	void handleRequest(size_t maxUploadSize, int epollFd);
+	void handleRequest(size_t maxUploadSize, int epollFd, Config &config);
 	void closeConnection();
 	void readRequest(size_t maxUploadSize, int epollFd);
+	Request parseRequest(Config &config);
 };

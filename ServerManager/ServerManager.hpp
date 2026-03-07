@@ -2,16 +2,14 @@
 
 #include "../Includes.hpp"
 #include "../Config/Config.hpp"
-#include "Connection.hpp"
-
-class Server;
 
 class ServerManager {
 	private:
 		int _epollFd;
+		size_t _currentServerIndex;
 		std::vector<Server> _servers;
 		std::vector<Config> _configs;
-		std::vector<std::map<int, Connection>> _connections;
+		std::vector<std::map<int, Connection> > _connections;
 		
 		void parseConfigServers();
 		void createServerSockets();

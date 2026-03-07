@@ -30,7 +30,7 @@ void Connection::closeConnection()
  * @brief Dispatches one processing step according to current connection state.
  * @param maxUploadSize Maximum allowed request body size for this connection.
  */
-void Connection::handleRequest(size_t maxUploadSize, int epollFd){
+void Connection::handleRequest(size_t maxUploadSize, int epollFd, Config &config){
 	switch (_state)
 	{
 		case CLOSING:
@@ -41,6 +41,7 @@ void Connection::handleRequest(size_t maxUploadSize, int epollFd){
 			readRequest(maxUploadSize, epollFd);
 			break;
 		case PROCESSING:
+			parseRequest(config);
 			break;
 		case WRITING:
 			break;
@@ -50,6 +51,7 @@ void Connection::handleRequest(size_t maxUploadSize, int epollFd){
 	}
 	_lastActive = time(0);
 }
+
 
 /**
  * @brief Reads incoming HTTP request bytes from the client socket.
@@ -152,3 +154,43 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 		modEpoll(epollFd, _fd, EPOLLOUT);
 	}
 }
+
+void Connection::parseRequest(Config &config) {
+	Request request;
+
+	if (!request.parseRequest(config)){
+		_writeBuffer.clear();
+		_path = "";
+		_statusCode = request.getStatus();
+	} else {
+		if (request.isRedirect()) {
+			_isRedirection = true;
+			_statusCode = request.getStatus();
+			getStateFilePath(config); //sei laaa
+			_state = WRITING;
+		}
+		if (request.getMethod() == DELETE){
+			_method = DELETE;
+			processRequest(request);
+			return request;
+		}
+		if (request.isAutoIndex()){
+			_statusCode = request.getStatusCode();
+			_response = request.getAutoIndexPath();
+			if (_responde.empty()){
+				_statusCode = 400;
+				printMessage("Error: Autoindex path is empty", RED);
+				getStateFilePath(config);
+				_state = WRITING;
+				return request;
+			}
+			_state = WRITING;
+			return request;
+		}
+	}
+	_readBuffer.clear();
+	setReqType(request);
+	processRequest(request);
+	return request;
+}
+

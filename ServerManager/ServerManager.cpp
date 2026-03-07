@@ -1,8 +1,4 @@
 #include "ServerManager.hpp"
-#include "Server.hpp"
-#include "Config.hpp"
-#include "Connection.hpp"
-#include "../Utils.hpp"
 
 /**
  * @brief Constructs ServerManager and initializes all server sockets
@@ -108,7 +104,7 @@ void ServerManager::parseConfigServers() {
 			server.setPort(port);
 			server.setName(_configs[i].getServerName()[j]);
 			server.setIp(_configs[i].getHost()[j]);
-			server.setMaxBody(std::stol(_configs[i].getClientMaxBodySize()[j]));
+			server.setMaxBody(strToLong(_configs[i].getClientMaxBodySize()[j]));
 			server.setRoot(_configs[i].getDefaultRoot()[j]);
 			server.setIndex(i);
 			_servers.push_back(server);

@@ -45,6 +45,17 @@ std::string& trimSpaces(std::string& str)
 	return str;
 }
 
+long strToLong(const std::string& value)
+{
+	std::string trimmed = value;
+	trimSpaces(trimmed);
+	if (trimmed.empty())
+		throw std::runtime_error("Invalid number: empty string");
+	char *end = NULL;
+	long result = ::strtol(trimmed.c_str(), &end, 10);
+	return result;
+}
+
 /**
  * @brief Adds a file descriptor to the epoll instance for monitoring
  * @param fd File descriptor to add

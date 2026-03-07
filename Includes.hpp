@@ -43,6 +43,14 @@ class PathResolver;
 #include "Utils.hpp"
 #include "Exception.hpp"
 
+#include "ServerManager/Server.hpp"
+#include "ServerManager/ServerManager.hpp"
+#include "ServerManager/Connection.hpp"
+class Connection;
+class ServerManager;
+class Server;
+class Request;
+
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
 #define B       "\033[1m"       // Bold
