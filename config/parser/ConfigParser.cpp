@@ -79,3 +79,9 @@ void ConfigParser::parse()
 			throw ConfigException("Error: Unexpected keyword: " + _tokens[_currentToken]);
 	}
 }
+
+void ConfigParser::checkIfTokenExists()
+{
+	if (_currentToken >= _tokens.size())
+		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+}

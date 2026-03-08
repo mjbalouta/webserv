@@ -21,6 +21,7 @@ class ConfigParser
 	void parseMaxBodySize(ServerConfig& server);
 	void parseAutoindex(ServerConfig& server);
 	void parseLocation(ServerConfig& server);
+	void checkIfTokenExists();
 
 	public:
 	ConfigParser(const std::string& filename);

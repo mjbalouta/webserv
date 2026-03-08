@@ -7,8 +7,8 @@
  */
 void ConfigParser::parseIndex(ServerConfig& server)
 {
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing definition after keyword 'index'.");
@@ -24,8 +24,8 @@ void ConfigParser::parseIndex(ServerConfig& server)
 		server.addIndex(token);
 		_currentToken++;
 	}
-	if (_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+
+	checkIfTokenExists();
 	if (_tokens[_currentToken] != ";")
 		throw ConfigException("Error: Expected a ';' after index definitions.");
 }
@@ -37,8 +37,8 @@ void ConfigParser::parseIndex(ServerConfig& server)
  */
 void ConfigParser::parseServerName(ServerConfig& server)
 {
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing definitions after 'servername' keyword.");
@@ -52,8 +52,8 @@ void ConfigParser::parseServerName(ServerConfig& server)
 		server.addServerName(token);
 		_currentToken++;
 	}
-	if (_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+
+	checkIfTokenExists();
 	if (_tokens[_currentToken] != ";")
 		throw ConfigException("Error: Expected a ';' after server_name definitions.");
 }
@@ -65,8 +65,8 @@ void ConfigParser::parseServerName(ServerConfig& server)
  */
 void ConfigParser::parseHost(ServerConfig& server)
 {
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 
 	std::string host = _tokens[_currentToken];
 
@@ -88,8 +88,8 @@ void ConfigParser::parseHost(ServerConfig& server)
  */
 void ConfigParser::parseRoot(ServerConfig& server)
 {
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 
 	std::string rootPath = _tokens[_currentToken];
 
@@ -113,8 +113,8 @@ void ConfigParser::parseRoot(ServerConfig& server)
  */
 void ConfigParser::parseListen(ServerConfig& server)
 {
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 	
 	bool isPort = false;
 	//check if the next token contains any character that is not a number: if it has not, it is a port
@@ -142,8 +142,8 @@ void ConfigParser::parseListen(ServerConfig& server)
 			ConfigUtils::validateHost(currentToken, server);	
 	}
 
-	if (++_currentToken >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	++_currentToken;
+	checkIfTokenExists();
 	if (_tokens[_currentToken] != ";")
 		throw ConfigException("Error: Expected ';' token after " + _tokens[_currentToken - 1]);
 }
