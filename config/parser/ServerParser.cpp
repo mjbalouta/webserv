@@ -111,6 +111,11 @@ void ConfigParser::parseListen(ServerConfig& server)
 	//verify if it is host only or host and port
 	// can be listen 80; listen localhost; listen 127.0.0.1; listen 127.0.0.1:8080
 
+
+	if (++_currentToken > _tokens.size())
+		throw ConfigException("Error: Unexpected end of file.");
+	if (currentToken != ";")
+		throw ConfigException("Error: Expected ';' token after " + _tokens[_currentToken - 1]);
 }
 
 /**
