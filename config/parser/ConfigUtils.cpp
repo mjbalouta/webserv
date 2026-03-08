@@ -6,7 +6,7 @@
  * @param token 
  * @param server 
  */
-void validateHost(std::string& token, ServerConfig& server)
+void ConfigUtils::validateHost(std::string& token, ServerConfig& server)
 {
 	int isIP = 0;
 	int isHostname = 0;
@@ -32,7 +32,7 @@ void validateHost(std::string& token, ServerConfig& server)
  * @param token 
  * @param server 
  */
-void validatePort(std::string& token, ServerConfig& server)
+void ConfigUtils::validatePort(std::string& token, ServerConfig& server)
 {
 	int port = atoi(token.c_str());
 	if (port < 1 || port > 65535)

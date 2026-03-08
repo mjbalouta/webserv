@@ -78,5 +78,4 @@ void ConfigParser::parse()
 		else
 			throw ConfigException("Error: Unexpected keyword: " + _tokens[_currentToken]);
 	}
-	
 }
