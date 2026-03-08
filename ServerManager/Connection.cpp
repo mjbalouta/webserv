@@ -155,7 +155,7 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 	}
 }
 
-void Connection::parseRequest(Config &config) {
+Request Connection::parseRequest(Config &config) {
 	Request request;
 
 	if (!request.parseRequest(config)){
@@ -175,9 +175,9 @@ void Connection::parseRequest(Config &config) {
 			return request;
 		}
 		if (request.isAutoIndex()){
-			_statusCode = request.getStatusCode();
+			_statusCode = request.getStatus();
 			_response = request.getAutoIndexPath();
-			if (_responde.empty()){
+			if (_response.empty()){
 				_statusCode = 400;
 				printMessage("Error: Autoindex path is empty", RED);
 				getStateFilePath(config);

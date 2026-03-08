@@ -46,6 +46,7 @@ class PathResolver;
 #include "ServerManager/Server.hpp"
 #include "ServerManager/ServerManager.hpp"
 #include "ServerManager/Connection.hpp"
+#include "ServerManager/Request.hpp"
 class Connection;
 class ServerManager;
 class Server;
