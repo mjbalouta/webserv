@@ -37,15 +37,12 @@
 #define KEEP_ALIVE_TIMEOUT 15
 
 // Custom Class Implementations and .hpp headers
-#include "PathResolver.hpp"
-class PathResolver;
+#include "fileResourceManagement/PathResolver.hpp"
 #include "config/LocationConfig.hpp"
 #include "config/ServerConfig.hpp"
 #include "Utils.hpp"
+#include "config/parser/ConfigUtils.hpp"
 #include "Exception.hpp"
-#include "PathResolver.hpp"
-class PathResolver;
-
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
