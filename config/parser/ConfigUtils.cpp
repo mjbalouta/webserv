@@ -1,6 +1,23 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Checks if filename format is correct
+ * 
+ * @param token 
+ */
+void ConfigUtils::validateFilename(std::string& token)
+{
+	if (token.find('/') != std::string::npos)
+		throw ConfigException("Error: Invalid filename in index: " + token);
+	
+	if (token == ".." || token == ".")
+		throw ConfigException("Error: Invalid filename in index: " + token);
+
+	if (token.find_first_of("{};#") != std::string::npos)
+		throw ConfigException("Error: Invalid filename in index: " + token);
+}
+
+/**
  * @brief Validations for host
  * 
  * @param token 
@@ -40,14 +57,13 @@ void ConfigUtils::validatePort(std::string& token, ServerConfig& server)
 	server.setPort(port); 
 }
 
-
 /**
  * @brief Checks the Hostname format
  * 
  * @param token 
  * @param errorMessage 
  */
-void validateHostname(std::string& token, std::string& errorMessage)
+void ConfigUtils::validateHostname(std::string& token, std::string& errorMessage)
 {
 	if (token[0] == '-' || token[token.size() - 1] == '-')
 		throw ConfigException(errorMessage);
@@ -76,7 +92,7 @@ void validateHostname(std::string& token, std::string& errorMessage)
  * @param token 
  * @param errorMessage 
  */
-void validateIP(std::string& token, std::string& errorMessage)
+void ConfigUtils::validateIP(std::string& token, std::string& errorMessage)
 {
 	std::vector<std::string> parts;
 	std::stringstream ss(token);

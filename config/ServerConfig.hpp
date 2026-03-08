@@ -21,7 +21,7 @@ class ServerConfig
 	void setPort(int port);
 	void setPortDefined(bool portDefined);
 	void setRoot(const std::string& root);
-	void setIndexes(const std::vector<std::string>& indexes);
+	void addIndex(const std::string& index);
 	void addErrorPages(int code, const std::string& file);
 	void setHost(const std::string& host);
 	void addServerName(const std::string& serverName);
@@ -35,4 +35,6 @@ class ServerConfig
 	const std::string& getHost() const;
 	const std::vector<std::string>& getServerNames() const;
 	const std::vector<LocationConfig>& getLocations() const;
+
+	void clearIndexes();
 };

@@ -1,6 +1,64 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Validates information after 'index' keyword
+ * 
+ * @param server 
+ */
+void ConfigParser::parseIndex(ServerConfig& server)
+{
+	if (++_currentToken >= _tokens.size())
+		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definition after keyword 'index'.");
+
+	//if there are more than one definition of 'index', we must clear the previous one
+	//because the last definition should overwrite any previous one
+	server.clearIndexes();
+
+	while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		std::string token = _tokens[_currentToken];
+		ConfigUtils::validateFilename(token);
+		server.addIndex(token);
+		_currentToken++;
+	}
+	if (_currentToken >= _tokens.size())
+		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after index definitions.");
+}
+
+/**
+ * @brief Validates information after 'server_name' keyword
+ * 
+ * @param server 
+ */
+void ConfigParser::parseServerName(ServerConfig& server)
+{
+	if (++_currentToken >= _tokens.size())
+		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definitions after 'servername' keyword.");
+
+	std::string errorMessage = "Error: Invalid server_name: " + _tokens[_currentToken];
+	while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		std::string token = _tokens[_currentToken];
+		//server_name follows the same format rules as hostname
+		ConfigUtils::validateHostname(token, errorMessage);
+		server.addServerName(token);
+		_currentToken++;
+	}
+	if (_currentToken >= _tokens.size())
+		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after server_name definitions.");
+}
+
+/**
  * @brief Validates information after 'host' keyword
  * 
  * @param server 
