@@ -1,6 +1,38 @@
 #include "Utils.hpp"
 
 /**
+ * @brief Checks if the string only contains a-z or A-Z
+ * 
+ * @param str 
+ * @return int 
+ */
+int allLetters(std::string& str)
+{
+	for (size_t i = 0; i < str.size(); i++)
+	{
+		if (str[i] < 'a' || str[i] > 'z')
+			return 0;
+		if (str[i] < 'A' || str[i] > 'Z')
+			return 0;
+	}
+	return 1;
+}
+
+/**
+ * @brief Checks if the string only contains digits from '0' to '9'
+ * 
+ * @param str 
+ * @return int 
+ */
+int allDigits(std::string& str)
+{
+	size_t pos = str.find_first_not_of("0123456789");
+	if (pos != std::string::npos)
+		return 0;
+	return 1;
+}
+
+/**
  * @brief Prints a colored message to standard output
  * @param message The message string to print
  * @param color ANSI color code to apply to the message
