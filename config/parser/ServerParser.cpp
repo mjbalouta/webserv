@@ -21,8 +21,9 @@ void ConfigParser::parseListen(ServerConfig& server)
 	
 	if (!isPort)
 	{
+		//check if format indicates an host:port
 		size_t pos = currentToken.find(':');
-		if (pos != std::string::npos) //check if format indicates an host:port
+		if (pos != std::string::npos)
 		{
 			std::string host = currentToken.substr(0, pos);
 			std::string port = currentToken.substr(pos + 1);
@@ -75,7 +76,7 @@ void ConfigParser::parseServer()
 		else if (_tokens[_currentToken].find("location") == 0)
 			parseLocation();
 		else
-			throw ConfigException("Error: Unknown config in server block at line" + _currentLine);	
+			throw ConfigException("Error: Unknown config " + _tokens[_currentToken]);	
 	}
 	_servers.push_back(server);
 }
