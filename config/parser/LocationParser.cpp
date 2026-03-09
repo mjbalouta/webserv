@@ -55,15 +55,26 @@ void ConfigParser::parseLocation(ServerConfig& server)
 	if (_tokens[_currentToken] != "{")
 		throw ConfigException("Error: Expected '{' token after location's path.");
 
+	int endBracket = 0;
 	while (++_currentToken <= _tokens.size())
 	{
 		std::string token = _tokens[_currentToken];
 		if (token == "}")
+		{
+			endBracket = 1;
 			break;
+		}
 		else if (token == "root")
 			parseRoot(location);
 		else if (token == "alias")
 			parseAlias(location);
-
+		else if (token == "allow_methods")
+			parseAllowMethods(location);
+		else
+			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);
 	}
+
+	if (!endBracket)
+		throw ConfigException("Error: Expected '}' in the end of location block.");
+
 }

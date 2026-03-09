@@ -218,6 +218,7 @@ void ConfigParser::parseListen(ServerConfig& server)
 	if (allDigits(currentToken))
 	{
 		ConfigUtils::validatePort(currentToken, server);
+		server.setPortDefined(true);
 		isPort = true;
 	}
 	
@@ -256,14 +257,17 @@ void ConfigParser::parseServer()
 	if (_tokens[_currentToken] != "{")
 		throw ConfigException("Error: Expected '{' after server keyword.");
 
+	int endBracket = 0;
 	//look for the server block content
 	while (++_currentToken < _tokens.size())
 	{
 		//end of the block
 		if (_tokens[_currentToken] == "}")
+		{
+			endBracket = 1;
 			break;
-	
-		if (_tokens[_currentToken] == "listen")
+		}
+		else if (_tokens[_currentToken] == "listen")
 			parseListen(server);
 		else if (_tokens[_currentToken] == "root")
 			parseRoot(server);
@@ -282,7 +286,9 @@ void ConfigParser::parseServer()
 		else if (_tokens[_currentToken] == "location")
 			parseLocation(server);
 		else
-			throw ConfigException("Error: Unknown config " + _tokens[_currentToken]);	
+			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);	
 	}
+	if (!endBracket)
+		throw ConfigException("Error: Expected '}' in the end of location block.");
 	_servers.push_back(server);
 }
