@@ -13,7 +13,8 @@ class ConfigParser
 	void tokenize(std::string content);
 	void parseServer();
 	void parseListen(ServerConfig& server);
-	void parseRoot(ServerConfig& server);
+	template <typename T>
+	void parseRoot(T& object);
 	void parseHost(ServerConfig& server);
 	void parseServerName(ServerConfig& server);
 	void parseIndex(ServerConfig& server);
@@ -21,6 +22,7 @@ class ConfigParser
 	void parseMaxBodySize(ServerConfig& server);
 	void parseAutoindex(ServerConfig& server);
 	void parseLocation(ServerConfig& server);
+	void parseAlias(LocationConfig& location);
 	void checkIfTokenExists();
 
 	public:

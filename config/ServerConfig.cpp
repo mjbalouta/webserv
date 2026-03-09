@@ -91,12 +91,12 @@ void ServerConfig::clearIndexes()
 
 void ServerConfig::setMaxBodySize(unsigned long size)
 {
-	_maxBodySixe = size;
+	_maxBodySize = size;
 }
 
 unsigned long ServerConfig::getMaxBodySize() const
 {
-	return _maxBodySixe;
+	return _maxBodySize;
 }
 
 void ServerConfig::setAutoIndex(bool status)

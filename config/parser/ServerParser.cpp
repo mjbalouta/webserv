@@ -94,7 +94,7 @@ void ConfigParser::parseErrorPage(ServerConfig& server)
 		std::string token = _tokens[_currentToken];
 		if (_currentToken + 1 < _tokens.size() && _tokens[_currentToken + 1] == ";")
 		{
-			ConfigUtils::validatePath(token);
+			ConfigUtils::validateErrorPagePath(token);
 			path = token;
 		}
 		else
@@ -193,35 +193,13 @@ void ConfigParser::parseHost(ServerConfig& server)
 	if (host == ";")
 		throw ConfigException("Error: There must be a valid IP or hostname after keyword 'host");
 	
-	if (_currentToken + 1 >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
-	if (_tokens[_currentToken + 1] != ";")
-		throw ConfigException("Error: Expected a ';' after IP or hostname.");
-	
 	ConfigUtils::validateHost(host, server);
-}
 
-/**
- * @brief Validates information after 'root' keyword
- * 
- */
-void ConfigParser::parseRoot(ServerConfig& server)
-{
 	++_currentToken;
 	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after IP or hostname.");
 
-	std::string rootPath = _tokens[_currentToken];
-
-	if (rootPath == ";")
-		throw ConfigException("Error: There must be a valid path after 'root' keyword.");
-
-	//there can only be one token between the 'root' word and the ';', because the path can't have spaces in between
-	if (_currentToken + 1 >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
-	if (_tokens[_currentToken + 1] != ";")
-		throw ConfigException("Error: Unknown path detected after 'root'.");
-
-	server.setRoot(_tokens[_currentToken]);
 }
 
 /**

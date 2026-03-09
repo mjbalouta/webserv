@@ -1,6 +1,23 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Validates path format
+ * 
+ * @param token
+ */
+void ConfigUtils::validatePath(std::string& token)
+{
+	if (token[0] != '/')
+		throw ConfigException("Error: Invalid path after 'location' keyword: " + token);
+
+	if (token.find("..") != std::string::npos)
+		throw ConfigException("Error: Invalid path format after 'location' keyword: " + token);
+	
+	if (token.find_first_of("{};#*?|") != std::string::npos)
+		throw ConfigException("Error: Invalid characters in path: " + token);
+}
+
+/**
  * @brief Calculates the conversion for 'max_body_size'
  * 
  * @param token 
@@ -29,11 +46,11 @@ unsigned long ConfigUtils::calculateSize(unsigned long size, int option)
 }
 
 /**
- * @brief Checks if the format of a path is a valid one
+ * @brief Checks if the format of a path is a valid one for an error page
  * 
  * @param token 
  */
-void ConfigUtils::validatePath(std::string& token)
+void ConfigUtils::validateErrorPagePath(std::string& token)
 {
 	if (token.empty() || token[0] != '/')
 		throw ConfigException("Error: Invalid path format: " + token);
