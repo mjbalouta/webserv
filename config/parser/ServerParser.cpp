@@ -11,7 +11,7 @@ void ConfigParser::parseMaxBodySize(ServerConfig& server)
 	checkIfTokenExists();
 
 	if (_tokens[_currentToken] == ";")
-		throw ConfigException("Error: Missing definition after keyword 'max_body_size'.");
+		throw ConfigException("Error: Missing definition after keyword 'client_max_body_size'.");
 
 	std::string token = _tokens[_currentToken];
 	int optionConversion = 0;
@@ -21,10 +21,10 @@ void ConfigParser::parseMaxBodySize(ServerConfig& server)
 	else
 	{
 		if (token.size() < 2)
-			throw ConfigException("Error: Invalid definition of max_body_size.");
+			throw ConfigException("Error: Invalid definition of client_max_body_size.");
 		size_t pos = token.find_first_not_of("0123456789");
 		if (pos != token.size() - 1)
-			throw ConfigException("Error: Wrong definition of max_body_size.");
+			throw ConfigException("Error: Wrong definition of client_max_body_size.");
 		
 		if (token[token.size() - 1] == 'k' || token[token.size() - 1] == 'K')
 			optionConversion = 1;
@@ -33,14 +33,19 @@ void ConfigParser::parseMaxBodySize(ServerConfig& server)
 		else if (token[token.size() - 1] == 'g' || token[token.size() - 1] == 'G')
 			optionConversion = 3;
 		else
-			throw ConfigException("Error: Conversion for max_body_size not possible.");
+			throw ConfigException("Error: Conversion for client_max_body_size not possible.");
 
 		std::string numberPart = token.substr(0, token.size() - 1);
 		unsigned long size = atol(numberPart.c_str());
 		max = ConfigUtils::calculateSize(size, optionConversion);
 	}
-	server.setMaxBodySize(max);
 
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after client_max_body_size definitions.");
+
+	server.setMaxBodySize(max);
 }
 
 /**
@@ -168,7 +173,6 @@ void ConfigParser::parseHost(ServerConfig& server)
 		throw ConfigException("Error: Expected a ';' after IP or hostname.");
 	
 	ConfigUtils::validateHost(host, server);
-	_currentToken++;
 }
 
 /**
@@ -191,8 +195,7 @@ void ConfigParser::parseRoot(ServerConfig& server)
 	if (_tokens[_currentToken + 1] != ";")
 		throw ConfigException("Error: Unknown path detected after 'root'.");
 
-	server.setRoot(_tokens[_currentToken]);	
-	_currentToken++;
+	server.setRoot(_tokens[_currentToken]);
 }
 
 /**
