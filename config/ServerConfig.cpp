@@ -88,3 +88,13 @@ void ServerConfig::clearIndexes()
 {
 	_indexes.clear();
 }
+
+void ServerConfig::setMaxBodySize(unsigned long size)
+{
+	_maxBodySixe = size;
+}
+
+unsigned long ServerConfig::getMaxBodySize() const
+{
+	return _maxBodySixe;
+}

@@ -12,4 +12,5 @@ class ConfigUtils
 	static void validateFilename(std::string& token);
 	static void validateStatusCode(std::string& token);
 	static void	validatePath(std::string& token);
+	static unsigned long calculateSize(unsigned long size, int option);
 };

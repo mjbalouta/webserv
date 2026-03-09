@@ -1,6 +1,34 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Calculates the conversion for 'max_body_size'
+ * 
+ * @param token 
+ * @param option 
+ */
+unsigned long ConfigUtils::calculateSize(unsigned long size, int option)
+{
+	unsigned long result = size;
+
+	switch (option)
+	{
+	case 1: // Kilo
+		result = size * 1024;
+		break;
+	case 2: // Mega
+		result = size * 1024 * 1024;
+		break;
+	case 3: // Giga
+		result = size * 1024 * 1024;
+		break;
+	default: 
+		break;
+	}
+
+	return result;
+}
+
+/**
  * @brief Checks if the format of a path is a valid one
  * 
  * @param token 
