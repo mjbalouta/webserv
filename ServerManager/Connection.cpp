@@ -1,16 +1,73 @@
 #include "Connection.hpp"
-#include "../Utils.hpp"
 
-Connection::Connection(int fd) : _fd(fd), _statusCode(200), _isRedirection(false),
+Connection::Connection(int fd) : _fd(fd), _status(200), _isRedirection(false),
 								  _readBuffer(""), _writeBuffer(""), _path(""),
 								  _method(NONE), _lastActive(time(NULL)),
 								  _contentLength(0), _totalSent(0), _totalReceived(0),
-								  _keepAlive(true), _headersSend(false), _state(IDLE)
+								  _keepAlive(true), _headersSend(false), _state(IDLE),
+								  _readFromFile(NULL), _responseStr("")
 {
+	_readFromFile = new std::ifstream(); 
+}
+
+Connection::Connection(const Connection &other)
+	: _fd(other._fd),
+	  _state(other._state),
+	  _lastActive(other._lastActive),
+	  _responseStr(other._responseStr),
+	  _readBuffer(other._readBuffer),
+	  _writeBuffer(other._writeBuffer),
+	  _totalSent(other._totalSent),
+	  _totalReceived(other._totalReceived),
+	  _readFromFile(NULL),
+	  _method(other._method),
+	  _status(other._status),
+	  _path(other._path),
+	  _contentLength(other._contentLength),
+	  _keepAlive(other._keepAlive),
+	  _isRedirection(other._isRedirection),
+	  _headersSend(other._headersSend) {}
+
+Connection& Connection::operator=(const Connection &other)
+{
+	if (this != &other)
+	{
+		// Close and delete existing file stream if any.
+		if (_readFromFile)
+		{
+			if (_readFromFile->is_open())
+				_readFromFile->close();
+			delete _readFromFile;
+			_readFromFile = NULL;
+		}
+		_fd = other._fd;
+		_state = other._state;
+		_lastActive = other._lastActive;
+		_responseStr = other._responseStr;
+		_readBuffer = other._readBuffer;
+		_writeBuffer = other._writeBuffer;
+		_totalSent = other._totalSent;
+		_totalReceived = other._totalReceived;
+		_method = other._method;
+		_status = other._status;
+		_path = other._path;
+		_contentLength = other._contentLength;
+		_keepAlive = other._keepAlive;
+		_isRedirection = other._isRedirection;
+		_headersSend = other._headersSend;
+	}
+	return *this;
 }
 
 Connection::~Connection()
 {
+	if (_readFromFile)
+	{
+		if (_readFromFile->is_open())
+			_readFromFile->close();
+		delete _readFromFile;
+		_readFromFile = NULL;
+	}
 }
 
 /**
@@ -44,6 +101,7 @@ void Connection::handleRequest(size_t maxUploadSize, int epollFd, Config &config
 			parseRequest(config);
 			break;
 		case WRITING:
+			//sendRequest();
 			break;
 		case IDLE:
 		default:
@@ -136,7 +194,7 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 		printMessage("❌ Content-Length exceeds maximum limit", RED);
 		_state = PROCESSING;
 		_keepAlive = false; //force close after response
-		_statusCode = 413; //payload too large
+		_status = 413; //payload too large
 		modEpoll(epollFd, _fd, EPOLLOUT);
 	}
 	else if (_contentLength > 0) {
@@ -155,32 +213,41 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 	}
 }
 
+/**
+ * @brief Parses HTTP request from connection buffers and routes to appropriate handler.
+ * @param config Server configuration for routing and error page resolution.
+ * @return Request object containing parsed request metadata.
+ */
 Request Connection::parseRequest(Config &config) {
 	Request request;
-
+	// Parse incoming raw request stored in connection buffers.
 	if (!request.parseRequest(config)){
+		// Parsing failed: clear pending output and preserve parser status.
 		_writeBuffer.clear();
 		_path = "";
-		_statusCode = request.getStatus();
+		_status = request.getStatus();
 	} else {
+		// Redirect response is ready immediately.
 		if (request.isRedirect()) {
 			_isRedirection = true;
-			_statusCode = request.getStatus();
-			getStateFilePath(config); //sei laaa
+			_status = request.getStatus();
+			preparePageFile(config); //sei laaa
 			_state = WRITING;
 		}
+		// DELETE is delegated to dedicated handling path.
 		if (request.getMethod() == DELETE){
 			_method = DELETE;
-			processRequest(request);
+			processRequest(config, request);
 			return request;
 		}
+		// Autoindex already provides response body content.
 		if (request.isAutoIndex()){
-			_statusCode = request.getStatus();
-			_response = request.getAutoIndexPath();
-			if (_response.empty()){
-				_statusCode = 400;
+			_status = request.getStatus();
+			_responseStr = request.getAutoIndexPath();
+			if (_responseStr.empty()){
+				_status = 400;
 				printMessage("Error: Autoindex path is empty", RED);
-				getStateFilePath(config);
+				preparePageFile(config);
 				_state = WRITING;
 				return request;
 			}
@@ -188,9 +255,84 @@ Request Connection::parseRequest(Config &config) {
 			return request;
 		}
 	}
+	// Request is consumed; next stage uses resolved method/path/status.
 	_readBuffer.clear();
-	setReqType(request);
-	processRequest(request);
+	if (_method == NONE && _status == 200)
+		_method = request.getMethod();
+	processRequest(config, request);
 	return request;
 }
 
+/**
+ * @brief Resolves request target path based on method and schedules response.
+ * @param config Active server configuration used for page/error resolution.
+ * @param request Parsed HTTP request metadata.
+ */
+void Connection::processRequest(Config &config, Request &request){
+	// GET/POST serve request path directly.
+	if (_method == GET || _method == POST)
+		_path = request.getPath();
+	else if (_method == DELETE)
+		deleteHandle(request); //TODO
+	else {
+		_status = 400;
+		printMessage("Unknown request", RED);
+	}
+	// Open final resource (or fallback error page) and move to write phase.
+	preparePageFile(config);
+	_state = WRITING;
+};
+
+/**
+ * @brief Selects a file path and opens it for response sending.
+ * @details
+ *   1) Try configured error page for current status code.
+ *   2) Fallback to default error page when missing.
+ *   3) Open file stream and cache file size in `_contentLength`.
+ * @param config Active server configuration.
+ */
+void Connection::preparePageFile(const Config &config)
+{
+	// 1) Map HTTP status code to configured error page path.
+	std::map<int, std::string> errorPages = config.getErrorPage();
+	int code = _status;
+	for (std::map<int, std::string>::iterator it = errorPages.begin(); it != errorPages.end(); ++it)
+	{
+		if (it->first == code)
+		{
+			_path = it->second;
+			break;
+		}
+	}
+	// 2) If no specific page exists, use default error page.
+	if (_path.empty())
+		_path = "www/error_pages/default_error.html";
+
+	// 3) Open selected file in binary mode.
+	// Allocate stream if not already created.
+	if (!_readFromFile)
+		_readFromFile = new std::ifstream();
+	
+	// Close existing stream if open.
+	if (_readFromFile->is_open())
+		_readFromFile->close();
+	
+	_readFromFile->open(_path.c_str(), std::ios::in | std::ios::binary);
+	if (!_readFromFile->is_open())
+	{
+		printMessage("Failed to open error file", RED);
+		_path = "www/error_pages/default_error.html";
+		// Retry once with guaranteed fallback path.
+		_readFromFile->open(_path.c_str(), std::ios::in | std::ios::binary);
+		if (!_readFromFile->is_open())
+		{
+			printMessage("Failed to open default error file", RED);
+			return;
+		}
+	}
+	// 4) Cache content size for Content-Length header.
+	struct stat st;
+	stat(_path.c_str(), &st);
+	_contentLength = st.st_size;
+	return;
+}

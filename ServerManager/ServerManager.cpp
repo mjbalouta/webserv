@@ -98,8 +98,6 @@ void ServerManager::parseConfigServers() {
 		for(size_t j = 0; j < _configs[i].getPort().size(); j++) {
 			Server server;
 			int port = std::atoi(_configs[i].getPort()[j].c_str());
-			// Validate port range
-			validatePort(port, i);
 			// Configure server
 			server.setPort(port);
 			server.setName(_configs[i].getServerName()[j]);
@@ -156,18 +154,6 @@ void setnon_blocking(int fd) {
 }
 
 /**
- * @brief Validates port number range
- * @param port Port number to validate
- * @param serverIndex Server index for error reporting
- * @throw std::runtime_error if port is out of valid range (1-65535)
- */
-void ServerManager::validatePort(int port, int serverIndex) const {
-	if (port < 1 || port > 65535) {
-		throw std::runtime_error("Invalid port " + itostr(port) + " in server config " + itostr(serverIndex) + " (must be 1-65535)");
-	}
-}
-
-/**
  * @brief Closes all open server socket file descriptors
  * @details Iterates through all server sockets stored in _servers vector,
  *   closes each valid file descriptor (fd >= 0), and resets it to -1
@@ -197,18 +183,42 @@ void ServerManager::cleanupConnections() {
 	}
 }
 
+/**
+ * @brief Safely closes a client connection and removes it from tracking structures.
+ * @param serverIndex Index of the server in the `_connections` vector that owns this connection.
+ * @param fd File descriptor of the client socket to close.
+ * 
+ * @details
+ * Performs a multi-step cleanup process:
+ * 1) **Validation**: Guards against invalid server index or file descriptor.
+ * 2) **Lookup**: Searches for connection in the server's connection map.
+ * 3) **Epoll removal**: Unregisters fd from epoll monitoring to prevent spurious events.
+ * 4) **Socket closure**: Calls `Connection::closeConnection()` to close the socket fd.
+ * 5) **Memory cleanup**: Removes connection object from map, triggering destructor.
+ * 
+ * @note Silent failure: Returns early without error if connection is not found or parameters invalid.
+ * @note Order matters: epoll removal before socket close prevents race conditions where
+ *       epoll might still report events on a closed fd.
+ */
 void ServerManager::closeConnection(int serverIndex, int fd)
 {
+	// 1) Validate parameters: prevent out-of-bounds access and invalid fd operations.
 	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _connections.size() || fd < 0)
 		return;
 
+	// 2) Get reference to this server's connection map and search for fd.
 	std::map<int, Connection> &serverConnections = _connections[serverIndex];
 	std::map<int, Connection>::iterator it = serverConnections.find(fd);
 	if (it == serverConnections.end())
 		return;
 
+	// 3) Unregister from epoll to stop monitoring this fd for I/O events.
 	removeFromEpoll(_epollFd, fd);
+	
+	// 4) Close the actual socket file descriptor.
 	it->second.closeConnection();
+	
+	// 5) Remove from connection map (destructor cleanup happens here).
 	serverConnections.erase(it);
 	printMessage("Closing connection: " + itostr(fd), MAG);
 }

@@ -6,7 +6,7 @@ class Request {
 		Request();
 		~Request();
 
-		bool parseRequest(Config &config);
+		bool Request::parseRequest(Config &config, const std::string request);
 
 		//getters
 		int getStatus() { return _status; };

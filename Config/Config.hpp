@@ -10,6 +10,7 @@ class Config {
 		std::vector<std::string> _clientMaxBodySize;
 		std::vector<std::string> _defaultRoot;
 		std::vector<Config> _configs;
+		std::map<int, std::string> _errorPage;
 	public:
 		Config();
 		~Config();
@@ -20,5 +21,5 @@ class Config {
 		std::vector<std::string> getClientMaxBodySize() const;
 		std::vector<std::string> getDefaultRoot() const;
 		std::vector<Config> getConfig() const;
-
+		std::map<int, std::string> getErrorPage() const { return _errorPage; };
 };

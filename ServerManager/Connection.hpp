@@ -20,20 +20,27 @@ enum State {
 class Connection {
 public:
 	Connection(int fd);
+	Connection(const Connection &other);
+	Connection& operator=(const Connection &other);
 	~Connection();
+
 	int _fd;
 	State _state;
 	time_t _lastActive;
+	std::string _responseStr;
 	
 	// buffers
 	std::string _readBuffer;
 	std::string _writeBuffer;
 	size_t _totalSent;
 	size_t _totalReceived;
-	
+
+	// Stream used to open response/error files before writing to socket.
+	std::ifstream *_readFromFile;
+
 	// HTTP
 	Method _method;
-	int _statusCode;
+	int _status;
 	std::string _path;
 	size_t _contentLength;
 	bool _keepAlive;
@@ -44,7 +51,7 @@ public:
 	int getFd() const { return _fd; }
 	State getState() const { return _state; }
 	Method getMethod() const { return _method; }
-	int getStatusCode() const { return _statusCode; }
+	int getStatusCode() const { return _status; }
 	size_t getContentLength() const { return _contentLength; }
 	const std::string& getPath() const { return _path; }
 	const std::string& getReadBuffer() const { return _readBuffer; }
@@ -63,4 +70,6 @@ public:
 	void closeConnection();
 	void readRequest(size_t maxUploadSize, int epollFd);
 	Request parseRequest(Config &config);
+	void processRequest(Config &config, Request &request);
+	void preparePageFile(const Config &config);
 };

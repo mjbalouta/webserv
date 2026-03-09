@@ -1,24 +1,17 @@
 #pragma once
 
 #include "../Includes.hpp"
-#include "../Config/Config.hpp"
+
+class Server;
 
 class ServerManager {
 	private:
-		int _epollFd;
-		size_t _currentServerIndex;
-		std::vector<Server> _servers;
-		std::vector<Config> _configs;
-		std::vector<std::map<int, Connection> > _connections;
-		
-		void parseConfigServers();
-		void createServerSockets();
-		bool createConnection(int fd, int serverIndex);
-		void validatePort(int port, int serverIndex) const;
-		void cleanupSockets();
-		void closeConnection(int serverIndex, int fd);
-		void cleanupConnections();
+		int _epollFd
+		std::vector<Server *> servers;
+		std::vector<Config> configs;
 	public :
 		ServerManager(char **argv);
 		~ServerManager();
+		
+		void createServerSockets();
 };
