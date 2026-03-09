@@ -27,54 +27,6 @@ void ConfigParser::parseAutoindex(ServerConfig& server)
 }
 
 /**
- * @brief Validates information after 'client_max_body_size' keyword
- * 
- * @param server 
- */
-void ConfigParser::parseMaxBodySize(ServerConfig& server)
-{
-	++_currentToken;
-	checkIfTokenExists();
-
-	if (_tokens[_currentToken] == ";")
-		throw ConfigException("Error: Missing definition after keyword 'client_max_body_size'.");
-
-	std::string token = _tokens[_currentToken];
-	int optionConversion = 0;
-	unsigned long max;
-	if (allDigits(token))
-		max = atol(token.c_str());
-	else
-	{
-		if (token.size() < 2)
-			throw ConfigException("Error: Invalid definition of client_max_body_size.");
-		size_t pos = token.find_first_not_of("0123456789");
-		if (pos != token.size() - 1)
-			throw ConfigException("Error: Wrong definition of client_max_body_size.");
-		
-		if (token[token.size() - 1] == 'k' || token[token.size() - 1] == 'K')
-			optionConversion = 1;
-		else if (token[token.size() - 1] == 'm' || token[token.size() - 1] == 'M')
-			optionConversion = 2;
-		else if (token[token.size() - 1] == 'g' || token[token.size() - 1] == 'G')
-			optionConversion = 3;
-		else
-			throw ConfigException("Error: Conversion for client_max_body_size not possible.");
-
-		std::string numberPart = token.substr(0, token.size() - 1);
-		unsigned long size = atol(numberPart.c_str());
-		max = ConfigUtils::calculateSize(size, optionConversion);
-	}
-
-	++_currentToken;
-	checkIfTokenExists();
-	if (_tokens[_currentToken] != ";")
-		throw ConfigException("Error: Expected a ';' after client_max_body_size definitions.");
-
-	server.setMaxBodySize(max);
-}
-
-/**
  * @brief Validates information after 'error_page' keyword
  * 
  * @param server 

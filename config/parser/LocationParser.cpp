@@ -1,6 +1,34 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Checks information after 'allow_methods' keyword
+ * 
+ * @param location 
+ */
+void ConfigParser::parseAllowMethods(LocationConfig& location)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	std::string token = _tokens[_currentToken];
+	if (token == ";")
+		throw ConfigException("Error: Missing definitions after 'allow_methods' keyword.");
+
+	while(_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		token = _tokens[_currentToken];
+		if (token != "GET" && token != "POST" && token != "DELETE")
+			throw ConfigException("Error: Invalid method: " + token);
+		location.addAllowedMethod(token);
+		++_currentToken;
+	}
+
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after 'allow_methods' definition.");
+}
+
+/**
  * @brief Checks information after 'alias' token
  * 
  * @param location 
@@ -70,6 +98,9 @@ void ConfigParser::parseLocation(ServerConfig& server)
 			parseAlias(location);
 		else if (token == "allow_methods")
 			parseAllowMethods(location);
+		else if (token == "client_max_body_size")
+			parseMaxBodySize(location);
+		//CHECK IF I HAVE TO ADD ANYTHING ELSE HERE
 		else
 			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);
 	}
