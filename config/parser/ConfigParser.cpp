@@ -80,6 +80,10 @@ void ConfigParser::parse()
 	}
 }
 
+/**
+ * @brief Checks if token is within bounds
+ * 
+ */
 void ConfigParser::checkIfTokenExists()
 {
 	if (_currentToken >= _tokens.size())

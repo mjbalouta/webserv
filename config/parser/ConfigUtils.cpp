@@ -1,6 +1,48 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Checks if the format of a path is a valid one
+ * 
+ * @param token 
+ */
+void ConfigUtils::validatePath(std::string& token)
+{
+	if (token.empty() || token[0] != '/')
+		throw ConfigException("Error: Invalid path format: " + token);
+
+	if (token == "/")
+		throw ConfigException("Error: Invalid path format: " + token);
+
+	if (token.find_first_of("{};#*?|") != std::string::npos)
+		throw ConfigException("Error: Invalid characters: " + token);
+
+	if (token.find("..") != std::string::npos)
+		throw ConfigException("Error: Invalid path format: " + token);
+
+	if (token[token.length() - 1] == '/')
+		throw ConfigException("Error: Path must lead to a file, not a directory: " + token);
+}
+
+/**
+ * @brief Checks if status code is a valid one
+ * 
+ * @param token 
+ */
+void ConfigUtils::validateStatusCode(std::string& token)
+{
+	if (token.size() != 3)
+		throw ConfigException("Error: Invalid status code: " + token);
+
+	if (!allDigits(token))
+		throw ConfigException("Error: Invalid status code: " + token);
+
+	int code = atoi(token.c_str());
+	//valids HTTP status codes for nginx
+	if (code < 300 || code > 599)
+		throw ConfigException("Error: Invalid status code: " + token);
+}
+
+/**
  * @brief Checks if filename format is correct
  * 
  * @param token 

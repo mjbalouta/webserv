@@ -10,4 +10,6 @@ class ConfigUtils
 	static void validateIP(std::string& token, std::string& errorMessage);
 	static void validateHostname(std::string& token, std::string& errorMessage);
 	static void validateFilename(std::string& token);
+	static void validateStatusCode(std::string& token);
+	static void	validatePath(std::string& token);
 };
