@@ -1,7 +1,33 @@
 #include "ConfigParser.hpp"
 
 /**
- * @brief Validates information after 'max_body_sixe' keyword
+ * @brief Validates information after 'autoindex' keyword
+ * 
+ * @param server 
+ */
+void ConfigParser::parseAutoindex(ServerConfig& server)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definition after keyword 'autoindex'.");
+
+	if (_tokens[_currentToken] == "on")
+		server.setAutoIndex(true);
+	else if (_tokens[_currentToken] == "off")
+		server.setAutoIndex(false);
+	else
+		throw ConfigException("Error: Invalid definition of autoindex: " + _tokens[_currentToken]);
+
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after autoindex definition.");
+}
+
+/**
+ * @brief Validates information after 'client_max_body_size' keyword
  * 
  * @param server 
  */

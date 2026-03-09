@@ -5,7 +5,7 @@
 class ConfigParser
 {
 	private:
-	std::vector<ServerConfig> _servers;
+	std::vector<ServerConfig> _servers; //should it be a map container to store the port more directly?
 	std::string _filename; //config file path
 	std::vector<std::string> _tokens; //to store the lines of the config file
 	size_t _currentToken; //to store in which line i'm in

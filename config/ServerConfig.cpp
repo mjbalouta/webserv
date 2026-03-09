@@ -98,3 +98,13 @@ unsigned long ServerConfig::getMaxBodySize() const
 {
 	return _maxBodySixe;
 }
+
+void ServerConfig::setAutoIndex(bool status)
+{
+	_autoIndex = status;
+}
+
+bool ServerConfig::getAutoIndex() const
+{
+	return _autoIndex;
+}

@@ -15,6 +15,7 @@ class ServerConfig
 	std::vector<std::string> _serverNames; //the domain names this server responds to (one machine can host multiple websites on the same port)
 	std::vector<LocationConfig> _locations; //all location blocks inside this server
 	unsigned long _maxBodySixe;
+	bool _autoIndex;
 
 	public:
 	ServerConfig();
@@ -28,6 +29,7 @@ class ServerConfig
 	void addServerName(const std::string& serverName);
 	void addLocation(const LocationConfig& location);
 	void setMaxBodySize(unsigned long size);
+	void setAutoIndex(bool status);
 
 	int getPort() const;
 	bool getPortDefined() const;
@@ -38,6 +40,7 @@ class ServerConfig
 	const std::vector<std::string>& getServerNames() const;
 	const std::vector<LocationConfig>& getLocations() const;
 	unsigned long getMaxBodySize() const;
+	bool getAutoIndex() const;
 
 	void clearIndexes();
 };
