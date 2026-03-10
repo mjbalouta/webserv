@@ -24,6 +24,7 @@ void ConfigParser::parseReturn(LocationConfig& location)
 	location.setReturnStatusCode(code);
 	++_currentToken;
 	checkIfTokenExists();
+	//codes inside the range 300-399 must have an URL next to it
 	if (code >= 300 && code <= 399)
 	{
 		if (_tokens[_currentToken] == ";")
@@ -32,6 +33,7 @@ void ConfigParser::parseReturn(LocationConfig& location)
 		location.setReturnURL(_tokens[_currentToken]);
 		++_currentToken;
 	}
+	//codes outside that range can have a message next to it or not
 	else if (_tokens[_currentToken] != ";")
 	{
 		std::string message;
