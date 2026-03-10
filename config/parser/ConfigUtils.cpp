@@ -1,6 +1,31 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Validates the message format after a status code in return
+ * 
+ * @param token 
+ */
+void ConfigUtils::validateMessage(std::string& token)
+{
+	if (token.find("{}#") != std::string::npos)
+		throw ConfigException("Error: Message contains invalid characters: " + token);
+}
+
+/**
+ * @brief Validates an URL format
+ * 
+ * @param url 
+ */
+void ConfigUtils::validateURL(std::string& url)
+{
+	if (url.find_first_of("{};#") != std::string::npos)
+		throw ConfigException("Error: Invalid url format: " + url);
+
+	if (url.find("http://") != 0 && url.find("https://") != 0 && url[0] != '/')
+		throw ConfigException("Error: Invalid url format: " + url);	
+}
+
+/**
  * @brief Validates path format
  * 
  * @param token
@@ -8,10 +33,10 @@
 void ConfigUtils::validatePath(std::string& token)
 {
 	if (token[0] != '/')
-		throw ConfigException("Error: Invalid path after 'location' keyword: " + token);
+		throw ConfigException("Error: Invalid path format: " + token);
 
 	if (token.find("..") != std::string::npos)
-		throw ConfigException("Error: Invalid path format after 'location' keyword: " + token);
+		throw ConfigException("Error: Invalid path format: " + token);
 	
 	if (token.find_first_of("{};#*?|") != std::string::npos)
 		throw ConfigException("Error: Invalid characters in path: " + token);

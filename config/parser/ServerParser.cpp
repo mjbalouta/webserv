@@ -1,32 +1,6 @@
 #include "ConfigParser.hpp"
 
 /**
- * @brief Validates information after 'autoindex' keyword
- * 
- * @param server 
- */
-void ConfigParser::parseAutoindex(ServerConfig& server)
-{
-	++_currentToken;
-	checkIfTokenExists();
-
-	if (_tokens[_currentToken] == ";")
-		throw ConfigException("Error: Missing definition after keyword 'autoindex'.");
-
-	if (_tokens[_currentToken] == "on")
-		server.setAutoIndex(true);
-	else if (_tokens[_currentToken] == "off")
-		server.setAutoIndex(false);
-	else
-		throw ConfigException("Error: Invalid definition of autoindex: " + _tokens[_currentToken]);
-
-	++_currentToken;
-	checkIfTokenExists();
-	if (_tokens[_currentToken] != ";")
-		throw ConfigException("Error: Expected a ';' after autoindex definition.");
-}
-
-/**
  * @brief Validates information after 'error_page' keyword
  * 
  * @param server 
@@ -70,36 +44,6 @@ void ConfigParser::parseErrorPage(ServerConfig& server)
 	for (std::vector<int>::iterator it = codes.begin(); it != codes.end(); ++it)
 		server.addErrorPages(*it, path);
 
-}
-
-/**
- * @brief Validates information after 'index' keyword
- * 
- * @param server 
- */
-void ConfigParser::parseIndex(ServerConfig& server)
-{
-	++_currentToken;
-	checkIfTokenExists();
-
-	if (_tokens[_currentToken] == ";")
-		throw ConfigException("Error: Missing definition after keyword 'index'.");
-
-	//if there are more than one definition of 'index', we must clear the previous one
-	//because the last definition should overwrite any previous one
-	server.clearIndexes();
-
-	while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
-	{
-		std::string token = _tokens[_currentToken];
-		ConfigUtils::validateFilename(token);
-		server.addIndex(token);
-		_currentToken++;
-	}
-
-	checkIfTokenExists();
-	if (_tokens[_currentToken] != ";")
-		throw ConfigException("Error: Expected a ';' after index definitions.");
 }
 
 /**

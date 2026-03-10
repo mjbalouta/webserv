@@ -17,14 +17,17 @@ class ConfigParser
 	void parseRoot(T& object);
 	void parseHost(ServerConfig& server);
 	void parseServerName(ServerConfig& server);
-	void parseIndex(ServerConfig& server);
+	template <typename T>
+	void parseIndex(T& object);
 	void parseErrorPage(ServerConfig& server);
 	template <typename T>
 	void parseMaxBodySize(T& object);
-	void parseAutoindex(ServerConfig& server);
+	template <typename T>
+	void parseAutoindex(T& object);
 	void parseLocation(ServerConfig& server);
 	void parseAlias(LocationConfig& location);
 	void parseAllowMethods(LocationConfig& location);
+	void parseReturn(LocationConfig& location);
 	void checkIfTokenExists();
 
 	public:

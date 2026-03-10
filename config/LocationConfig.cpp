@@ -1,7 +1,7 @@
 #include "LocationConfig.hpp"
 
 LocationConfig::LocationConfig(const std::string& path)
-: _path(path), _autoIndex(false), _aliasSet(false), _returnCode(0), _maxBodySize(0)
+: _path(path), _autoIndex(false), _aliasSet(false), _returnStatusCode(0), _maxBodySize(0)
 {}
 
 void LocationConfig::setRoot(const std::string& root)
@@ -67,4 +67,31 @@ const std::string& LocationConfig::getAlias() const
 bool LocationConfig::getAliasFlag() const
 {
 	return _aliasSet;
+}
+
+void LocationConfig::setReturnStatusCode(int code)
+{
+	_returnStatusCode = code;
+}
+void LocationConfig::setReturnURL(const std::string& url)
+{
+	_returnURL = url;
+}
+int LocationConfig::getReturnStatusCode() const
+{
+	return _returnStatusCode;
+}
+
+const std::string& LocationConfig::getReturnURL() const
+{
+	return _returnURL;
+}
+
+void LocationConfig::setReturnMessage(const std::string& message)
+{
+	_returnMessage = message;
+}
+const std::string& LocationConfig::getReturnMessage() const
+{
+	return _returnMessage;
 }

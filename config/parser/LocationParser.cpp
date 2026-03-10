@@ -1,6 +1,56 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Validates information after 'return' keyword
+ * (Return function: when a return is triggered, the server stops looking for files and immediately
+ * sends a response to the client.)
+ * 
+ * @param location 
+ */
+void ConfigParser::parseReturn(LocationConfig& location)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	std::string token = _tokens[_currentToken];
+	if (token == ";")
+		throw ConfigException("Error: Missing definitions after 'return' keyword.");
+
+	if (!allDigits(token))
+		throw ConfigException("Error: Missing HTTP status code after 'return' keyword.");
+	if (token.size() != 3)
+		throw ConfigException("Error: Invalid HTTP status code format: " + token);
+	int code = atoi(token.c_str());
+	location.setReturnStatusCode(code);
+	++_currentToken;
+	checkIfTokenExists();
+	if (code >= 300 && code <= 399)
+	{
+		if (_tokens[_currentToken] == ";")
+			throw ConfigException("Error: Missing URL for status code: " + _tokens[_currentToken - 1]);
+		ConfigUtils::validateURL(_tokens[_currentToken]);
+		location.setReturnURL(_tokens[_currentToken]);
+		++_currentToken;
+	}
+	else if (_tokens[_currentToken] != ";")
+	{
+		std::string message;
+		while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+		{
+			ConfigUtils::validateMessage(_tokens[_currentToken]);
+			if (!message.empty())
+				message += " ";
+			message += _tokens[_currentToken];
+			++_currentToken;
+		}
+		location.setReturnMessage(message);
+	}
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after 'return' definition.");
+}
+
+/**
  * @brief Checks information after 'allow_methods' keyword
  * 
  * @param location 
@@ -84,7 +134,7 @@ void ConfigParser::parseLocation(ServerConfig& server)
 		throw ConfigException("Error: Expected '{' token after location's path.");
 
 	int endBracket = 0;
-	while (++_currentToken <= _tokens.size())
+	while (++_currentToken < _tokens.size())
 	{
 		std::string token = _tokens[_currentToken];
 		if (token == "}")
@@ -100,11 +150,22 @@ void ConfigParser::parseLocation(ServerConfig& server)
 			parseAllowMethods(location);
 		else if (token == "client_max_body_size")
 			parseMaxBodySize(location);
-		//CHECK IF I HAVE TO ADD ANYTHING ELSE HERE
+		else if (token == "index")
+			parseIndex(location);
+		else if (token == "autoindex")
+			parseAutoindex(location);
+		else if (token == "return")
+			parseReturn(location);
+	/*	else if (token == "cgi_pass") or cgi_ext?? ver sobre isto
+			parseCGI(location);
+		else if (token == "error_page")
+			parseErrorPage(location);
+		else if (token == "upload_store")
+			parseUploadStore(location);		
+	*/
 		else
 			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);
 	}
-
 	if (!endBracket)
 		throw ConfigException("Error: Expected '}' in the end of location block.");
 

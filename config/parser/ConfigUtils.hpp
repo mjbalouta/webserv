@@ -14,4 +14,6 @@ class ConfigUtils
 	static void	validateErrorPagePath(std::string& token);
 	static void validatePath(std::string& token);
 	static unsigned long calculateSize(unsigned long size, int option);
+	static void validateURL(std::string& url);
+	static void validateMessage(std::string& token);
 };

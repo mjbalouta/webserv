@@ -1,6 +1,64 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Validates information after 'autoindex' keyword
+ * 
+ * @param server 
+ */
+template <typename T>
+void ConfigParser::parseAutoindex(T& object)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definition after keyword 'autoindex'.");
+
+	if (_tokens[_currentToken] == "on")
+		object.setAutoIndex(true);
+	else if (_tokens[_currentToken] == "off")
+		object.setAutoIndex(false);
+	else
+		throw ConfigException("Error: Invalid definition of autoindex: " + _tokens[_currentToken]);
+
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after autoindex definition.");
+}
+
+/**
+ * @brief Validates information after 'index' keyword
+ * 
+ * @param object 
+ */
+template <typename T>
+void ConfigParser::parseIndex(T& object)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definition after keyword 'index'.");
+
+	//if there are more than one definition of 'index', we must clear the previous one
+	//because the last definition should overwrite any previous one
+	object.clearIndexes();
+
+	while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		std::string token = _tokens[_currentToken];
+		ConfigUtils::validateFilename(token);
+		object.addIndex(token);
+		_currentToken++;
+	}
+
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after index definitions.");
+}
+
+/**
  * @brief Validates information after 'root' keyword
  * (being a template method, it works for server and location objects)
  * 
