@@ -1,5 +1,39 @@
 #include "Connection.hpp"
 
+static std::string getReasonPhrase(int statusCode)
+{
+	switch (statusCode)
+	{
+		case 200: return "OK";
+		case 400: return "Bad Request";
+		case 403: return "Forbidden";
+		case 404: return "Not Found";
+		case 405: return "Method Not Allowed";
+		case 411: return "Length Required";
+		case 413: return "Payload Too Large";
+		case 500: return "Internal Server Error";
+		case 501: return "Not Implemented";
+		case 505: return "HTTP Version Not Supported";
+		default: return "Error";
+	}
+}
+
+static std::string buildDefaultResponse(int statusCode, bool keepAlive, const std::string &explicitBody)
+{
+	std::string body = explicitBody;
+	if (body.empty())
+		body = getReasonPhrase(statusCode) + "\n";
+
+	std::ostringstream oss;
+	oss << "HTTP/1.1 " << statusCode << " " << getReasonPhrase(statusCode) << "\r\n";
+	oss << "Content-Type: text/plain\r\n";
+	oss << "Content-Length: " << body.size() << "\r\n";
+	oss << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
+	oss << "\r\n";
+	oss << body;
+	return oss.str();
+}
+
 Connection::Connection(int fd) : _fd(fd), _status(200), _isRedirection(false),
 								  _readBuffer(""), _writeBuffer(""), _path(""),
 								  _method(NONE), _lastActive(time(NULL)),
@@ -87,7 +121,7 @@ void Connection::closeConnection()
  * @brief Dispatches one processing step according to current connection state.
  * @param maxUploadSize Maximum allowed request body size for this connection.
  */
-void Connection::handleRequest(size_t maxUploadSize, int epollFd, Config &config){
+void Connection::handleRequest(size_t maxUploadSize, int epollFd){
 	switch (_state)
 	{
 		case CLOSING:
@@ -95,13 +129,15 @@ void Connection::handleRequest(size_t maxUploadSize, int epollFd, Config &config
 			closeConnection();
 			return;
 		case READING:
-			readRequest(maxUploadSize, epollFd);
+			readRequest(maxUploadSize);
 			break;
 		case PROCESSING:
-			parseRequest(config);
+			parseRequest();
+			if (_state == WRITING)
+				modEpoll(epollFd, _fd, EPOLLOUT);
 			break;
 		case WRITING:
-			//sendRequest();
+			sendResponse(epollFd);
 			break;
 		case IDLE:
 		default:
@@ -124,7 +160,7 @@ void Connection::handleRequest(size_t maxUploadSize, int epollFd, Config &config
  *    - > 0: append bytes to _readBuffer and update _totalReceived
  * 4) If Content-Length is not known yet, try to parse it from headers.
  */
-void Connection::readRequest(size_t maxUploadSize, int epollFd){
+void Connection::readRequest(size_t maxUploadSize){
 
 	// 1) Guard against invalid socket descriptor.
 	if (_fd < 0){
@@ -142,14 +178,19 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 
 	// 3a) Read failure.
 	if (readBytes < 0){
-		printMessage("❌ Failed to read from socket", RED);
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+			return;
+		if (errno == ECONNRESET)
+			printMessage("❌ Client connection reset during recv", RED);
+		else
+			printMessage("❌ Failed to read from socket", RED);
 		_state = CLOSING;
 		return;
 	}
 
 	// 3b) Peer closed connection.
 	if (readBytes == 0){
-		printMessage("❌ Connection closed by client", RED);
+		printMessage("ℹ️ Client closed connection gracefully", BYEL);
 		_state = CLOSING;
 		return;
 	}
@@ -158,22 +199,47 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 	_readBuffer.append(buffer, readBytes);
 	_totalReceived += readBytes;
 
+	// We can only reason about body completeness after full headers are present.
+	size_t headerEnd = _readBuffer.find("\r\n\r\n");
+	if (headerEnd == std::string::npos)
+		return;
+
+	std::string headersLower = toLower(_readBuffer.substr(0, headerEnd));
+	size_t transferEncodingPos = headersLower.find("transfer-encoding:");
+	if (transferEncodingPos != std::string::npos)
+	{
+		size_t transferLineEnd = headersLower.find("\r\n", transferEncodingPos);
+		if (transferLineEnd == std::string::npos)
+			transferLineEnd = headersLower.size();
+		std::string transferValue = headersLower.substr(transferEncodingPos, transferLineEnd - transferEncodingPos);
+		if (transferValue.find("chunked") != std::string::npos)
+		{
+			size_t chunkedTerminator = _readBuffer.find("\r\n0\r\n\r\n", headerEnd + 4);
+			if (chunkedTerminator == std::string::npos)
+				return;
+			_status = 501;
+			_keepAlive = false;
+			_state = PROCESSING;
+			return;
+		}
+	}
+
 	// 4) Parse Content-Length once (if not parsed yet).
 	if (_contentLength == 0){
-		const std::string header = "Content-Length:";
-		size_t pos = _readBuffer.find(header);
+		const std::string header = "content-length:";
+		size_t pos = headersLower.find(header);
 
 		if (pos != std::string::npos) {
 			// Move to header value start, skipping optional spaces/tabs.
 			size_t start = pos + header.length();
-			while (start < _readBuffer.size() && (_readBuffer[start] == ' ' || _readBuffer[start] == '\t'))
+			while (start < headersLower.size() && (headersLower[start] == ' ' || headersLower[start] == '\t'))
 				++start;
 
 			// Header value ends at CRLF.
-			size_t end = _readBuffer.find("\r\n", start);
+			size_t end = headersLower.find("\r\n", start);
 
 			if (end != std::string::npos) {
-				std::string valueStr = _readBuffer.substr(start, end - start);
+				std::string valueStr = headersLower.substr(start, end - start);
 
 				// Convert to integer and validate full consumption.
 				char *endptr = NULL;
@@ -195,144 +261,112 @@ void Connection::readRequest(size_t maxUploadSize, int epollFd){
 		_state = PROCESSING;
 		_keepAlive = false; //force close after response
 		_status = 413; //payload too large
-		modEpoll(epollFd, _fd, EPOLLOUT);
 	}
-	else if (_contentLength > 0) {
-		size_t headerEnd = _readBuffer.find("\r\n\r\n");
-		if (headerEnd != std::string::npos) {
-			size_t headerSize = headerEnd + 4;
-			if (_readBuffer.size() >= headerSize + _contentLength) //full request body was read
-			{
-				_state = PROCESSING;
-				modEpoll(epollFd, _fd, EPOLLOUT);
-			}
-		}
-	}else if (_contentLength == 0) {
-		_state = PROCESSING;
-		modEpoll(epollFd, _fd, EPOLLOUT);
+	else {
+		size_t headerSize = headerEnd + 4;
+		size_t bodySize = _readBuffer.size() - headerSize;
+		if (bodySize >= _contentLength)
+			_state = PROCESSING;
 	}
 }
 
 /**
- * @brief Parses HTTP request from connection buffers and routes to appropriate handler.
- * @param config Server configuration for routing and error page resolution.
+ * @brief Parses HTTP request bytes from the connection read buffer.
+ * @param config Unused in transport-only parsing stage (kept for interface compatibility).
  * @return Request object containing parsed request metadata.
  */
-Request Connection::parseRequest(Config &config) {
+Request Connection::parseRequest() {
 	Request request;
 	// Parse incoming raw request stored in connection buffers.
-	if (!request.parseRequest(config)){
+	if (!request.parseRequest(_readBuffer, _contentLength)){
 		// Parsing failed: clear pending output and preserve parser status.
 		_writeBuffer.clear();
 		_path = "";
+		_method = NONE;
 		_status = request.getStatus();
+		printMessage("⚠️ Malformed HTTP request handled", YEL);
+		_state = WRITING;
 	} else {
-		// Redirect response is ready immediately.
-		if (request.isRedirect()) {
-			_isRedirection = true;
-			_status = request.getStatus();
-			preparePageFile(config); //sei laaa
-			_state = WRITING;
-		}
-		// DELETE is delegated to dedicated handling path.
-		if (request.getMethod() == DELETE){
-			_method = DELETE;
-			processRequest(config, request);
-			return request;
-		}
-		// Autoindex already provides response body content.
-		if (request.isAutoIndex()){
-			_status = request.getStatus();
-			_responseStr = request.getAutoIndexPath();
-			if (_responseStr.empty()){
-				_status = 400;
-				printMessage("Error: Autoindex path is empty", RED);
-				preparePageFile(config);
-				_state = WRITING;
-				return request;
-			}
-			_state = WRITING;
-			return request;
-		}
+		processRequest(request);
 	}
 	// Request is consumed; next stage uses resolved method/path/status.
 	_readBuffer.clear();
-	if (_method == NONE && _status == 200)
-		_method = request.getMethod();
-	processRequest(config, request);
+	_contentLength = 0;
 	return request;
 }
 
 /**
- * @brief Resolves request target path based on method and schedules response.
- * @param config Active server configuration used for page/error resolution.
+ * @brief Prepares parsed request data for downstream routing/response engines.
+ * @param config Unused in transport-only processing stage (kept for interface compatibility).
  * @param request Parsed HTTP request metadata.
  */
-void Connection::processRequest(Config &config, Request &request){
-	// GET/POST serve request path directly.
-	if (_method == GET || _method == POST)
-		_path = request.getPath();
-	else if (_method == DELETE)
-		deleteHandle(request); //TODO
-	else {
-		_status = 400;
-		printMessage("Unknown request", RED);
-	}
-	// Open final resource (or fallback error page) and move to write phase.
-	preparePageFile(config);
+void Connection::processRequest(Request &request){
+	// TODO(Person 2): route Request -> RouteResult (server/location/method/path decision).
+	// TODO(Person 3): RouteResult -> final Response payload/status/headers.
+	// Person 1 keeps only socket state, buffering, and send/close lifecycle.
+	_method = request.getMethod();
+	_path = request.getPath();
+	_status = request.getStatus();
+	_isRedirection = request.isRedirect();
+
+	std::string connectionHeader = toLower(request.getHeader("connection"));
+	if (request.getVersion() == "HTTP/1.0")
+		_keepAlive = (connectionHeader == "keep-alive");
+	else
+		_keepAlive = (connectionHeader != "close");
+
+	if (request.isAutoIndex())
+		_responseStr = request.getAutoIndexPath();
+	else
+		_responseStr.clear();
 	_state = WRITING;
 };
 
-/**
- * @brief Selects a file path and opens it for response sending.
- * @details
- *   1) Try configured error page for current status code.
- *   2) Fallback to default error page when missing.
- *   3) Open file stream and cache file size in `_contentLength`.
- * @param config Active server configuration.
- */
-void Connection::preparePageFile(const Config &config)
+void Connection::sendResponse(int epollFd)
 {
-	// 1) Map HTTP status code to configured error page path.
-	std::map<int, std::string> errorPages = config.getErrorPage();
-	int code = _status;
-	for (std::map<int, std::string>::iterator it = errorPages.begin(); it != errorPages.end(); ++it)
+	if (_fd < 0)
 	{
-		if (it->first == code)
-		{
-			_path = it->second;
-			break;
-		}
+		_state = CLOSING;
+		return;
 	}
-	// 2) If no specific page exists, use default error page.
-	if (_path.empty())
-		_path = "www/error_pages/default_error.html";
 
-	// 3) Open selected file in binary mode.
-	// Allocate stream if not already created.
-	if (!_readFromFile)
-		_readFromFile = new std::ifstream();
-	
-	// Close existing stream if open.
-	if (_readFromFile->is_open())
-		_readFromFile->close();
-	
-	_readFromFile->open(_path.c_str(), std::ios::in | std::ios::binary);
-	if (!_readFromFile->is_open())
+	if (_writeBuffer.empty())
+		_writeBuffer = buildDefaultResponse(_status, _keepAlive, _responseStr);
+
+	ssize_t sentBytes = send(_fd, _writeBuffer.c_str() + _totalSent,
+		_writeBuffer.size() - _totalSent, MSG_NOSIGNAL);
+	if (sentBytes < 0)
 	{
-		printMessage("Failed to open error file", RED);
-		_path = "www/error_pages/default_error.html";
-		// Retry once with guaranteed fallback path.
-		_readFromFile->open(_path.c_str(), std::ios::in | std::ios::binary);
-		if (!_readFromFile->is_open())
-		{
-			printMessage("Failed to open default error file", RED);
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
 			return;
-		}
+		if (errno == EPIPE)
+			printMessage("❌ Broken pipe while sending response", RED);
+		else if (errno == ECONNRESET)
+			printMessage("❌ Client reset connection while sending response", RED);
+		else
+			printMessage("❌ Failed to send response", RED);
+		_state = CLOSING;
+		return;
 	}
-	// 4) Cache content size for Content-Length header.
-	struct stat st;
-	stat(_path.c_str(), &st);
-	_contentLength = st.st_size;
-	return;
+
+	_totalSent += static_cast<size_t>(sentBytes);
+	if (_totalSent < _writeBuffer.size())
+		return;
+
+	_writeBuffer.clear();
+	_totalSent = 0;
+	_responseStr.clear();
+	_headersSend = true;
+
+	if (_keepAlive)
+	{
+		_state = READING;
+		_method = NONE;
+		_status = 200;
+		_contentLength = 0;
+		_readBuffer.clear();
+		modEpoll(epollFd, _fd, EPOLLIN);
+	}
+	else
+		_state = CLOSING;
 }

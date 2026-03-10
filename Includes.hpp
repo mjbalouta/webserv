@@ -51,6 +51,8 @@ class Connection;
 class ServerManager;
 class Server;
 class Request;
+/* #include "Config/Config.hpp"
+class Config; */
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes

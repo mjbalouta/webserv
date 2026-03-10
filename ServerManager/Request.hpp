@@ -6,19 +6,23 @@ class Request {
 		Request();
 		~Request();
 
-		bool Request::parseRequest(Config &config, const std::string request);
+		bool parseRequest(const std::string &rawRequest, size_t knownContentLength);
+		void parseQueryString(const std::string &query, std::map<std::string, std::string> &queryParams);
 
 		//getters
-		int getStatus() { return _status; };
-		Method getMethod() { return _method; };
-		bool isRedirect() { return _isRedirect; };
-		bool isAutoIndex() { return _isAutoindex; };
-		std::string getAutoIndexPath() {return _autoIndexPath; };
-		std::string getPath() {return _path; };
-		std::string getVersion() {return _version; };
-		std::string getBody() {return _body; };
-		std::map<std::string, std::string> getQueryParams() {return _queryParams; };
-		std::map<std::string, std::string> getHeaders() {return _headers; };
+		int getStatus() const { return _status; };
+		Method getMethod() const { return _method; };
+		bool isRedirect() const { return _isRedirect; };
+		bool isAutoIndex() const { return _isAutoindex; };
+		const std::string &getAutoIndexPath() const { return _autoIndexPath; };
+		const std::string &getPath() const { return _path; };
+		const std::string &getVersion() const { return _version; };
+		const std::string &getBody() const { return _body; };
+		const std::string &getHost() const { return _host; };
+		bool isChunked() const { return _isChunked; };
+		const std::map<std::string, std::string> &getQueryParams() const { return _queryParams; };
+		const std::map<std::string, std::string> &getHeaders() const { return _headers; };
+		std::string getHeader(const std::string &keyHeader) const;
 
 	private:
 		int _status;
@@ -28,6 +32,8 @@ class Request {
 		std::string _autoIndexPath;
 		std::string _path;
 		std::string _version;
+		std::string _host;
+		bool _isChunked;
 		std::map<std::string, std::string> _queryParams;
 		std::map<std::string, std::string> _headers;
 		std::string _body;

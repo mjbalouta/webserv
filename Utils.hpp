@@ -9,3 +9,4 @@ void addToEpoll(int epollFd, int fd, uint32_t events);
 void removeFromEpoll(int epollFd, int fd);
 void modEpoll(int epollFd, int fd, uint32_t events);
 
+std::string toLower(const std::string &value);

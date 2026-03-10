@@ -45,6 +45,12 @@ std::string& trimSpaces(std::string& str)
 	return str;
 }
 
+/**
+ * @brief Converts a string to a long integer.
+ * @param value Input string that may include leading/trailing whitespace.
+ * @return long Parsed value from base-10 conversion.
+ * @throw std::runtime_error If the string is empty after trimming.
+ */
 long strToLong(const std::string& value)
 {
 	std::string trimmed = value;
@@ -105,4 +111,17 @@ void modEpoll(int epollFd, int fd, uint32_t events)
 	if (epoll_ctl(epollFd, EPOLL_CTL_MOD, fd, &ev) < 0) { //Calls epoll_ctl() to modify this fd. epollFd - epoll instance. EPOLL_CTL_MOD - operation: update monitored events. fd - the socket to update. &ev - new event configuration
 		throw std::runtime_error("Failed to modify fd " + itostr(fd) + " in epoll");
 	}
+}
+
+/**
+ * @brief Creates a lowercase version of the given string.
+ * @param value Input text to normalize.
+ * @return std::string A new string where each character is converted to lowercase.
+ */
+std::string toLower(const std::string &value)
+{
+	std::string result = value;
+	for (size_t i = 0; i < result.size(); ++i)
+		result[i] = static_cast<char>(std::tolower(result[i]));
+	return result;
 }

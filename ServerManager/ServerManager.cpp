@@ -126,7 +126,11 @@ bool ServerManager::createConnection(int fd, int serverIndex)
 	// client_len is both input (max size to write) and output (actual size written)
 	int client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 	if (client_fd < 0)
+	{
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+			return false;
 		return (printMessage("❌ Failed to accept connection", RED), false);
+	}
 	setnon_blocking(client_fd);
 	addToEpoll(_epollFd ,client_fd, EPOLLIN);
 	_connections[serverIndex][client_fd] = Connection(client_fd);
@@ -221,6 +225,89 @@ void ServerManager::closeConnection(int serverIndex, int fd)
 	// 5) Remove from connection map (destructor cleanup happens here).
 	serverConnections.erase(it);
 	printMessage("Closing connection: " + itostr(fd), MAG);
+}
+
+void ServerManager::runEventLoop()
+{
+	struct epoll_event events[MAX_EVENTS];
+
+	while (true)
+	{
+		int ready = epoll_wait(_epollFd, events, MAX_EVENTS, 1000);
+		if (ready < 0)
+		{
+			if (errno == EINTR)
+				continue;
+			throw std::runtime_error("epoll_wait failed");
+		}
+
+		time_t now = time(NULL);
+		for (size_t s = 0; s < _connections.size(); ++s)
+		{
+			std::map<int, Connection>::iterator it = _connections[s].begin();
+			while (it != _connections[s].end())
+			{
+				int fd = it->first;
+				Connection &conn = it->second;
+				++it;
+
+				if (difftime(now, conn.getLastActive()) > KEEP_ALIVE_TIMEOUT)
+				{
+					printMessage("⏳ Closing idle connection: " + itostr(fd), BYEL);
+					closeConnection(static_cast<int>(s), fd);
+				}
+			}
+		}
+
+		for (int i = 0; i < ready; ++i)
+		{
+			int fd = events[i].data.fd;
+			int serverIndex = -1;
+			for (size_t s = 0; s < _servers.size(); ++s)
+			{
+				if (_servers[s].getServerfd() == fd)
+				{
+					serverIndex = static_cast<int>(s);
+					break;
+				}
+			}
+
+			if (serverIndex != -1)
+			{
+				while (createConnection(fd, serverIndex))
+					;
+				continue;
+			}
+
+			int ownerIndex = -1;
+			for (size_t s = 0; s < _connections.size(); ++s)
+			{
+				if (_connections[s].find(fd) != _connections[s].end())
+				{
+					ownerIndex = static_cast<int>(s);
+					break;
+				}
+			}
+
+			if (ownerIndex == -1)
+				continue;
+
+			std::map<int, Connection>::iterator connIt = _connections[ownerIndex].find(fd);
+			if (connIt == _connections[ownerIndex].end())
+				continue;
+
+			Connection &conn = connIt->second;
+			if (events[i].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+				conn._state = CLOSING;
+			else
+				// Person 1 scope: transport/protocol I/O state machine only.
+				// Person 2/3 integration happens inside processing hooks called by Connection.
+				conn.handleRequest(static_cast<size_t>(_servers[ownerIndex].getMaxBody()), _epollFd);
+
+			if (conn.getState() == CLOSING)
+				closeConnection(ownerIndex, fd);
+		}
+	}
 }
 
 ServerManager::~ServerManager(){
