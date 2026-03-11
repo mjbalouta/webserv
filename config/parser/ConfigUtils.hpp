@@ -18,4 +18,5 @@ class ConfigUtils
 	static void validateMessage(std::string& token);
 	static void checkExtension(std::string& token);
 	static void checksIfAlreadyExists(std::string& token, LocationConfig& location);
+	static void checkIfDirectory(std::string& token);
 };

@@ -1,6 +1,18 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Checks if the path is a directory
+ * 
+ * @param token 
+ */
+void ConfigUtils::checkIfDirectory(std::string& token)
+{
+	validatePath(token);
+	if (token.find("//") != std::string::npos)
+		throw ConfigException("Error: Invalid path format: " + token);
+}
+
+/**
  * @brief Goes through the cgi container and checks if the extension already exists
  * 
  * @param token 

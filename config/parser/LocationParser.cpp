@@ -1,7 +1,26 @@
 #include "ConfigParser.hpp"
 
 /**
- * @brief Validates information after 'cgi_pass' 
+ * @brief Validates information after 'upload_store' keyword
+ * 
+ * @param location 
+ */
+void ConfigParser::parseUploadStore(LocationConfig& location)
+{
+	//VER, ISTO SO FAZ SENTIDO SE POST EXISTIR NOS ALLOWED_METHODS - VALIDAR NO PARSING OU MAIS TARDE NA RESPONSE?
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definitions after 'cgi_pass' keyword.");
+
+	ConfigUtils::checkIfDirectory(_tokens[_currentToken]);
+	//FALAR COM ELES E VERIFICAR AQUI SE DEVO SER EU A VERIFICAR SE O DIRETORIO EXISTE E
+	//SE TEM PERMISSAO DE EXECUCAO PARA A CRIACAO DE PASTAS
+}
+
+/**
+ * @brief Validates information after 'cgi_pass' keyword
  * 
  * @param location 
  */
@@ -195,9 +214,8 @@ void ConfigParser::parseLocation(ServerConfig& server)
 			parseCGI(location); 
 		else if (token == "error_page")
 			parseErrorPage(location);
-	/*	else if (token == "upload_store")
+		else if (token == "upload_store") // para o metodo POST
 			parseUploadStore(location);	
-	*/
 		else
 			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);
 	}
