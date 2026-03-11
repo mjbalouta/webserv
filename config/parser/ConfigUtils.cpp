@@ -1,6 +1,19 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Goes through the cgi container and checks if the extension already exists
+ * 
+ * @param token 
+ */
+void ConfigUtils::checksIfAlreadyExists(std::string& token, LocationConfig& location)
+{
+	std::map<std::string, std::string> temp = location.getCGI();
+	std::map<std::string, std::string>::iterator it = temp.find(".py");
+	if (it != temp.end())
+		throw ConfigException("Error: Extension already defined: " + token);
+}
+
+/**
  * @brief Validates the extension format
  * 
  * @param token 

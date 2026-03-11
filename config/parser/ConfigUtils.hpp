@@ -17,4 +17,5 @@ class ConfigUtils
 	static void validateURL(std::string& url);
 	static void validateMessage(std::string& token);
 	static void checkExtension(std::string& token);
+	static void checksIfAlreadyExists(std::string& token, LocationConfig& location);
 };
