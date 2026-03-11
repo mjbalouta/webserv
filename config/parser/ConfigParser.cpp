@@ -1,10 +1,8 @@
 #include "ConfigParser.hpp"
 
-ConfigParser::ConfigParser(const std::string& filename)
+ConfigParser::ConfigParser()
 : _filename(filename), _currentToken(0) 
-{
-	parse(_filename);
-}
+{}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
 {

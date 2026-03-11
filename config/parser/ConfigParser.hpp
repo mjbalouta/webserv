@@ -32,7 +32,7 @@ class ConfigParser
 	void checkIfTokenExists();
 
 	public:
-	ConfigParser(const std::string& filename);
+	ConfigParser();
 	const std::vector<ServerConfig>& getServers() const;
 	void parse(const std::string& filename);
 };

@@ -8,7 +8,7 @@ SRC_PATH		= .
 INC_PATH		= .
 BUILD_PATH		= .build
 
-FILES			= main.cpp
+FILES			= main.cpp 
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
