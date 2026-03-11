@@ -13,21 +13,22 @@ class ConfigParser
 	void tokenize(std::string content);
 	void parseServer();
 	void parseListen(ServerConfig& server);
-	template <typename T>
-	void parseRoot(T& object);
 	void parseHost(ServerConfig& server);
 	void parseServerName(ServerConfig& server);
-	template <typename T>
-	void parseIndex(T& object);
-	void parseErrorPage(ServerConfig& server);
-	template <typename T>
-	void parseMaxBodySize(T& object);
-	template <typename T>
-	void parseAutoindex(T& object);
 	void parseLocation(ServerConfig& server);
 	void parseAlias(LocationConfig& location);
 	void parseAllowMethods(LocationConfig& location);
 	void parseReturn(LocationConfig& location);
+	template <typename T>
+	void parseRoot(T& object);
+	template <typename T>
+	void parseIndex(T& object);
+	template <typename T>
+	void parseErrorPage(T& object);
+	template <typename T>
+	void parseMaxBodySize(T& object);
+	template <typename T>
+	void parseAutoindex(T& object);
 	void checkIfTokenExists();
 
 	public:

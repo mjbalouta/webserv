@@ -1,6 +1,53 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Validates information after 'error_page' keyword
+ * 
+ * @param server 
+ */
+template <typename T>
+void ConfigParser::parseErrorPage(T& object)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definition after keyword 'error_page'.");
+
+	std::vector<int> codes;
+	std::string path;
+	while (_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		std::string token = _tokens[_currentToken];
+		if (_currentToken + 1 < _tokens.size() && _tokens[_currentToken + 1] == ";")
+		{
+			ConfigUtils::validateErrorPagePath(token);
+			path = token;
+		}
+		else
+		{
+			ConfigUtils::validateStatusCode(token);
+			int code = atoi(token.c_str());
+			codes.push_back(code);
+		}
+		_currentToken++;
+	}
+
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after error_page definitions.");
+
+	if (path.empty())
+		throw ConfigException("Error: Missing path definition after error status codes for error_page.");
+	if (codes.empty())
+		throw ConfigException("Error: Missing definition of status codes for error_page.");
+
+	for (std::vector<int>::iterator it = codes.begin(); it != codes.end(); ++it)
+		object.addErrorPages(*it, path);
+
+}
+
+/**
  * @brief Validates information after 'autoindex' keyword
  * 
  * @param server 

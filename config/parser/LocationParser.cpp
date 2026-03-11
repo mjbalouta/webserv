@@ -159,11 +159,11 @@ void ConfigParser::parseLocation(ServerConfig& server)
 		else if (token == "return")
 			parseReturn(location);
 	/*	else if (token == "cgi_pass") or cgi_ext?? ver sobre isto
-			parseCGI(location);
+			parseCGI(location); */
 		else if (token == "error_page")
 			parseErrorPage(location);
-		else if (token == "upload_store")
-			parseUploadStore(location);		
+	/*	else if (token == "upload_store")
+			parseUploadStore(location);	
 	*/
 		else
 			throw ConfigException("Error: Unknown keyword " + _tokens[_currentToken]);
