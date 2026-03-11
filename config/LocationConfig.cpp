@@ -96,12 +96,12 @@ const std::string& LocationConfig::getReturnMessage() const
 	return _returnMessage;
 }
 
-void ServerConfig::addErrorPages(int code, const std::string& file)
+void LocationConfig::addErrorPages(int code, const std::string& file)
 {
 	_errorPages[code] = file;
 }
 
-const std::map<int, std::string>& ServerConfig::getErrorPages() const
+const std::map<int, std::string>& LocationConfig::getErrorPages() const
 {
 	return _errorPages;
 }

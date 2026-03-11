@@ -34,7 +34,6 @@ class LocationConfig
 	void setReturnMessage(const std::string& message);
 	void addErrorPages(int code, const std::string& file);
 
-
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
 	const std::vector<std::string>& getIndexes() const; // Retorna o vetor para quando o pedido for um diretório
@@ -46,5 +45,4 @@ class LocationConfig
 	const std::string& getReturnURL() const;
 	const std::string& getReturnMessage() const;
 	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
-
 };

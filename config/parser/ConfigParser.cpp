@@ -47,7 +47,6 @@ void ConfigParser::tokenize(std::string& content)
 	}
 }
 
-
 /**
  * @brief Opens the config file, stores each line in _lines and then goes
  * through the container and checks if the first word is 'server'
