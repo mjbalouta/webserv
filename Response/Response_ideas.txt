@@ -1,0 +1,111 @@
+Core Components to Build:
+1. Status Line
+
+HTTP version (HTTP/1.1)
+Status code (200, 404, 500, etc.)
+Reason phrase ("OK", "Not Found", etc.)
+2. Headers
+
+Content-Type (use MimeTypeResolver)
+Content-Length
+Date, Server
+Optional: Last-Modified, Cache-Control, Connection
+3. Body
+
+Actual content (file, error page, directory listing, or CGI output)
+Resources to Grab in Order:
+From the Request:
+
+Requested URI/path
+HTTP method (GET, POST, DELETE)
+Any request headers you need
+From ServerConfig/LocationConfig:
+
+Match location - Find which LocationConfig matches the URI path
+Check allowed methods - Validate method is in getAllowedMethods()
+Check for return directive - If getReturnStatusCode() is set, handle redirect/return
+Get document root - Use location's getRoot()/getAlias() or fall back to server's getRoot()
+Get index files - Location's getIndexes() or server's getIndexes()
+Get error pages - Location or server's getErrorPages()
+Check autoIndex - Whether to generate directory listing
+Then Use Your Tools:
+
+PathResolver: Resolve URI to filesystem path, validate safety
+FileSystemHandler: Check if path exists, is directory, is readable, get file size
+MimeTypeResolver: Determine Content-Type from file extension
+ErrorPageGenerator: Generate error responses when needed
+Decision Flow:
+
+Validate request → determine status code
+If error → use ErrorPageGenerator
+If directory + no index → use buildDirectoryListingResponse or error
+If directory + index exists → serve index file
+If regular file → use FileSystemHandler + MimeTypeResolver for buildFileResponse
+If CGI script → buildCGIResponse
+
+
+
+1. Security (Path Traversal Prevention)
+
+Users could request passwd or similar
+You must ensure the resolved path stays within your document root
+Use PathResolver's isPathSafe() for this validation
+2. Functionality (Path Resolution)
+
+URI path /images/photo.jpg needs to become filesystem path /var/www/html/images/photo.jpg
+Combine the root + requested path correctly
+Use PathResolver's resolveToFilesystem() for this
+The Flow:
+
+Get root from LocationConfig (with alias handling) or ServerConfig
+Use PathResolver::resolveToFilesystem(uriPath, root) → get full filesystem path
+Use PathResolver::isPathSafe(resolvedPath, root) → validate it's safe
+If unsafe → return 403 Forbidden
+If safe → proceed with FileSystemHandler to check existence, read file, etc.
+Example scenario to prevent:
+
+Root: /var/www/html
+Request: GET /../../../etc/passwd
+Without checking: could expose passwd
+With checking: isPathSafe() returns false → 403 error
+This is essential security - never skip it.
+
+
+
+Matching Algorithm:
+
+Prefix Match - Check if request path starts with the location path
+
+Request: /images/photo.jpg
+Location: /images → matches (prefix)
+Location: /api → no match
+Find Longest Match - If multiple locations match, choose the most specific
+
+Request: /images/thumbnails/photo.jpg
+/ → matches (length 1)
+/images → matches (length 7)
+/images/thumbnails → matches (length 18) → use this one
+Handle Exact vs Prefix
+
+/images matches /images/photo.jpg (prefix)
+/images matches /images (exact)
+/images does NOT match /imageshack.com (must match directory boundary)
+Verifications to Do:
+
+Check the request path starts with location path
+Verify character after location path is / or end of string (to avoid /images matching /imageshack)
+Among all matching locations, select the one with the longest path
+Have a fallback to root location / if no specific match
+Example Logic:
+
+This mirrors how nginx and other web servers handle location matching - most specific wins.
+
+bestMatch = nullptr
+longestMatchLength = 0
+
+for each location in locations:
+    if requestPath starts with location.getPath():
+        if path boundary is valid (/ or end):
+            if location.getPath().length() > longestMatchLength:
+                bestMatch = location
+                longestMatchLength = location.getPath().length()

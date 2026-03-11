@@ -43,6 +43,9 @@
 #include "Utils.hpp"
 #include "config/parser/ConfigUtils.hpp"
 #include "Exception.hpp"
+#include "fileResourceManagement/ErrorPageGenerator.hpp"
+#include "fileResourceManagement/FileSystemHandler.hpp"
+#include "fileResourceManagement/MimeTypeResolver.hpp"
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
