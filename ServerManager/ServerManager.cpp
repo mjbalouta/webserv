@@ -1,330 +1,59 @@
 #include "ServerManager.hpp"
 
 /**
- * @brief Constructs ServerManager and initializes all server sockets
- * @param argv Command line arguments (argv[1] should be config file path)
- * @throw std::runtime_error if config parsing, validation, or socket setup fails
+ * @brief Creates a default disconnected client session.
  */
-ServerManager::ServerManager(char **argv) : _epollFd(-1) {
+ServerManager::ClientSession::ClientSession()
+	: fd(-1), ownerIndex(-1), state(IDLE), lastActive(time(NULL)), responseStr(""),
+	  readBuffer(""), writeBuffer(""), totalSent(0), totalReceived(0),
+	  method(NONE), status(200), path(""), contentLength(0),
+	  keepAlive(true), isRedirection(false), headersSent(false) {}
+
+/**
+ * @brief Creates a client session associated with an accepted socket fd.
+ * @param clientFd Accepted client descriptor.
+ */
+ServerManager::ClientSession::ClientSession(int clientFd)
+	: fd(clientFd), ownerIndex(-1), state(IDLE), lastActive(time(NULL)), responseStr(""),
+	  readBuffer(""), writeBuffer(""), totalSent(0), totalReceived(0),
+	  method(NONE), status(200), path(""), contentLength(0),
+	  keepAlive(true), isRedirection(false), headersSent(false) {}
+
+/**
+ * @brief Initializes configuration, expands servers, and boots epoll listeners.
+ * @param argv Program arguments where `argv[1]` is the config path.
+ * @throw std::runtime_error On epoll/socket initialization failures.
+ */
+ServerManager::ServerManager(char **argv) : _epollFd(-1)
+{
 	std::ifstream file(argv[1]);
 	Config config;
 	_configs = config.getConfig();
-	printMessage("🛠️ Done parsing config file ", CYAN);
+	printLog("🛠️ Done parsing config file ", CYAN);
 
 	try
 	{
 		parseConfigServers();
-		printMessage("🚧 Setting up servers...", GOLD);
-		_epollFd = epoll_create(1);  // Create epoll instance, Parameter 1 is a hint about how many file descriptors you'll add (ignored on modern Linux, kept for compatibility)
+		printLog("🚧 Setting up servers...", GOLD);
+		_epollFd = epoll_create(1); // Creates an epoll instance and returns its fd; the argument is ignored on modern Linux and kept for compatibility.
 		if (_epollFd < 0)
 			throw std::runtime_error("Failed to create epoll instance");
-		_connections.resize(_servers.size());
-		createServerSockets();
+		_clients.resize(_servers.size());
+		setupListeningSockets();
 	}
-	catch(const std::exception& e)
+	catch (const std::exception&)
 	{
-		cleanupConnections();
+		cleanupClients();
 		cleanupSockets();
-		_connections.clear();
+		_clients.clear();
+		_clientFdToServer.clear();
+		_listenerFdToServer.clear();
 		_servers.clear();
-		if (_epollFd >= 0) {
+		if (_epollFd >= 0)
+		{
 			close(_epollFd);
 			_epollFd = -1;
 		}
 		throw;
 	}
-}
-
-/**
- * @brief 
- *  Creates and configures TCP server sockets for each configured server.
- *  For each server, this function: Create non-blocking TCP sockets, Enable quick restart on same port
- *  Bind socket to IP address and port, Mark the socket as listening and Register the socket with epoll
- * @throw std::runtime_error if socket creation, binding, or configuration fails
- */
-void ServerManager::createServerSockets(){
-	printMessage("🔧 Creating server sockets...", BBLU);
-	for (size_t i = 0; i < _servers.size(); i++)
-	{
-		std::string serverInfo = _servers[i].getServerIp() + ":" + itostr(_servers[i].getPort());
-		try
-		{
-			int server_fd = socket(AF_INET, SOCK_STREAM, 0); //AF_INET - Address Family: IPv4. SOCK_STREAM - Socket Type: TCP.  0 - Protocol: Let the OS choose the protocol
-			if (server_fd < 0)
-				throw std::runtime_error("Failed to create socket for " + serverInfo);
-			_servers[i].setServerFd(server_fd);
-			
-			int opt = 1;
-			if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) //server_fd - The socket file descriptor to configure. SOL_SOCKET - Level: Socket-level options (vs IPPROTO_TCP for TCP-level). SO_REUSEADDR - Option: Allow reusing local address/port. &opt - Pointer to the value, 1 means "enable"). sizeof(opt) - Size of the value
-				throw std::runtime_error("Failed to set SO_REUSEADDR for " + serverInfo);
-			
-			struct sockaddr_in addr; //Creates a structure to hold IPv4 address information sockaddr_in = socket address for IPv4
-			memset(&addr, 0, sizeof(addr));
-			addr.sin_family = AF_INET;
-			addr.sin_addr.s_addr = inet_addr(_servers[i].getServerIp().c_str()); //Converts IP string (e.g., "127.0.0.1") to binary format, inet_addr() = internet address conversion
-			addr.sin_port = htons(_servers[i].getPort()); //Converts port number to network byte order (big-endian). htons() = host to network short (converts integer to network format)
-			
-			if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //After bind: Socket is attached to 127.0.0.1:8080 (or your configured IP:port)
-				throw std::runtime_error("Failed to bind socket " + serverInfo + " (address already in use?)");
-			
-			if (listen(server_fd, SOMAXCONN) < 0) //After listen: Socket is in "listening" state, ready for accept()
-				throw std::runtime_error("Failed to listen on " + serverInfo);
-			
-			setnon_blocking(server_fd); //sets a socket to non-blocking mode, meaning socket operations won't wait (block) for completion.
-			
-			addToEpoll(_epollFd, server_fd, EPOLLIN); //EPOLLIN - Monitor for incoming data/connections (read readiness)
-			printMessage("✅ Server running at 🌐 http://" + serverInfo, BGRN);
-		}
-		catch (const std::exception& e)
-		{
-			// If socket was created but setup failed, close it
-			int fd = _servers[i].getServerfd();
-			if (fd >= 0) {
-				close(fd);
-				_servers[i].setServerFd(-1);
-			}
-			throw;
-		}
-	}
-	printMessage("🎉 All servers are up and running smoothly! 🚀", BMAG);
-}
-
-/**
- * @brief Parses configuration and creates Server objects with validation
- * @throw std::runtime_error if validation fails (invalid IP, port, or duplicate binding)
- */
-void ServerManager::parseConfigServers() {
-	for (size_t i = 0; i < _configs.size(); i++) {
-		for(size_t j = 0; j < _configs[i].getPort().size(); j++) {
-			Server server;
-			int port = std::atoi(_configs[i].getPort()[j].c_str());
-			// Configure server
-			server.setPort(port);
-			server.setName(_configs[i].getServerName()[j]);
-			server.setIp(_configs[i].getHost()[j]);
-			server.setMaxBody(strToLong(_configs[i].getClientMaxBodySize()[j]));
-			server.setRoot(_configs[i].getDefaultRoot()[j]);
-			server.setIndex(i);
-			_servers.push_back(server);
-		}
-	}
-}
-
-/**
- * @brief Accepts a new client connection and registers it with epoll
- * @param fd Server socket file descriptor (listening socket)
- * @param serverIndex Server index for storing the connection in _connections map
- * @return true if connection was successfully accepted and registered, false otherwise
- */
-bool ServerManager::createConnection(int fd, int serverIndex)
-{
-	struct sockaddr_in client_addr;
-	socklen_t client_len = sizeof(client_addr);
-	// accept(fd, addr, addrlen) - Accepts an incoming connection on listening socket 'fd'
-	// Returns a new socket fd for communicating with the client, or -1 on error
-	// client_addr gets filled with the client's address info (IP, port)
-	// client_len is both input (max size to write) and output (actual size written)
-	int client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
-	if (client_fd < 0)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-			return false;
-		return (printMessage("❌ Failed to accept connection", RED), false);
-	}
-	setnon_blocking(client_fd);
-	addToEpoll(_epollFd ,client_fd, EPOLLIN);
-	_connections[serverIndex][client_fd] = Connection(client_fd);
-	_connections[serverIndex][client_fd]._state = READING;
-	printMessage("🔗 New connection accepted", GRN);
-	return true;
-}
-
-/**
- * @brief Sets a file descriptor to non-blocking mode using fcntl
- * @param fd The file descriptor to configure
- * @throw std::runtime_error if F_GETFL or F_SETFL fcntl operations fail
- * @details 
- *   - F_GETFL: Retrieves current flags set on the file descriptor
- *   - O_NONBLOCK: Flag that makes socket operations non-blocking
- *   - F_SETFL: Sets new flags (ORed with existing flags) on the file descriptor
- *   Non-blocking sockets allow multiplexing many connections without threads
- */
-void setnon_blocking(int fd) {
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags < 0)
-		throw std::runtime_error("fcntl F_GETFL failed");
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-		throw std::runtime_error("fcntl F_SETFL failed");
-}
-
-/**
- * @brief Closes all open server socket file descriptors
- * @details Iterates through all server sockets stored in _servers vector,
- *   closes each valid file descriptor (fd >= 0), and resets it to -1
- *   to prevent double-close errors in destructor
- */
-void ServerManager::cleanupSockets() {
-	for (size_t i = 0; i < _servers.size(); i++) {
-		int fd = _servers[i].getServerfd();
-		if (fd >= 0) {
-			close(fd);
-			_servers[i].setServerFd(-1);
-		}
-	}
-}
-/**
- * @brief Closes all open client connection file descriptors
- * @throw std::runtime_error if epoll_ctl fails
- */
-void ServerManager::cleanupConnections() {
-	for (size_t i = 0; i < _connections.size(); i++) {
-		std::map<int, Connection>::iterator it = _connections[i].begin();
-		while (it != _connections[i].end()) {
-			int fd = it->first;
-			++it;
-			closeConnection(i, fd);
-		}
-	}
-}
-
-/**
- * @brief Safely closes a client connection and removes it from tracking structures.
- * @param serverIndex Index of the server in the `_connections` vector that owns this connection.
- * @param fd File descriptor of the client socket to close.
- * 
- * @details
- * Performs a multi-step cleanup process:
- * 1) **Validation**: Guards against invalid server index or file descriptor.
- * 2) **Lookup**: Searches for connection in the server's connection map.
- * 3) **Epoll removal**: Unregisters fd from epoll monitoring to prevent spurious events.
- * 4) **Socket closure**: Calls `Connection::closeConnection()` to close the socket fd.
- * 5) **Memory cleanup**: Removes connection object from map, triggering destructor.
- * 
- * @note Silent failure: Returns early without error if connection is not found or parameters invalid.
- * @note Order matters: epoll removal before socket close prevents race conditions where
- *       epoll might still report events on a closed fd.
- */
-void ServerManager::closeConnection(int serverIndex, int fd)
-{
-	// 1) Validate parameters: prevent out-of-bounds access and invalid fd operations.
-	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _connections.size() || fd < 0)
-		return;
-
-	// 2) Get reference to this server's connection map and search for fd.
-	std::map<int, Connection> &serverConnections = _connections[serverIndex];
-	std::map<int, Connection>::iterator it = serverConnections.find(fd);
-	if (it == serverConnections.end())
-		return;
-
-	// 3) Unregister from epoll to stop monitoring this fd for I/O events.
-	removeFromEpoll(_epollFd, fd);
-	
-	// 4) Close the actual socket file descriptor.
-	it->second.closeConnection();
-	
-	// 5) Remove from connection map (destructor cleanup happens here).
-	serverConnections.erase(it);
-	printMessage("Closing connection: " + itostr(fd), MAG);
-}
-
-void ServerManager::runEventLoop()
-{
-	struct epoll_event events[MAX_EVENTS];
-
-	while (true)
-	{
-		int ready = epoll_wait(_epollFd, events, MAX_EVENTS, 1000);
-		if (ready < 0)
-		{
-			if (errno == EINTR)
-				continue;
-			throw std::runtime_error("epoll_wait failed");
-		}
-
-		time_t now = time(NULL);
-		for (size_t s = 0; s < _connections.size(); ++s)
-		{
-			std::map<int, Connection>::iterator it = _connections[s].begin();
-			while (it != _connections[s].end())
-			{
-				int fd = it->first;
-				Connection &conn = it->second;
-				++it;
-
-				if (difftime(now, conn.getLastActive()) > KEEP_ALIVE_TIMEOUT)
-				{
-					printMessage("⏳ Closing idle connection: " + itostr(fd), BYEL);
-					closeConnection(static_cast<int>(s), fd);
-				}
-			}
-		}
-
-		for (int i = 0; i < ready; ++i)
-		{
-			int fd = events[i].data.fd;
-			int serverIndex = -1;
-			for (size_t s = 0; s < _servers.size(); ++s)
-			{
-				if (_servers[s].getServerfd() == fd)
-				{
-					serverIndex = static_cast<int>(s);
-					break;
-				}
-			}
-
-			if (serverIndex != -1)
-			{
-				while (createConnection(fd, serverIndex))
-					;
-				continue;
-			}
-
-			int ownerIndex = -1;
-			for (size_t s = 0; s < _connections.size(); ++s)
-			{
-				if (_connections[s].find(fd) != _connections[s].end())
-				{
-					ownerIndex = static_cast<int>(s);
-					break;
-				}
-			}
-
-			if (ownerIndex == -1)
-				continue;
-
-			std::map<int, Connection>::iterator connIt = _connections[ownerIndex].find(fd);
-			if (connIt == _connections[ownerIndex].end())
-				continue;
-
-			Connection &conn = connIt->second;
-			if (events[i].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
-				conn._state = CLOSING;
-			else
-				// Person 1 scope: transport/protocol I/O state machine only.
-				// Person 2/3 integration happens inside processing hooks called by Connection.
-				conn.handleRequest(static_cast<size_t>(_servers[ownerIndex].getMaxBody()), _epollFd);
-
-			if (conn.getState() == CLOSING)
-				closeConnection(ownerIndex, fd);
-		}
-	}
-}
-
-ServerManager::~ServerManager(){
-	cleanupConnections();
-	for (size_t i = 0; i < _servers.size(); i++) {
-		int fd = _servers[i].getServerfd();
-		if (fd >= 0) {
-			close(fd);
-			_servers[i].setServerFd(-1);
-		}
-	}
-	_connections.clear();
-	_servers.clear();
-	if (_epollFd >= 0) {
-		close(_epollFd);
-		_epollFd = -1;
-	}
-	_configs.clear();
-	printMessage("👋 BYE BYE 🔒 Server shut down", CYAN);
 }

@@ -35,7 +35,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	// HTTP headers and body are separated by an empty line.
 	size_t headerEnd = rawRequest.find("\r\n\r\n");
 	if (headerEnd == std::string::npos)
-		return (printMessage("❌ Malformed request: missing header terminator", RED), _status = 400, false);
+		return (printLog("❌ Malformed request: missing header terminator", RED), _status = 400, false);
 
 	// Split raw payload into header block and body block.
 	std::string head = rawRequest.substr(0, headerEnd);
@@ -45,7 +45,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	std::istringstream headStream(head);
 	std::string line;
 	if (!std::getline(headStream, line))
-		return (printMessage("❌ Invalid request line", RED), _status = 400, false);
+		return (printLog("❌ Invalid request line", RED), _status = 400, false);
 
 	if (!line.empty() && line[line.size() - 1] == '\r')
 		line.erase(line.size() - 1);
@@ -54,11 +54,11 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	std::string methodToken;
 	std::string target;
 	if (!(requestLine >> methodToken >> target >> _version))
-		return (printMessage("❌ Malformed request line", RED), _status = 400, false);
+		return (printLog("❌ Malformed request line", RED), _status = 400, false);
 
 	std::string trailingToken;
 	if (requestLine >> trailingToken)
-		return (printMessage("❌ Invalid request line format", RED), _status = 400, false);
+		return (printLog("❌ Invalid request line format", RED), _status = 400, false);
 
 	// Map method token to internal enum.
 	if (methodToken == "GET")
@@ -68,10 +68,10 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	else if (methodToken == "DELETE")
 		_method = DELETE;
 	else
-		return (printMessage("❌ Method not allowed", RED), _status = 405, false);
+		return (printLog("❌ Method not allowed", RED), _status = 405, false);
 
 	if (_version != "HTTP/1.1" && _version != "HTTP/1.0")
-		return (printMessage("❌ Unsupported HTTP version", RED), _status = 505, false);
+		return (printLog("❌ Unsupported HTTP version", RED), _status = 505, false);
 
 	// Split path and query string from request target.
 	size_t queryPos = target.find('?');
@@ -84,7 +84,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	}
 
 	if (_path.empty() || _path[0] != '/')
-		return (printMessage("❌ Invalid request target", RED), _status = 400, false);
+		return (printLog("❌ Invalid request target", RED), _status = 400, false);
 
 	// Parse each header line as "Key: Value" and store normalized key/value pairs.
 	while (std::getline(headStream, line))
@@ -96,21 +96,21 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 
 		size_t colonPos = line.find(':');
 		if (colonPos == std::string::npos || colonPos == 0)
-			return (printMessage("❌ Malformed header", RED), _status = 400, false);
+			return (printLog("❌ Malformed header", RED), _status = 400, false);
 
 		std::string rawKey = line.substr(0, colonPos);
 		std::string rawValue = line.substr(colonPos + 1);
 		std::string key = toLower(trimSpaces(rawKey));
 		std::string value = trimSpaces(rawValue);
 		if (key.empty())
-			return (printMessage("❌ Empty header key", RED), _status = 400, false);
+			return (printLog("❌ Empty header key", RED), _status = 400, false);
 
 		_headers[key] = value;
 	}
 
 	// Host header is mandatory in HTTP/1.1.
 	if (_version == "HTTP/1.1" && _headers.find("host") == _headers.end())
-		return (printMessage("❌ Missing Host header", RED), _status = 400, false);
+		return (printLog("❌ Missing Host header", RED), _status = 400, false);
 
 	// Cache frequently used metadata extracted from headers.
 	std::map<std::string, std::string>::const_iterator hostIt = _headers.find("host");
@@ -126,15 +126,16 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 	std::map<std::string, std::string>::const_iterator contentLengthIt = _headers.find("content-length");
 
 	// For POST in this implementation, Content-Length is required.
+	//MISSING CHUNKED
 	if (_method == POST && contentLengthIt == _headers.end())
-		return (printMessage("⚠️ Content-Length header missing", RED), _status = 411, false);
+		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
 
 	// Copy body only when enough bytes are available.
 	if (contentLengthIt != _headers.end())
 	{
 		expectedBodyLength = contentLength;
 		if (body.size() < expectedBodyLength)
-			return (printMessage("❌ Incomplete request body", RED), _status = 400, false);
+			return (printLog("❌ Incomplete request body", RED), _status = 400, false);
 		_body = body.substr(0, expectedBodyLength);
 	}
 	else
@@ -142,7 +143,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength)
 
 	// For POST in this implementation, Content-Type is required.
 	if (_method == POST && _headers.find("content-type") == _headers.end())
-		return (printMessage("⚠️ Content-Type header missing", RED), _status = 400, false);
+		return (printLog("⚠️ Content-Type header missing", RED), _status = 400, false);
 
 	// Request is syntactically valid and fully parsed.
 	return true;

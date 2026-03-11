@@ -1,6 +1,13 @@
 #pragma once
 #include "../Includes.hpp"
 
+enum Method {
+	GET,
+	POST,
+	DELETE,
+	NONE
+};
+
 class Request {
 	public :
 		Request();

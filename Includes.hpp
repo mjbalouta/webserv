@@ -28,8 +28,8 @@
 #include <errno.h>      // errno, EINTR
 
 #include <sys/epoll.h>
-#include <arpa/inet.h> //inet_addr
-#include <fcntl.h> //fnctl
+#include <arpa/inet.h> // inet_addr
+#include <fcntl.h>     // fcntl
 
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
@@ -45,9 +45,7 @@ class PathResolver;
 
 #include "ServerManager/Server.hpp"
 #include "ServerManager/ServerManager.hpp"
-#include "ServerManager/Connection.hpp"
 #include "ServerManager/Request.hpp"
-class Connection;
 class ServerManager;
 class Server;
 class Request;

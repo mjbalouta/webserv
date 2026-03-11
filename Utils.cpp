@@ -6,7 +6,7 @@
  * @param color ANSI color code to apply to the message
  * @return void
  */
-void printMessage(std::string message, std::string color)
+void printLog(std::string message, std::string color)
 {
 	std::cout << color << message << D << std::endl;
 }
@@ -60,6 +60,15 @@ long strToLong(const std::string& value)
 	char *end = NULL;
 	long result = ::strtol(trimmed.c_str(), &end, 10);
 	return result;
+}
+
+void setNonBlockingFd(int fd)
+{
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0)
+		throw std::runtime_error("fcntl F_GETFL failed");
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+		throw std::runtime_error("fcntl F_SETFL failed");
 }
 
 /**
