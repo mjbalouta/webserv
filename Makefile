@@ -14,7 +14,7 @@ SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
 # Compiler (C++).
 CXX			= c++
-CXXFLAGS		= -Wall -Wextra -Werror -std=c++98 -g
+CXXFLAGS	= -Wall -Wextra -Werror -std=c++98 -g
 
 INC			= -I $(INC_PATH)
 

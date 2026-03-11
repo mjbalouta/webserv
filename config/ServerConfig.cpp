@@ -19,9 +19,9 @@ void ServerConfig::setRoot(const std::string& root)
 	_root = root;
 }
 
-void ServerConfig::setIndexes(const std::vector<std::string>& indexes)
+void ServerConfig::addIndex(const std::string& index)
 {
-	_indexes = indexes;
+	_indexes.push_back(index);
 }
 
 void ServerConfig::addErrorPages(int code, const std::string& file)
@@ -82,4 +82,29 @@ const std::vector<std::string>& ServerConfig::getServerNames() const
 const std::vector<LocationConfig>& ServerConfig::getLocations() const
 {
 	return _locations;
+}
+
+void ServerConfig::clearIndexes()
+{
+	_indexes.clear();
+}
+
+void ServerConfig::setMaxBodySize(unsigned long size)
+{
+	_maxBodySize = size;
+}
+
+unsigned long ServerConfig::getMaxBodySize() const
+{
+	return _maxBodySize;
+}
+
+void ServerConfig::setAutoIndex(bool status)
+{
+	_autoIndex = status;
+}
+
+bool ServerConfig::getAutoIndex() const
+{
+	return _autoIndex;
 }
