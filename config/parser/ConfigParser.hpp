@@ -18,6 +18,7 @@ class ConfigParser
 	void parseAlias(LocationConfig& location);
 	void parseAllowMethods(LocationConfig& location);
 	void parseReturn(LocationConfig& location);
+	void parseCGI(LocationConfig& location);
 	template <typename T>
 	void parseRoot(T& object);
 	template <typename T>

@@ -16,4 +16,5 @@ class ConfigUtils
 	static unsigned long calculateSize(unsigned long size, int option);
 	static void validateURL(std::string& url);
 	static void validateMessage(std::string& token);
+	static void checkExtension(std::string& token);
 };

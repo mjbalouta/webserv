@@ -1,6 +1,38 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Validates information after 'cgi_pass' 
+ * 
+ * @param location 
+ */
+void ConfigParser::parseCGI(LocationConfig& location)
+{
+	++_currentToken;
+	checkIfTokenExists();
+
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing definitions after 'cgi_pass' keyword.");
+
+	ConfigUtils::checkExtension(_tokens[_currentToken]);
+	std::string extension = _tokens[_currentToken];
+
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] == ";")
+		throw ConfigException("Error: Missing path for the executor: " + _tokens[_currentToken - 1]);
+
+	ConfigUtils::validatePath(_tokens[_currentToken]);
+	std::string extensionPath = _tokens[_currentToken];
+
+	location.addCGI(extension, extensionPath);
+
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after 'cgi_pass' definitions.");
+}
+
+/**
  * @brief Validates information after 'return' keyword
  * (Return function: when a return is triggered, the server stops looking for files and immediately
  * sends a response to the client.)
@@ -158,8 +190,8 @@ void ConfigParser::parseLocation(ServerConfig& server)
 			parseAutoindex(location);
 		else if (token == "return")
 			parseReturn(location);
-	/*	else if (token == "cgi_pass") or cgi_ext?? ver sobre isto
-			parseCGI(location); */
+		else if (token == "cgi_pass") //verificar se cgi_pass e suficiente
+			parseCGI(location); 
 		else if (token == "error_page")
 			parseErrorPage(location);
 	/*	else if (token == "upload_store")

@@ -33,6 +33,7 @@ class LocationConfig
 	void setReturnURL(const std::string& url);
 	void setReturnMessage(const std::string& message);
 	void addErrorPages(int code, const std::string& file);
+	void addCGI(const std::string& extension, const std::string& extensionPath);
 
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
@@ -45,4 +46,5 @@ class LocationConfig
 	const std::string& getReturnURL() const;
 	const std::string& getReturnMessage() const;
 	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
+	const std::map<std::string, std::string>& getCGI() const;
 };

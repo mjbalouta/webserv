@@ -1,6 +1,22 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Validates the extension format
+ * 
+ * @param token 
+ */
+void ConfigUtils::checkExtension(std::string& token)
+{
+	if (token.size() < 2) //menor do que 2 ou 3? aceitamos .c?
+		throw ConfigException("Error: Wrong extension format: " + token);
+	if (token[0] != '.')
+		throw ConfigException("Error: Wrong extension format: " + token);
+	if (token.find('.', 1) != std::string::npos)
+		throw ConfigException("Error: Wrong extension format: " + token);
+	
+}
+
+/**
  * @brief Validates the message format after a status code in return
  * 
  * @param token 

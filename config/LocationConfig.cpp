@@ -105,3 +105,13 @@ const std::map<int, std::string>& LocationConfig::getErrorPages() const
 {
 	return _errorPages;
 }
+
+void LocationConfig::addCGI(const std::string& extension, const std::string& extensionPath)
+{
+	_cgi[extension] = extensionPath;
+}
+
+const std::map<std::string, std::string>& LocationConfig::getCGI() const
+{
+	return _cgi;
+}

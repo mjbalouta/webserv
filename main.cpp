@@ -5,7 +5,7 @@ int main(int ac, char **av)
 	if (ac != 2)
 	{
 		std::cout << "Missing a config file." << std::endl;
-		return ;
+		return 1;
 	}
 
 	/* try catch para o parsing, depois de passar as validacoes do parsing,
