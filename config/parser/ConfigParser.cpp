@@ -1,7 +1,7 @@
 #include "ConfigParser.hpp"
 
 ConfigParser::ConfigParser()
-: _filename(filename), _currentToken(0) 
+: _currentToken(0) 
 {}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
@@ -55,7 +55,7 @@ void ConfigParser::tokenize(std::string& content)
  */
 void ConfigParser::parse(const std::string& filename)
 {
-	std::ifstream file(_filename.c_str());
+	std::ifstream file(filename.c_str());
 	if (!file.is_open())
 		throw FileException("Error: Unable to open config file.");
 
