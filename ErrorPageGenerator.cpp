@@ -75,6 +75,18 @@ std::string ErrorPageGenerator::generateErrorPage(int statusCode, const std::str
 }
 
 std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const ServerConfig& config){
+    std::vector<LocationConfig> _locations = config.getLocations();
+    std::map<int, std::string> errorPages = _locations[0].getErrorPages(); // Assumindo que as páginas de erro personalizadas estão definidas no primeiro location block
+    std::map<int, std::string>::const_iterator it = errorPages.find(statusCode);
+    if (it != errorPages.end()) {
+        std::string filePath = config.getRoot() + "/" + it->second; // Assumindo que a root não tem uma barra no final
+        std::ifstream file(filePath);
+        if (file.is_open()) {
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            return content;
+        }
+    }
     std::map<int, std::string> customPages = config.getCustomErrorPages(); // Pedir Maria para criar um map das paginas de erro no config
     std::map<int, std::string>::const_iterator it = customPages.find(statusCode);
     if (it != customPages.end()) {
