@@ -37,7 +37,7 @@ class LocationConfig
 
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
-	const std::vector<std::string>& getIndexes() const;
+	const std::vector<std::string>& getIndexes() const; // Retorna o vetor para quando o pedido for um diretório
 	const std::vector<std::string>& getAllowedMethods() const;
 	bool getAutoIndex() const;
 	const std::string& getAlias() const;
@@ -45,6 +45,6 @@ class LocationConfig
 	int getReturnStatusCode() const;
 	const std::string& getReturnURL() const;
 	const std::string& getReturnMessage() const;
-	const std::map<int, std::string>& getErrorPages() const;
+	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
 
 };

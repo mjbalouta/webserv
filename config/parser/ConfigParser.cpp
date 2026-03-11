@@ -1,7 +1,10 @@
 #include "ConfigParser.hpp"
 
 ConfigParser::ConfigParser(const std::string& filename)
-: _filename(filename) {}
+: _filename(filename), _currentToken(0) 
+{
+	parse(_filename);
+}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
 {
@@ -13,7 +16,7 @@ const std::vector<ServerConfig>& ConfigParser::getServers() const
  * container of tokens
  * 
  */
-void ConfigParser::tokenize(std::string content)
+void ConfigParser::tokenize(std::string& content)
 {
 	std::string spacedContent = "";
 
@@ -52,7 +55,7 @@ void ConfigParser::tokenize(std::string content)
  * through the container and checks if the first word is 'server'
  * 
  */
-void ConfigParser::parse()
+void ConfigParser::parse(const std::string& filename)
 {
 	std::ifstream file(_filename.c_str());
 	if (!file.is_open())

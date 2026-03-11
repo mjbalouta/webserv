@@ -10,7 +10,7 @@ class ConfigParser
 	std::vector<std::string> _tokens; //to store the lines of the config file
 	size_t _currentToken; //to store in which line i'm in
 
-	void tokenize(std::string content);
+	void tokenize(std::string& content);
 	void parseServer();
 	void parseListen(ServerConfig& server);
 	void parseHost(ServerConfig& server);
@@ -34,5 +34,5 @@ class ConfigParser
 	public:
 	ConfigParser(const std::string& filename);
 	const std::vector<ServerConfig>& getServers() const;
-	void parse();
+	void parse(const std::string& filename);
 };

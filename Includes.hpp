@@ -40,6 +40,7 @@
 #include "fileResourceManagement/PathResolver.hpp"
 #include "config/LocationConfig.hpp"
 #include "config/ServerConfig.hpp"
+#include "config/parser/ConfigParser.hpp"
 #include "Utils.hpp"
 #include "config/parser/ConfigUtils.hpp"
 #include "Exception.hpp"
