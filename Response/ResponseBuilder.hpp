@@ -4,7 +4,7 @@
 
 class ResponseBuilder{
 	public:
-		std::string returnResponse(const std::string& request, const ServerConfig& config);
+		std::string returnResponse(const Request& request, const ServerConfig& config);
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -14,10 +14,16 @@ class ResponseBuilder{
 		std::time_t _lastModified;
 		std::string _body;
 
-// Check status while building the response, if it's an error code, build an error response instead of a file response
+		ErrorPageGenerator error;
+		PathResolver pathResolver;
+		FileSystemHandler fileSystemHandler;
+		MimeTypeResolver mimeTypeResolver;
+
 		int getStatusCode();
 		void setStatusCode(int statusCode);
 		int determineStatusCode(const std::string& request, const ServerConfig& config);
+
+		std::string returnErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
 
 		std::string getStatusLine();
 		std::string getContentType();

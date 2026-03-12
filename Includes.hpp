@@ -46,6 +46,19 @@
 #include "fileResourceManagement/ErrorPageGenerator.hpp"
 #include "fileResourceManagement/FileSystemHandler.hpp"
 #include "fileResourceManagement/MimeTypeResolver.hpp"
+#include "Response/ResponseBuilder.hpp"
+class ResponseBuilder;
+class ErrorPageGenerator;
+class PathResolver;
+class FileSystemHandler;
+class MimeTypeResolver;
+
+#include "ServerManager/Server.hpp"
+#include "ServerManager/ServerManager.hpp"
+#include "ServerManager/Request.hpp"
+class ServerManager;
+class Server;
+class Request;
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes

@@ -9,8 +9,13 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 	{
 		std::string requestpath = request.getPath();
 		PathResolver resolver;
-		if (resolver.isPathSafe(requestpath)) {
-			if (request.find(locations[i].getPath()) == 0)
+		std::string locationRoot;
+		if (locations[i].getRoot().empty())
+			locationRoot = config.getRoot();
+		else
+			locationRoot = locations[i].getRoot();
+		if (resolver.isPathSafe(requestpath, locationRoot) == true) {
+			if (requestpath.find(locations[i].getPath()) == 0)
 			{
 				if (matchedLocation != NULL)
 				{
@@ -23,17 +28,46 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 		}
 	}
 	if (matchedLocation == NULL)
+		return returnErrorResponse(404, request, config);
+	else
 	{
-		_statusCode = 404;
-		ErrorPageGenerator error;
+		std::vector<std::string> methods = matchedLocation->getAllowedMethods();
+		std::vector<std::string>::iterator it = methods.begin();
+		bool Allowed = false;
+		for (; it != methods.end(); it++)
+			if (*it == request.getMethodString())
+				Allowed = true;
+		if (!Allowed)
+			return returnErrorResponse(405, request, config);
+		
+	}
+	std::string response;
+	return response; // Placeholder response
+}
+
+std::string ResponseBuilder::returnErrorResponse(int statusCode, const Request& request, const ServerConfig& config){
+		_statusCode = statusCode;
 		std::stringstream ss;
 		ss << _statusCode;
 		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
-	}
-	// Implement logic to create the response based on the request and server configuration
-	// This is a placeholder implementation and should be expanded based on actual requirements
-	std::string response;
-	return response; // Placeholder response
+		_contentType = "text/html";
+		std::string errorPage = error.loadCustomErrorPage(_statusCode, config);
+		if (errorPage.empty())
+			errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
+		_body = errorPage;
+		_contentLength = _body.size();
+		std::string response = _statusLine;
+		setStandardHeaders(response, _contentType, _contentLength);
+		response += "\r\n" + _body;
+		return response;
+}
+
+void ResponseBuilder::setStandardHeaders(std::string& response, const std::string& contentType, size_t contentLength) {
+	response += "Content-Type: " + contentType + "\r\n";
+	response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
+	response += "Date: " + getDateString() + "\r\n";
+	response += "Last-Modified: " + getLastModifiedString() + "\r\n";
+	response += "Connection: close\r\n";
 }
 
 void ResponseBuilder::setStatusCode(int statusCode) {
