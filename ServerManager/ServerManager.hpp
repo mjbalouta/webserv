@@ -37,15 +37,15 @@ class ServerManager {
 		};
 
 		int _epollFd;
-		std::vector<Server> _servers;
-		std::vector<Config> _configs;
+		std::vector<ServerConfig> _servers;
+		//std::vector<Config> _configs;
 		std::vector<std::map<int, ClientSession> > _clients;
 		std::map<int, int> _listenerFdToServer;
 		std::map<int, int> _clientFdToServer;
 
 		void parseConfigServers();
 		void setupListeningSockets();
-		int buildListeningSocket(const Server &server, const std::string &serverInfo);
+		int buildListeningSocket(const ServerConfig &server, const std::string &serverInfo);
 		void addListenerToEpoll(int fd, int serverIndex);
 		void addClientToEpoll(ClientSession &client);
 		void modClientEpoll(const ClientSession &client, uint32_t events);
@@ -61,7 +61,6 @@ class ServerManager {
 		void sendClientResponse(ClientSession &client, int epollFd);
 		void closeIdleClients(time_t now);
 		void handleReadyEvent(const epoll_event &event);
-
 
 	public :
 		ServerManager(char **argv);

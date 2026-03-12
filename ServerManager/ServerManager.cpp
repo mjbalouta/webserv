@@ -26,14 +26,13 @@ ServerManager::ClientSession::ClientSession(int clientFd)
  */
 ServerManager::ServerManager(char **argv) : _epollFd(-1)
 {
-	std::ifstream file(argv[1]);
 	ConfigParser config;
-	_configs = config.getConfig();
+	config.parse(argv[1]);
+	_servers = config.getServers();
 	printLog("🛠️ Done parsing config file ", CYAN);
 
 	try
 	{
-		parseConfigServers();
 		printLog("🚧 Setting up servers...", GOLD);
 		_epollFd = epoll_create(1); // Creates an epoll instance and returns its fd; the argument is ignored on modern Linux and kept for compatibility.
 		if (_epollFd < 0)

@@ -19,6 +19,7 @@ class Request {
 		//getters
 		int getStatus() const { return _status; };
 		Method getMethod() const { return _method; };
+		std::string getMethodStr() const;
 		bool isRedirect() const { return _isRedirect; };
 		bool isAutoIndex() const { return _isAutoindex; };
 		const std::string &getAutoIndexPath() const { return _autoIndexPath; };

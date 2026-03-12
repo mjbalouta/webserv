@@ -186,3 +186,18 @@ void Request::parseQueryString(const std::string &query, std::map<std::string, s
 			queryParams[token.substr(0, equalPos)] = token.substr(equalPos + 1);
 	}
 }
+
+std::string Request::getMethodStr() const{
+	switch (_method)
+	{
+		case GET:
+			return "GET";
+		case POST:
+			return "POST";
+		case DELETE:
+			return "DELETE";
+		case NONE:
+		default:
+			return "NONE";
+	}
+}

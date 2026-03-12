@@ -28,7 +28,7 @@ void ServerManager::parseConfigServers()
  * @param serverInfo Human-readable ip:port for error messages.
  * @return Listening socket fd.
  */
-int ServerManager::buildListeningSocket(const Server &server, const std::string &serverInfo)
+int ServerManager::buildListeningSocket(const ServerConfig &server, const std::string &serverInfo)
 {
 	int serverFd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET: IPv4 address family. SOCK_STREAM: TCP socket type. 0: let OS select protocol.
 	if (serverFd < 0)
@@ -116,11 +116,11 @@ void ServerManager::setupListeningSockets()
 	printLog("🔧 Creating server sockets...", BBLU);
 	for (size_t i = 0; i < _servers.size(); i++)
 	{
-		std::string serverInfo = _servers[i].getServerIp() + ":" + itostr(_servers[i].getPort());
+		std::string serverInfo = _servers[i].getHost() + ":" + itostr(_servers[i].getPort());
 		try
 		{
 			int server_fd = buildListeningSocket(_servers[i], serverInfo);
-			_servers[i].setServerFd(server_fd);
+			_servers[i].setFd(server_fd);
 			addListenerToEpoll(server_fd, static_cast<int>(i));
 			printLog("✅ Server running at 🌐 http://" + serverInfo, BGRN);
 		}
