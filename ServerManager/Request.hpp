@@ -34,6 +34,15 @@ class Request {
 		std::string getHeader(const std::string &keyHeader) const;
 
 	private:
+		void resetStateForParsing();
+		bool parseRequestLine(const std::string &head, std::istringstream &headStream, std::string &target);
+		bool parseMethodToken(const std::string &methodToken);
+		bool parseTargetAndQuery(const std::string &target);
+		bool parseHeaders(std::istringstream &headStream);
+		bool validateAndCacheHostHeader();
+		void cacheTransferEncodingFlags();
+		bool parseAndValidateBody(const std::string &body, size_t contentLength);
+
 		int _status;
 		bool _isRedirect;
 		bool _isAutoindex;

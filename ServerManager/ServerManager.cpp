@@ -26,33 +26,40 @@ ServerManager::ClientSession::ClientSession(int clientFd)
  */
 ServerManager::ServerManager(char **argv) : _epollFd(-1)
 {
-	ConfigParser config;
-	config.parse(argv[1]);
-	_servers = config.getServers();
-	printLog("🛠️  Done parsing config file ", CYAN);
-
+	
 	try
 	{
-		printLog("🚧 Setting up servers...", GOLD);
-		_epollFd = epoll_create(1); // Creates an epoll instance and returns its fd; the argument is ignored on modern Linux and kept for compatibility.
+		ConfigParser config;
+		config.parse(argv[1]);
+		_servers = config.getServers();
+		printLog("⚙️  Loading configuration...", BCYAN);
+		// epoll_create() returns the kernel-managed epoll instance used to watch all listening sockets and all connected clients from one event loop.
+		// The integer argument is ignored on modern Linux and kept only for compatibility.
+		_epollFd = epoll_create(1);
 		if (_epollFd < 0)
 			throw std::runtime_error("Failed to create epoll instance");
 		_clients.resize(_servers.size());
+		// Build, bind, listen and add all listening sockets to epoll.
 		setupListeningSockets();
 	}
 	catch (const std::exception&)
 	{
+		// If any startup step fails, release everything created so far.
+		// This prevents leaked client sockets, listening sockets and epoll fds.
 		cleanupClients();
 		cleanupSockets();
+		// Clear runtime containers so the object is left in a safe empty state.
 		_clients.clear();
 		_clientFdToServer.clear();
 		_listenerFdToServer.clear();
 		_servers.clear();
 		if (_epollFd >= 0)
 		{
+			// Close the epoll instance only if creation succeeded earlier.
 			close(_epollFd);
 			_epollFd = -1;
 		}
+		// Re-throw the original startup failure so main() can report it.
 		throw;
 	}
 }

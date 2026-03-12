@@ -4,29 +4,27 @@
  * @brief Resolves a config host token into an IPv4 address for bind().
  * @param host Host token from config (examples: "localhost", "127.0.0.1", "0.0.0.0", "*").
  * @return IPv4 address in network byte order suitable for `sockaddr_in::sin_addr.s_addr`.
- *
- * Supported values:
- * - empty string / "*" / "0.0.0.0" => bind on all interfaces (INADDR_ANY)
- * - "localhost" => loopback only (127.0.0.1 / INADDR_LOOPBACK)
- * - explicit dotted IPv4 => parsed with `inet_pton(AF_INET, ...)`
- *
- * Why this helper exists:
- * - `inet_addr("localhost")` does not resolve hostnames and can produce an invalid bind target.
- * - This function keeps bind behavior explicit and safe for supported IPv4 inputs.
- *
  * @throw std::runtime_error if `host` is not a supported IPv4 token.
  */
 static in_addr_t resolveBindAddress(const std::string &host)
 {
-	// Bind on all interfaces when host is wildcard/unspecified.
+	// Bind on all local network interfaces when host is wildcard/unspecified.
+	// INADDR_ANY means "accept connections on any IPv4 address this machine owns".
 	if (host.empty() || host == "*" || host == "0.0.0.0")
 		return htonl(INADDR_ANY);
 
-	// Bind only on loopback when config uses "localhost".
+	// Bind only on the local loopback interface when config uses "localhost".
+	// INADDR_LOOPBACK is the IPv4 loopback address 127.0.0.1.
+	// Only clients on the same machine can connect to this address.
 	if (host == "localhost")
 		return htonl(INADDR_LOOPBACK);
 
 	// Parse dotted IPv4 notation (e.g., "192.168.1.10" or "127.0.0.1").
+	// AF_INET tells inet_pton() to parse the text as an IPv4 address.
+	// inet_pton() returns:
+	// 1 if the text is a valid IPv4 address,
+	// 0 if the text is not valid IPv4,
+	// -1 if the address family is unsupported.
 	struct in_addr parsed;
 	if (inet_pton(AF_INET, host.c_str(), &parsed) == 1)
 		return parsed.s_addr;
@@ -55,25 +53,35 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, int port, co
 		throw std::runtime_error("Failed to set SO_REUSEADDR for " + serverInfo);
 	}
 
-	struct sockaddr_in addr; // IPv4 socket address structure.
+	// Fill the IPv4 bind address structure used by bind().
+	// sockaddr_in contains: family, IPv4 address and port.
+	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
+	// AF_INET tells the kernel this is an IPv4 socket address.
 	addr.sin_family = AF_INET;
+	// Convert the host token from config into a binary IPv4 address.
 	addr.sin_addr.s_addr = resolveBindAddress(server.getHost());
-	addr.sin_port = htons(port); // Host-to-network short: converts port to big-endian network byte order.
+	// Convert the numeric port from host byte order to network byte order.
+	addr.sin_port = htons(port);
 
-	if (bind(serverFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) // Associates socket with configured IP:port.
+	// Attach the socket to the chosen local IP address and port.
+	// After bind(), the socket owns that endpoint.
+	if (bind(serverFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
 	{
 		close(serverFd);
 		throw std::runtime_error("Failed to bind socket " + serverInfo + " (address already in use?)");
 	}
 
-	if (listen(serverFd, SOMAXCONN) < 0) // Puts socket in listening state so incoming connections can be accepted.
+	// Turn the bound socket into a listening socket so incoming TCP connections
+	// are queued and later accepted with accept().
+	if (listen(serverFd, SOMAXCONN) < 0)
 	{
 		close(serverFd);
 		throw std::runtime_error("Failed to listen on " + serverInfo);
 	}
 
-	setNonBlockingFd(serverFd); // Non-blocking mode: socket operations return immediately instead of waiting.
+	// Listening sockets must be non-blocking so accept() never freezes the entire server.
+	setNonBlockingFd(serverFd);
 	return serverFd;
 }
 
@@ -84,40 +92,50 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, int port, co
  */
 void ServerManager::addListenerToEpoll(int fd, int serverIndex)
 {
+	// Build the epoll event structure describing what readiness we care about.
 	struct epoll_event ev;
 	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
 	ev.data.fd = fd;
 	if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, fd, &ev) < 0) // Adds listening fd to epoll interest list; EPOLLIN notifies pending incoming connections.
 		throw std::runtime_error("Failed to add fd " + itostr(fd) + " to epoll");
+	// Keep a reverse lookup so event-loop code can tell which server owns this listener.
 	_listenerFdToServer[fd] = serverIndex;
 }
 
 /**
-	* @brief Registers a client fd in epoll for read-ready events.
+ * @brief Registers a client fd in epoll for read-ready events.
  * @param client Client session to register.
  */
 void ServerManager::addClientToEpoll(ClientSession &client)
 {
 	struct epoll_event ev;
 	memset(&ev, 0, sizeof(ev));
+	// EPOLLIN means "wake me when this fd can be read without blocking".
+	// For client sockets, that means incoming request data is available.
 	ev.events = EPOLLIN;
 	ev.data.fd = client.fd;
+	// EPOLL_CTL_ADD tells epoll_ctl() to add this fd as a new watched entry
+	// in the epoll interest list (as opposed to modifying or deleting it).
 	if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, client.fd, &ev) < 0)
 		throw std::runtime_error("Failed to add fd " + itostr(client.fd) + " to epoll");
 }
 
 /**
-	* @brief Updates epoll interest mask for a client.
+ * @brief Updates epoll interest mask for a client.
  * @param client Target client session.
  * @param events New event mask.
  */
 void ServerManager::modClientEpoll(const ClientSession &client, uint32_t events)
 {
+	// Rebuild the event mask whenever the client changes phase
+	// (for example EPOLLIN while reading, EPOLLOUT while writing).
 	struct epoll_event ev;
 	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
 	ev.data.fd = client.fd;
+	// EPOLL_CTL_MOD tells epoll_ctl() to modify an fd that is already being watched,
+	// replacing its old event mask with the new one stored in `events`.
 	if (epoll_ctl(_epollFd, EPOLL_CTL_MOD, client.fd, &ev) < 0)
 		throw std::runtime_error("Failed to modify fd " + itostr(client.fd) + " in epoll");
 }
@@ -127,7 +145,7 @@ void ServerManager::modClientEpoll(const ClientSession &client, uint32_t events)
  */
 void ServerManager::setupListeningSockets()
 {
-	printLog("🔧 Creating server sockets...", BBLU);
+	printLog("🛰️  Initializing server sockets...", BBLU);
 	for (size_t i = 0; i < _servers.size(); i++)
 	{
 		const std::vector<int> &ports = _servers[i].getPorts();
@@ -139,11 +157,12 @@ void ServerManager::setupListeningSockets()
 			std::string serverInfo = _servers[i].getHost() + ":" + itostr(ports[portIndex]);
 			try
 			{
+				// Create, configure, bind and listen on this one endpoint.
 				int server_fd = buildListeningSocket(_servers[i], ports[portIndex], serverInfo);
 				if (_servers[i].getFd() < 0)
 					_servers[i].setFd(server_fd);
 				addListenerToEpoll(server_fd, static_cast<int>(i));
-				printLog("✅ Server running at 🌐 http://" + serverInfo, BGRN);
+				printLog("✅ Server listening on 🌐 http://" + serverInfo, BGRN);
 			}
 			catch (const std::exception&)
 			{
@@ -162,5 +181,5 @@ void ServerManager::setupListeningSockets()
 			}
 		}
 	}
-	printLog("🎉 All servers are up and running smoothly! 🚀", BMAG);
+	printLog("🚀 Servers ready to accept connections!", BMAG);
 }

@@ -31,6 +31,9 @@ static std::string getReasonPhrase(int statusCode)
 static std::string buildDefaultResponse(int statusCode, bool keepAlive, const std::string &explicitBody)
 {
 	//Person 3 ownership: replace this fallback with the final Response engine serializer.
+	// If no explicit body was prepared by higher-level logic, use a tiny
+	// fallback body derived from the status text so the client still gets
+	// a valid human-readable response.
 	std::string body = explicitBody;
 	if (body.empty())
 		body = getReasonPhrase(statusCode) + "\n";
@@ -72,12 +75,15 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 	const std::string header = "content-length:";
 	size_t pos = headersLower.find(header);
 	if (pos == std::string::npos)
+		// Header absent is not automatically an error here; caller decides.
 		return true;
 
+	// Skip the header name and any optional whitespace before the number.
 	size_t start = pos + header.length();
 	while (start < headersLower.size() && (headersLower[start] == ' ' || headersLower[start] == '\t'))
 		++start;
 
+	// Read until the end of this header line.
 	size_t end = headersLower.find("\r\n", start);
 	if (end == std::string::npos)
 		return true;
@@ -107,16 +113,15 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			return;
 		case READING:
 			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
-			if (client.state == PROCESSING)
-			{
-				parseClientRequest(client, server);
-				if (client.state == WRITING)
-					modClientEpoll(client, EPOLLOUT);
-			}
-			break;
+			if (client.state != PROCESSING)
+				break;
+			// Full request received: continue directly into the processing step
+			// during the same event-loop pass instead of waiting for another event.
 		case PROCESSING:
 			parseClientRequest(client, server);
 			if (client.state == WRITING)
+				// EPOLLOUT means "wake me when this fd can be written without blocking".
+				// Once a response is ready, we switch from read readiness to write readiness.
 				modClientEpoll(client, EPOLLOUT);
 			break;
 		case WRITING:
@@ -138,25 +143,23 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 {
 	if (client.fd < 0)
 	{
-		printLog("🟥 No socket available", RED);
+		printLog("🚨 No socket available", RED);
 		client.state = CLOSING;
 		return;
 	}
 
+	// Temporary stack buffer used for one recv() call.
 	char buffer[BUFFER_SIZE];
 	int readBytes = recv(client.fd, buffer, sizeof(buffer), MSG_NOSIGNAL);
 	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
 	// Returns: >0 number of bytes read, 0 if client closed connection, -1 when data is not currently available or on error.
 	// MSG_NOSIGNAL prevents SIGPIPE-related signals during socket operations.
 	if (readBytes < 0)
-	{
-		// Subject rule: do not branch on errno after read/write.
-		// Keep connection open and retry on next EPOLLIN notification.
 		return;
-	}
 
 	if (readBytes == 0)
 	{
+		// recv() == 0 means the peer performed an orderly shutdown.
 		printLog("ℹ️ Client closed connection gracefully", BYEL);
 		client.state = CLOSING;
 		return;
@@ -173,6 +176,8 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
 	{
 		//MISSING CHUNKED PART
+		// Chunked request bodies are detected, but actual chunk decoding is not
+		// implemented yet, so return 501 Not Implemented.
 		client.status = 501;
 		client.keepAlive = false;
 		client.state = PROCESSING;
@@ -183,7 +188,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	{
 		if (!parseContentLengthValue(headersLower, client.contentLength))
 		{
-			printLog("🟥 Invalid Content-Length", RED);
+			printLog("🚨 Invalid Content-Length", RED);
 			client.status = 400;
 			client.keepAlive = false;
 			client.state = PROCESSING;
@@ -193,7 +198,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	if ((long)client.contentLength > static_cast<long>(maxUploadSize))
 	{
-		printLog("🟥 Content-Length exceeds maximum limit", RED);
+		printLog("🚨 Content-Length exceeds maximum limit", RED);
 		client.state = PROCESSING;
 		client.keepAlive = false;
 		client.status = 413;
@@ -202,6 +207,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	{
 		size_t headerSize = headerEnd + 4;
 		size_t bodySize = client.readBuffer.size() - headerSize;
+		// Once enough body bytes have arrived, the request is complete and can be parsed.
 		if (bodySize >= client.contentLength)
 			client.state = PROCESSING;
 	}
@@ -229,6 +235,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 	{
 		// Person 2 hook: receive parsed Request + current ServerConfig and decide
 		// routing/config result (best location, method validation, effective path, status).
+		// For now processClientRequest() copies the parsed metadata into transport fields.
 		processClientRequest(client, request, server);
 	}
 
@@ -254,18 +261,23 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	client.status = request.getStatus();
 	client.isRedirection = request.isRedirect();
 
+	// Determine keep-alive behavior from HTTP version + Connection header:
+	// - HTTP/1.0 defaults to close unless Connection: keep-alive
+	// - HTTP/1.1 defaults to keep-alive unless Connection: close
 	std::string clientHeader = toLower(request.getHeader("connection"));
 	if (request.getVersion() == "HTTP/1.0")
 		client.keepAlive = (clientHeader == "keep-alive");
 	else
 		client.keepAlive = (clientHeader != "close");
 
+	// Placeholder response source until the real resource engine exists.
 	if (request.isAutoIndex())
 		// Person 3 hook: replace this placeholder body source with final
 		// resource engine output (file content/error page/rendered directory).
 		client.responseStr = request.getAutoIndexPath();
 	else
 		client.responseStr.clear();
+	// Parsing + request processing is done; next step is writing a response.
 	client.state = WRITING;
 }
 
@@ -287,6 +299,7 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		// serialize to HTTP text (status line, Content-Length, Connection).
 		client.writeBuffer = buildDefaultResponse(client.status, client.keepAlive, client.responseStr);
 
+	// send() starts at writeBuffer + totalSent so partially sent responses can resume.
 	ssize_t sentBytes = send(client.fd, client.writeBuffer.c_str() + client.totalSent,
 		client.writeBuffer.size() - client.totalSent, MSG_NOSIGNAL);
 	if (sentBytes < 0)
@@ -297,6 +310,7 @@ void ServerManager::sendClientResponse(ClientSession &client)
 	}
 
 	client.totalSent += static_cast<size_t>(sentBytes);
+	// If not all bytes were sent this time, keep EPOLLOUT and continue later.
 	if (client.totalSent < client.writeBuffer.size())
 		return;
 
@@ -312,6 +326,8 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		client.status = 200;
 		client.contentLength = 0;
 		client.readBuffer.clear();
+		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
+		// on this keep-alive connection.
 		modClientEpoll(client, EPOLLIN);
 	}
 	else
