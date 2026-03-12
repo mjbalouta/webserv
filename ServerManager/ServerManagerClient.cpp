@@ -26,7 +26,7 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 	_clientFdToServer[client_fd] = serverIndex;
 	addClientToEpoll(_clients[serverIndex][client_fd]);
 	_clients[serverIndex][client_fd].state = READING;
-	printLog("🔗 Client accepted fd=" + itostr(client_fd), GRN);
+	printLog("🔗 New client fd=" + itostr(client_fd), BGRN);
 	return true;
 }
 

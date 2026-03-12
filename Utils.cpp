@@ -71,8 +71,7 @@ std::string& trimSpaces(std::string& str)
 	}
 
 	size_t end = str.find_last_not_of(" \t\n\r");
-	str.erase(0, start);
-	str.erase(end + 1);
+	str = str.substr(start, end - start + 1);
 
 	return str;
 }

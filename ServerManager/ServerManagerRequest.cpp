@@ -107,6 +107,12 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			return;
 		case READING:
 			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
+			if (client.state == PROCESSING)
+			{
+				parseClientRequest(client, server);
+				if (client.state == WRITING)
+					modClientEpoll(client, EPOLLOUT);
+			}
 			break;
 		case PROCESSING:
 			parseClientRequest(client, server);

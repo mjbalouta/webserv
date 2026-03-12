@@ -1,6 +1,41 @@
 #include "ServerManager.hpp"
 
 /**
+ * @brief Resolves a config host token into an IPv4 address for bind().
+ * @param host Host token from config (examples: "localhost", "127.0.0.1", "0.0.0.0", "*").
+ * @return IPv4 address in network byte order suitable for `sockaddr_in::sin_addr.s_addr`.
+ *
+ * Supported values:
+ * - empty string / "*" / "0.0.0.0" => bind on all interfaces (INADDR_ANY)
+ * - "localhost" => loopback only (127.0.0.1 / INADDR_LOOPBACK)
+ * - explicit dotted IPv4 => parsed with `inet_pton(AF_INET, ...)`
+ *
+ * Why this helper exists:
+ * - `inet_addr("localhost")` does not resolve hostnames and can produce an invalid bind target.
+ * - This function keeps bind behavior explicit and safe for supported IPv4 inputs.
+ *
+ * @throw std::runtime_error if `host` is not a supported IPv4 token.
+ */
+static in_addr_t resolveBindAddress(const std::string &host)
+{
+	// Bind on all interfaces when host is wildcard/unspecified.
+	if (host.empty() || host == "*" || host == "0.0.0.0")
+		return htonl(INADDR_ANY);
+
+	// Bind only on loopback when config uses "localhost".
+	if (host == "localhost")
+		return htonl(INADDR_LOOPBACK);
+
+	// Parse dotted IPv4 notation (e.g., "192.168.1.10" or "127.0.0.1").
+	struct in_addr parsed;
+	if (inet_pton(AF_INET, host.c_str(), &parsed) == 1)
+		return parsed.s_addr;
+
+	// Any other token (hostname, IPv6, malformed IPv4) is rejected in this IPv4-only server path.
+	throw std::runtime_error("Invalid IPv4 host in config: " + host);
+}
+
+/**
  * @brief Creates one listening socket with bind/listen and non-blocking mode.
  * @param server Endpoint configuration source.
  * @param port Port to bind for this listening socket.
@@ -23,7 +58,7 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, int port, co
 	struct sockaddr_in addr; // IPv4 socket address structure.
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(server.getHost().c_str()); // Converts dotted IPv4 string (e.g. "127.0.0.1") to binary network address.
+	addr.sin_addr.s_addr = resolveBindAddress(server.getHost());
 	addr.sin_port = htons(port); // Host-to-network short: converts port to big-endian network byte order.
 
 	if (bind(serverFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) // Associates socket with configured IP:port.
