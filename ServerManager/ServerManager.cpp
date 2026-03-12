@@ -27,7 +27,7 @@ ServerManager::ClientSession::ClientSession(int clientFd)
 ServerManager::ServerManager(char **argv) : _epollFd(-1)
 {
 	std::ifstream file(argv[1]);
-	Config config;
+	ConfigParser config;
 	_configs = config.getConfig();
 	printLog("🛠️ Done parsing config file ", CYAN);
 

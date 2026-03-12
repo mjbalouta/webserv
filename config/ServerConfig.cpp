@@ -1,12 +1,13 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _port(80), _portDefined(false), _root("."), _host("0.0.0.0")
+: _fd(-1), _portDefined(false), _root("./www"), _host("0.0.0.0")
+, _maxBodySize(1048576), _autoIndex(false)
 {}
 
-void ServerConfig::setPort(int port)
+void ServerConfig::addPort(int port)
 {
-	_port = port;
+	_ports.push_back(port);
 }
 
 void ServerConfig::setPortDefined(bool portDefined)
@@ -19,9 +20,9 @@ void ServerConfig::setRoot(const std::string& root)
 	_root = root;
 }
 
-void ServerConfig::setIndexes(const std::vector<std::string>& indexes)
+void ServerConfig::addIndex(const std::string& index)
 {
-	_indexes = indexes;
+	_indexes.push_back(index);
 }
 
 void ServerConfig::addErrorPages(int code, const std::string& file)
@@ -44,9 +45,9 @@ void ServerConfig::addLocation(const LocationConfig& location)
 	_locations.push_back(location);
 }
 
-int ServerConfig::getPort() const
+const std::vector<int>& ServerConfig::getPorts() const
 {
-	return _port;
+	return _ports;
 }
 
 bool ServerConfig::getPortDefined() const
@@ -82,4 +83,49 @@ const std::vector<std::string>& ServerConfig::getServerNames() const
 const std::vector<LocationConfig>& ServerConfig::getLocations() const
 {
 	return _locations;
+}
+
+void ServerConfig::clearIndexes()
+{
+	_indexes.clear();
+}
+
+void ServerConfig::setMaxBodySize(unsigned long size)
+{
+	_maxBodySize = size;
+}
+
+unsigned long ServerConfig::getMaxBodySize() const
+{
+	return _maxBodySize;
+}
+
+void ServerConfig::setAutoIndex(bool status)
+{
+	_autoIndex = status;
+}
+
+bool ServerConfig::getAutoIndex() const
+{
+	return _autoIndex;
+}
+
+void ServerConfig::clearServerNames()
+{
+	_serverNames.clear();
+}
+
+bool ServerConfig::getAliasFlag() const
+{
+	return false;
+}
+
+void ServerConfig::setFd(int fd)
+{
+	_fd = fd;
+}
+
+int ServerConfig::getFd() const
+{
+	return _fd;
 }

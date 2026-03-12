@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Includes.hpp"
 
 void printLog(std::string message, std::string color);
@@ -11,3 +12,5 @@ void modEpoll(int epollFd, int fd, uint32_t events);
 void setNonBlockingFd(int fd);
 
 std::string toLower(const std::string &value);
+int allDigits(std::string& str);
+int allLetters(std::string& str);

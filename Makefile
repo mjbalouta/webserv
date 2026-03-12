@@ -8,13 +8,20 @@ SRC_PATH		= .
 INC_PATH		= .
 BUILD_PATH		= .build
 
-FILES			= main.cpp 
+FILES			= main.cpp \
+				  config/parser/ConfigParser.cpp \
+				  config/parser/ConfigUtils.cpp \
+				  config/parser/LocationParser.cpp \
+				  config/parser/ServerParser.cpp \
+				  config/LocationConfig.cpp \
+				  config/ServerConfig.cpp \
+				  Utils.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
 # Compiler (C++).
 CXX			= c++
-CXXFLAGS		= -Wall -Wextra -Werror -std=c++98 -g
+CXXFLAGS	= -Wall -Wextra -Werror -std=c++98 -g
 
 INC			= -I $(INC_PATH)
 
