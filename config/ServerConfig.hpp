@@ -43,4 +43,5 @@ class ServerConfig
 	bool getAutoIndex() const;
 
 	void clearIndexes();
+	void clearServerNames();
 };

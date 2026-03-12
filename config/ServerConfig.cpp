@@ -1,7 +1,8 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _port(80), _portDefined(false), _root("."), _host("0.0.0.0")
+: _port(80), _portDefined(false), _root("./www"), _host("0.0.0.0")
+, _maxBodySize(1048576), _autoIndex(false)
 {}
 
 void ServerConfig::setPort(int port)
@@ -107,4 +108,9 @@ void ServerConfig::setAutoIndex(bool status)
 bool ServerConfig::getAutoIndex() const
 {
 	return _autoIndex;
+}
+
+void ServerConfig::clearServerNames()
+{
+	_serverNames.clear();
 }

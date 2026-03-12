@@ -1,7 +1,9 @@
 #include "LocationConfig.hpp"
 
 LocationConfig::LocationConfig(const std::string& path)
-: _path(path), _autoIndex(false), _aliasSet(false), _returnStatusCode(0), _maxBodySize(0)
+: _path(path), _root(""), _alias(""), _autoIndex(false), _aliasSet(false), 
+_returnStatusCode(0), _returnURL(""), _returnMessage(""),
+_maxBodySize(0), _uploadStore("")
 {}
 
 void LocationConfig::setRoot(const std::string& root)
@@ -123,4 +125,9 @@ void LocationConfig::setUploadStore(const std::string& storePath)
 const std::string& LocationConfig::getUploadStore() const
 {
 	return _uploadStore;
+}
+
+void LocationConfig::clearIndexes()
+{
+	_indexes.clear();
 }

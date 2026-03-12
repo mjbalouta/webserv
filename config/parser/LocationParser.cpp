@@ -142,7 +142,7 @@ void ConfigParser::parseAlias(LocationConfig& location)
 {
 	//check if root is defined (they cannot exist both)
 	if (!location.getRoot().empty())
-		throw ConfigException("Error: Alias cannot be defined when root already exists.");
+		throw ConfigException("Error: Root and alias cannot coexist in a location block.");
 	//check if alias already exists
 	if (location.getAliasFlag() == true)
 		throw ConfigException("Error: Alias cannot be redefined.");

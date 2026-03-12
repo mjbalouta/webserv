@@ -10,6 +10,8 @@ void ConfigParser::parseServerName(ServerConfig& server)
 	++_currentToken;
 	checkIfTokenExists();
 
+	server.clearServerNames();
+
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing definitions after 'servername' keyword.");
 

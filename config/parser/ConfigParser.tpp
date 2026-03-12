@@ -118,6 +118,8 @@ void ConfigParser::parseRoot(T& object)
 	std::string root = object.getRoot();
 	if (!root.empty())
 		throw ConfigException("Error: Root was already defined.");
+	if (object.getAliasFlag() == true)
+		throw ConfigException("Error: Root and alias cannot coexist in a location block.");
 
 	++_currentToken;
 	checkIfTokenExists();

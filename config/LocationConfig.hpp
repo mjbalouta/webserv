@@ -49,5 +49,7 @@ class LocationConfig
 	const std::string& getReturnMessage() const;
 	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
 	const std::map<std::string, std::string>& getCGI() const;
-	const std::string& getUploadStore() const; 
+	const std::string& getUploadStore() const;
+
+	void clearIndexes();
 };
