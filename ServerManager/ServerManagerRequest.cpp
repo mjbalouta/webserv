@@ -140,17 +140,12 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	char buffer[BUFFER_SIZE];
 	int readBytes = recv(client.fd, buffer, sizeof(buffer), MSG_NOSIGNAL);
 	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
-	// Returns: >0 number of bytes read, 0 if client closed connection, -1 on error (check errno).
+	// Returns: >0 number of bytes read, 0 if client closed connection, -1 when data is not currently available or on error.
 	// MSG_NOSIGNAL prevents SIGPIPE-related signals during socket operations.
 	if (readBytes < 0)
 	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-			return;
-		if (errno == ECONNRESET)
-			printLog("🟥 Client connection reset during recv", RED);
-		else
-			printLog("🟥 Failed to read from socket", RED);
-		client.state = CLOSING;
+		// Subject rule: do not branch on errno after read/write.
+		// Keep connection open and retry on next EPOLLIN notification.
 		return;
 	}
 
@@ -290,15 +285,8 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		client.writeBuffer.size() - client.totalSent, MSG_NOSIGNAL);
 	if (sentBytes < 0)
 	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-			return;
-		if (errno == EPIPE)
-			printLog("🟥 Broken pipe while sending response", RED);
-		else if (errno == ECONNRESET)
-			printLog("🟥 Client reset connection while sending response", RED);
-		else
-			printLog("🟥 Failed to send response", RED);
-		client.state = CLOSING;
+		// Subject rule: do not branch on errno after read/write.
+		// Keep connection open and retry on next EPOLLOUT notification.
 		return;
 	}
 

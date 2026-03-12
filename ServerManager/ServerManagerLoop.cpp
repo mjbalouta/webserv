@@ -85,6 +85,7 @@ void ServerManager::runEventLoop()
 		int ready = epoll_wait(_epollFd, events, MAX_EVENTS, 1000);
 		if (ready < 0)
 		{
+			// EINTR: System call was interrupted by a signal. Safe to retry epoll_wait immediately.
 			if (errno == EINTR)
 				continue;
 			throw std::runtime_error("epoll_wait failed");

@@ -1,5 +1,5 @@
 #include "config/parser/ConfigParser.hpp"
-
+#include "ServerManager/ServerManager.hpp"
 // void printServers(ConfigParser &config)
 // {
 //     const std::vector<ServerConfig>& servers = config.getServers();
@@ -68,10 +68,13 @@ int main(int ac, char **av)
 
 	/* try catch para o parsing, depois de passar as validacoes do parsing,
 	nao pode haver try catch porque o servidor tem de estar sempre aberto*/
-	ConfigParser config; //has to be created outside of try catch because we need it outside of this scope
+	//ConfigParser config; //has to be created outside of try catch because we need it outside of this scope
+	ServerManager manager(av);
 	try
 	{
-		config.parse(av[1]);
+		manager.runEventLoop();
+//		config.parse(av[1]);
+		std::cout << "ola maria";
 		// config.getServers(); vai devolver um std::vector<ServerConfig> _servers!
 		//podem passar o objeto config para as restantes partes do projeto 
 		//porque ja tem a info toda que precisam

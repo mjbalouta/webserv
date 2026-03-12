@@ -1,5 +1,6 @@
 #pragma once
 #include "../Includes.hpp"
+#include "../Utils.hpp"
 
 enum Method {
 	GET,

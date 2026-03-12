@@ -29,7 +29,7 @@ ServerManager::ServerManager(char **argv) : _epollFd(-1)
 	ConfigParser config;
 	config.parse(argv[1]);
 	_servers = config.getServers();
-	printLog("🛠️ Done parsing config file ", CYAN);
+	printLog("🛠️  Done parsing config file ", CYAN);
 
 	try
 	{

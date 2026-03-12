@@ -1,8 +1,12 @@
 #pragma once
 
+#include "../config/ServerConfig.hpp"
+#include "Request.hpp"
+#include "../Utils.hpp"
+#include "../config/parser/ConfigParser.hpp"
 #include "../Includes.hpp"
 
-class Server;
+class ServerConfig;
 
 class ServerManager {
 	private:

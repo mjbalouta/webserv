@@ -13,6 +13,8 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 	int client_fd = accept(fd, (struct sockaddr *)&clientAddr, &clientLen); // accept(listenFd, addrOut, lenInOut): creates a new client socket fd from the listening fd, writes peer address into clientAddr, and updates clientLen with actual size.
 	if (client_fd < 0)
 	{
+		// EAGAIN/EWOULDBLOCK: No pending connections (non-blocking socket behavior). Retry on next epoll event.
+		// EINTR: System call was interrupted by a signal. Safe to retry.
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
 			return false;
 		return (printLog("🟥 Accept failed on listening socket", RED), false);

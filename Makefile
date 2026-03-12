@@ -16,6 +16,12 @@ FILES			= main.cpp \
 				  config/LocationConfig.cpp \
 				  config/ServerConfig.cpp \
 				  Utils.cpp \
+				  ServerManager/Request.cpp \
+				  ServerManager/ServerManager.cpp \
+				  ServerManager/ServerManagerClient.cpp \
+				  ServerManager/ServerManagerLoop.cpp \
+				  ServerManager/ServerManagerRequest.cpp \
+				  ServerManager/ServerManagerSetup.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
@@ -30,6 +36,8 @@ MKDIR_P		= mkdir -p
 
 # Out-of-source build directory and object list
 OBJS			= $(SRC:$(SRC_PATH)/%.cpp=$(BUILD_PATH)/%.o)
+
+.DEFAULT_GOAL := all
 
 help:
 	@echo "\n"
@@ -74,7 +82,7 @@ fclean: clean			## Remove executable and build artifacts
 re: fclean all	## Purge & Recompile
 
 run: $(NAME)
-	@./$(NAME) config.file
+	@./$(NAME) default.conf
 
 .PHONY: help all clean fclean re run
 
