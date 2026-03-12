@@ -33,15 +33,16 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
  */
 void ServerManager::cleanupSockets()
 {
-	for (size_t i = 0; i < _servers.size(); i++)
+	for (std::map<int, int>::iterator it = _listenerFdToServer.begin(); it != _listenerFdToServer.end(); ++it)
 	{
-		int fd = _servers[i].getServerfd();
+		int fd = it->first;
 		if (fd >= 0)
-		{
 			close(fd);
-			_servers[i].setServerFd(-1);
-		}
 	}
+	_listenerFdToServer.clear();
+
+	for (size_t i = 0; i < _servers.size(); ++i)
+		_servers[i].setFd(-1);
 }
 
 /**
@@ -103,25 +104,15 @@ void ServerManager::closeClientSocket(ClientSession &client)
 ServerManager::~ServerManager()
 {
 	cleanupClients();
-	for (size_t i = 0; i < _servers.size(); i++)
-	{
-		int fd = _servers[i].getServerfd();
-		if (fd >= 0)
-		{
-			_listenerFdToServer.erase(fd);
-			close(fd);
-			_servers[i].setServerFd(-1);
-		}
-	}
+	cleanupSockets();
 	_clients.clear();
 	_clientFdToServer.clear();
-	_listenerFdToServer.clear();
 	_servers.clear();
 	if (_epollFd >= 0)
 	{
 		close(_epollFd);
 		_epollFd = -1;
 	}
-	_configs.clear();
+	//_configs.clear();
 	printLog("👋 BYE BYE 🔒 Server shut down", CYAN);
 }

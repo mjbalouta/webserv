@@ -1,34 +1,13 @@
 #include "ServerManager.hpp"
 
 /**
- * @brief Expands parsed config data into runtime server endpoints.
- */
-void ServerManager::parseConfigServers()
-{
-	for (size_t i = 0; i < _configs.size(); i++)
-	{
-		for (size_t j = 0; j < _configs[i].getPort().size(); j++)
-		{
-			Server server;
-			int port = std::atoi(_configs[i].getPort()[j].c_str());
-			server.setPort(port);
-			server.setName(_configs[i].getServerName()[j]);
-			server.setIp(_configs[i].getHost()[j]);
-			server.setMaxBody(strToLong(_configs[i].getClientMaxBodySize()[j]));
-			server.setRoot(_configs[i].getDefaultRoot()[j]);
-			server.setIndex(i);
-			_servers.push_back(server);
-		}
-	}
-}
-
-/**
  * @brief Creates one listening socket with bind/listen and non-blocking mode.
  * @param server Endpoint configuration source.
+ * @param port Port to bind for this listening socket.
  * @param serverInfo Human-readable ip:port for error messages.
  * @return Listening socket fd.
  */
-int ServerManager::buildListeningSocket(const ServerConfig &server, const std::string &serverInfo)
+int ServerManager::buildListeningSocket(const ServerConfig &server, int port, const std::string &serverInfo)
 {
 	int serverFd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET: IPv4 address family. SOCK_STREAM: TCP socket type. 0: let OS select protocol.
 	if (serverFd < 0)
@@ -44,8 +23,8 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, const std::s
 	struct sockaddr_in addr; // IPv4 socket address structure.
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(server.getServerIp().c_str()); // Converts dotted IPv4 string (e.g. "127.0.0.1") to binary network address.
-	addr.sin_port = htons(server.getPort()); // Host-to-network short: converts port to big-endian network byte order.
+	addr.sin_addr.s_addr = inet_addr(server.getHost().c_str()); // Converts dotted IPv4 string (e.g. "127.0.0.1") to binary network address.
+	addr.sin_port = htons(port); // Host-to-network short: converts port to big-endian network byte order.
 
 	if (bind(serverFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) // Associates socket with configured IP:port.
 	{
@@ -116,24 +95,36 @@ void ServerManager::setupListeningSockets()
 	printLog("🔧 Creating server sockets...", BBLU);
 	for (size_t i = 0; i < _servers.size(); i++)
 	{
-		std::string serverInfo = _servers[i].getHost() + ":" + itostr(_servers[i].getPort());
-		try
+		const std::vector<int> &ports = _servers[i].getPorts();
+		if (ports.empty())
+			throw std::runtime_error("No ports configured for server " + _servers[i].getHost());
+
+		for (size_t portIndex = 0; portIndex < ports.size(); ++portIndex)
 		{
-			int server_fd = buildListeningSocket(_servers[i], serverInfo);
-			_servers[i].setFd(server_fd);
-			addListenerToEpoll(server_fd, static_cast<int>(i));
-			printLog("✅ Server running at 🌐 http://" + serverInfo, BGRN);
-		}
-		catch (const std::exception&)
-		{
-			int fd = _servers[i].getServerfd();
-			if (fd >= 0)
+			std::string serverInfo = _servers[i].getHost() + ":" + itostr(ports[portIndex]);
+			try
 			{
-				_listenerFdToServer.erase(fd);
-				close(fd);
-				_servers[i].setServerFd(-1);
+				int server_fd = buildListeningSocket(_servers[i], ports[portIndex], serverInfo);
+				if (_servers[i].getFd() < 0)
+					_servers[i].setFd(server_fd);
+				addListenerToEpoll(server_fd, static_cast<int>(i));
+				printLog("✅ Server running at 🌐 http://" + serverInfo, BGRN);
 			}
-			throw;
+			catch (const std::exception&)
+			{
+				for (std::map<int, int>::iterator it = _listenerFdToServer.begin(); it != _listenerFdToServer.end(); )
+				{
+					if (it->second == static_cast<int>(i))
+					{
+						close(it->first);
+						_listenerFdToServer.erase(it++);
+					}
+					else
+						++it;
+				}
+				_servers[i].setFd(-1);
+				throw;
+			}
 		}
 	}
 	printLog("🎉 All servers are up and running smoothly! 🚀", BMAG);

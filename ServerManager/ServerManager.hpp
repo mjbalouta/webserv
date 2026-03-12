@@ -45,7 +45,7 @@ class ServerManager {
 
 		void parseConfigServers();
 		void setupListeningSockets();
-		int buildListeningSocket(const ServerConfig &server, const std::string &serverInfo);
+		int buildListeningSocket(const ServerConfig &server, int port, const std::string &serverInfo);
 		void addListenerToEpoll(int fd, int serverIndex);
 		void addClientToEpoll(ClientSession &client);
 		void modClientEpoll(const ClientSession &client, uint32_t events);
