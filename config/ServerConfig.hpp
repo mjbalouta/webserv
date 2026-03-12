@@ -3,6 +3,8 @@
 #include "Includes.hpp"
 #include "LocationConfig.hpp"
 
+class LocationConfig;
+
 class ServerConfig
 {
 	private:
@@ -41,6 +43,7 @@ class ServerConfig
 	const std::vector<LocationConfig>& getLocations() const;
 	unsigned long getMaxBodySize() const;
 	bool getAutoIndex() const;
+	bool getAliasFlag() const;
 
 	void clearIndexes();
 	void clearServerNames();

@@ -1,6 +1,11 @@
 #pragma once
 
-#include "Includes.hpp"
+#include "Utils.hpp"
+#include "ConfigParser.hpp"
+#include "Exception.hpp"
+#include "ConfigUtils.hpp"
+
+class ServerConfig;
 
 class ConfigParser
 {
@@ -37,3 +42,5 @@ class ConfigParser
 	const std::vector<ServerConfig>& getServers() const;
 	void parse(const std::string& filename);
 };
+
+#include "ConfigParser.tpp"

@@ -114,3 +114,8 @@ void ServerConfig::clearServerNames()
 {
 	_serverNames.clear();
 }
+
+bool ServerConfig::getAliasFlag() const
+{
+	return false;
+}

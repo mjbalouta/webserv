@@ -222,5 +222,5 @@ void ConfigParser::parseLocation(ServerConfig& server)
 	}
 	if (!endBracket)
 		throw ConfigException("Error: Expected '}' in the end of location block.");
-
+	server.addLocation(location);
 }

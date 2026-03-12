@@ -1,7 +1,7 @@
 #include "LocationConfig.hpp"
 
 LocationConfig::LocationConfig(const std::string& path)
-: _path(path), _root(""), _alias(""), _autoIndex(false), _aliasSet(false), 
+: _path(path), _root(""), _alias(""), _aliasSet(false), _autoIndex(false),
 _returnStatusCode(0), _returnURL(""), _returnMessage(""),
 _maxBodySize(0), _uploadStore("")
 {}
@@ -11,9 +11,9 @@ void LocationConfig::setRoot(const std::string& root)
 	_root = root;
 }
 
-void LocationConfig::setIndexes(const std::vector<std::string>& indexes)
+void LocationConfig::addIndex(const std::string& index)
 {
-	_indexes = indexes;
+	_indexes.push_back(index);
 }
 
 void LocationConfig::addAllowedMethod(const std::string& allowedMethod)
@@ -130,4 +130,14 @@ const std::string& LocationConfig::getUploadStore() const
 void LocationConfig::clearIndexes()
 {
 	_indexes.clear();
+}
+
+void LocationConfig::setMaxBodySize(unsigned long size)
+{
+	_maxBodySize = size;
+}
+
+unsigned long LocationConfig::getMaxBodySize() const
+{
+	return _maxBodySize;
 }

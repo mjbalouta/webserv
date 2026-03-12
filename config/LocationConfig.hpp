@@ -1,6 +1,8 @@
 #pragma once
 
-#include "Includes.hpp"
+#include "map"
+#include "string"
+#include "vector"
 
 class LocationConfig
 {
@@ -25,7 +27,7 @@ class LocationConfig
 
 	//path doesn't need a set because it is always fixed for a location
 	void setRoot(const std::string& root);
-	void setIndexes(const std::vector<std::string>& indexes);
+	void addIndex(const std::string& index);
 	void addAllowedMethod(const std::string& allowedMethod);
 	void setAutoIndex(bool autoIndex);
 	void setAlias(const std::string& alias);
@@ -36,6 +38,7 @@ class LocationConfig
 	void addErrorPages(int code, const std::string& file);
 	void addCGI(const std::string& extension, const std::string& extensionPath);
 	void setUploadStore(const std::string& storePath);
+	void setMaxBodySize(unsigned long size);
 
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
@@ -50,6 +53,7 @@ class LocationConfig
 	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
 	const std::map<std::string, std::string>& getCGI() const;
 	const std::string& getUploadStore() const;
+	unsigned long getMaxBodySize() const;
 
 	void clearIndexes();
 };
