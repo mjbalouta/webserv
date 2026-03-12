@@ -1,7 +1,7 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _fd(-1), _portDefined(false), _root("./www"), _host("0.0.0.0")
+: _fd(-1), _portDefined(false), _root("./www"), _rootDefined(false), _host("0.0.0.0")
 , _maxBodySize(1048576), _autoIndex(false)
 {}
 
@@ -128,4 +128,14 @@ void ServerConfig::setFd(int fd)
 int ServerConfig::getFd() const
 {
 	return _fd;
+}
+
+void ServerConfig::setRootFlag(bool status)
+{
+	_rootDefined = status;
+}
+
+bool ServerConfig::getRootFlag() const
+{
+	return _rootDefined;
 }

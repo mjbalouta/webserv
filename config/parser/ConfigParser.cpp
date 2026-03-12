@@ -87,5 +87,7 @@ void ConfigParser::parse(const std::string& filename)
 void ConfigParser::checkIfTokenExists()
 {
 	if (_currentToken >= _tokens.size())
+	{
 		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	}
 }

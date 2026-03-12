@@ -2,6 +2,9 @@
 
 #include "Exception.hpp"
 #include "../ServerConfig.hpp"
+#include "../../Utils.hpp"
+
+class ServerConfig;
 
 class ConfigUtils
 {

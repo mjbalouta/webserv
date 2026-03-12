@@ -9,6 +9,7 @@ class LocationConfig
 	private:
 	std::string _path; //location /images -> the path here would be /images
 	std::string _root; //location root overrides server root
+	bool _rootDefined;
 	std::string _alias; //used to "overwrite" the path when looking for comething
 	bool _aliasSet; //used to identify if alias is set: if it is set, root is ignored
 	std::vector<std::string> _indexes; //the default file to serve when a directory is requested
@@ -39,6 +40,7 @@ class LocationConfig
 	void addCGI(const std::string& extension, const std::string& extensionPath);
 	void setUploadStore(const std::string& storePath);
 	void setMaxBodySize(unsigned long size);
+	void setRootFlag(bool status);
 
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
@@ -54,6 +56,7 @@ class LocationConfig
 	const std::map<std::string, std::string>& getCGI() const;
 	const std::string& getUploadStore() const;
 	unsigned long getMaxBodySize() const;
+	bool getRootFlag() const;
 
 	void clearIndexes();
 };
