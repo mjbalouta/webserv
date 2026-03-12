@@ -10,10 +10,26 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 		std::string requestpath = request.getPath();
 		PathResolver resolver;
 		if (resolver.isPathSafe(requestpath)) {
-			
+			if (request.find(locations[i].getPath()) == 0)
+			{
+				if (matchedLocation != NULL)
+				{
+					if (matchedLocation->getPath().length() < locations[i].getPath().length())
+						matchedLocation = &locations[i];
+				}
+				else
+					matchedLocation = &locations[i];
+			}
 		}
 	}
-	
+	if (matchedLocation == NULL)
+	{
+		_statusCode = 404;
+		ErrorPageGenerator error;
+		std::stringstream ss;
+		ss << _statusCode;
+		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	}
 	// Implement logic to create the response based on the request and server configuration
 	// This is a placeholder implementation and should be expanded based on actual requirements
 	std::string response;
