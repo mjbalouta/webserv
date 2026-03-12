@@ -1,6 +1,23 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Goes through the ports vector and checks if the token already exists there
+ * 
+ * @param token 
+ * @param server 
+ */
+void ConfigUtils::checkIfPortExists(std::string& token, ServerConfig& server)
+{
+	int port = atoi(token.c_str());
+	std::vector<int> ports = server.getPorts();
+	for (std::vector<int>::iterator it = ports.begin(); it != ports.end(); ++it)
+	{
+		if (*it == port)
+			throw ConfigException("Error: Duplicated port: " + token);
+	}
+}
+
+/**
  * @brief Checks if the path is a directory
  * 
  * @param token 
@@ -207,7 +224,8 @@ void ConfigUtils::validatePort(std::string& token, ServerConfig& server)
 	int port = atoi(token.c_str());
 	if (port < 1 || port > 65535)
 		throw ConfigException("Error: Invalid port " + token);
-	server.setPort(port); 
+	ConfigUtils::checkIfPortExists(token, server);
+	server.addPort(port); 
 }
 
 /**

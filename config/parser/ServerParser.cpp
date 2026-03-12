@@ -142,5 +142,7 @@ void ConfigParser::parseServer()
 	}
 	if (!endBracket)
 		throw ConfigException("Error: Expected '}' in the end of location block.");
+	if (server.getPortDefined() == false)
+		server.addPort(80);
 	_servers.push_back(server);
 }
