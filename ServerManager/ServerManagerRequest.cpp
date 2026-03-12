@@ -95,12 +95,10 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 /**
  * @brief Advances one client state-machine step based on current state.
  * @param client Client session.
- * @param maxUploadSize Server upload limit.
- * @param epollFd Epoll instance descriptor (kept for interface consistency).
+ * @param server Owning server configuration (used for body-size and future routing hooks).
  */
-void ServerManager::handleClientRequest(ClientSession &client, size_t maxUploadSize, int epollFd)
+void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &server)
 {
-	(void)epollFd;
 	switch (client.state)
 	{
 		case CLOSING:
@@ -108,15 +106,15 @@ void ServerManager::handleClientRequest(ClientSession &client, size_t maxUploadS
 			closeClientSocket(client);
 			return;
 		case READING:
-			readClientRequest(client, maxUploadSize);
+			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
 			break;
 		case PROCESSING:
-			parseClientRequest(client);
+			parseClientRequest(client, server);
 			if (client.state == WRITING)
 				modClientEpoll(client, EPOLLOUT);
 			break;
 		case WRITING:
-			sendClientResponse(client, epollFd);
+			sendClientResponse(client);
 			break;
 		case IDLE:
 		default:
@@ -211,11 +209,12 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 /**
  * @brief Parses buffered request text and updates session response metadata.
  * @param client Client session.
- * @return Parsed request object.
+ * @param server Owning server configuration for Person 2/3 routing/resource phases.
  */
-Request ServerManager::parseClientRequest(ClientSession &client)
+void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &server)
 {
-	Request request;
+	client.request = Request();
+	Request &request = client.request;
 	if (!request.parseRequest(client.readBuffer, client.contentLength))
 	{
 		client.writeBuffer.clear();
@@ -226,24 +225,29 @@ Request ServerManager::parseClientRequest(ClientSession &client)
 		client.state = WRITING;
 	}
 	else
-		// Person 2 hook: receive parsed Request and decide routing/config result
-		// (server/location match, method validation, effective path, status).
-		processClientRequest(client, request);
+	{
+		// Person 2 hook: receive parsed Request + current ServerConfig and decide
+		// routing/config result (best location, method validation, effective path, status).
+		processClientRequest(client, request, server);
+	}
 
 	client.readBuffer.clear();
 	client.contentLength = 0;
-	return request;
+	return;
 }
 
 /**
  * @brief Copies parsed request metadata into session transport/response fields.
  * @param client Client session.
  * @param request Parsed request object.
+ * @param server Owning server configuration (available for Person 2/3 decisions).
  */
-void ServerManager::processClientRequest(ClientSession &client, Request &request)
+void ServerManager::processClientRequest(ClientSession &client, Request &request, ServerConfig &server)
 {
-	// Person 2 hook: this is where routing/config engine output should be applied
-	// to client.status, client.path, redirection flags, and method policy.
+	// Person 2 hook: use `server` + `request` to compute final route,
+	// location match, allowed methods, and resolved filesystem path.
+	// Person 3 hook: use `server` error pages/root/indexes to build final body.
+	(void)server;
 	client.method = request.getMethod();
 	client.path = request.getPath();
 	client.status = request.getStatus();
@@ -269,9 +273,8 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
  * @param client Client session.
  * @param epollFd Epoll instance descriptor (kept for interface consistency).
  */
-void ServerManager::sendClientResponse(ClientSession &client, int epollFd)
+void ServerManager::sendClientResponse(ClientSession &client)
 {
-	(void)epollFd;
 	if (client.fd < 0)
 	{
 		client.state = CLOSING;

@@ -31,7 +31,7 @@ class ServerManager {
 			bool keepAlive;
 			bool isRedirection;
 			bool headersSent;
-
+			Request request;
 			ClientSession();
 			explicit ClientSession(int clientFd);
 		};
@@ -54,11 +54,11 @@ class ServerManager {
 		void closeClient(int serverIndex, int fd);
 		void cleanupClients();
 		void closeClientSocket(ClientSession &client);
-		void handleClientRequest(ClientSession &client, size_t maxUploadSize, int epollFd);
+		void handleClientRequest(ClientSession &client, ServerConfig &server);
 		void readClientRequest(ClientSession &client, size_t maxUploadSize);
-		Request parseClientRequest(ClientSession &client);
-		void processClientRequest(ClientSession &client, Request &request);
-		void sendClientResponse(ClientSession &client, int epollFd);
+		void parseClientRequest(ClientSession &client, ServerConfig &server);
+		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
+		void sendClientResponse(ClientSession &client);
 		void closeIdleClients(time_t now);
 		void handleReadyEvent(const epoll_event &event);
 

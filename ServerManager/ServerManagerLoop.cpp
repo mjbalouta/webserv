@@ -38,8 +38,7 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 		int listeningServerIndex = listenerIt->second;
 		if (listeningServerIndex < 0 || static_cast<size_t>(listeningServerIndex) >= _servers.size())
 			return;
-		int listenFd = _servers[static_cast<size_t>(listeningServerIndex)].getFd();
-		while (acceptClientConnection(listenFd, listeningServerIndex))
+		while (acceptClientConnection(fd, listeningServerIndex))
 			;
 		return;
 	}
@@ -64,7 +63,10 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 		if (static_cast<size_t>(ownerIndex) >= _servers.size())
 			client.state = CLOSING;
 		else
-			handleClientRequest(client, static_cast<size_t>(_servers[ownerIndex].getMaxBodySize()), _epollFd);
+		{
+			ServerConfig &ownerServer = _servers[static_cast<size_t>(ownerIndex)];
+			handleClientRequest(client, ownerServer);
+		}
 	}
 
 	if (client.state == CLOSING)
