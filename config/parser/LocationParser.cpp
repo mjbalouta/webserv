@@ -17,6 +17,7 @@ void ConfigParser::parseUploadStore(LocationConfig& location)
 	ConfigUtils::checkIfDirectory(_tokens[_currentToken]);
 	//FALAR COM ELES E VERIFICAR AQUI SE DEVO SER EU A VERIFICAR SE O DIRETORIO EXISTE E
 	//SE TEM PERMISSAO DE EXECUCAO PARA A CRIACAO DE PASTAS
+	location.setUploadStore(_tokens[_currentToken]);
 }
 
 /**

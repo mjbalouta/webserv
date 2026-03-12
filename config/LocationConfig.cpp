@@ -115,3 +115,12 @@ const std::map<std::string, std::string>& LocationConfig::getCGI() const
 {
 	return _cgi;
 }
+
+void LocationConfig::setUploadStore(const std::string& storePath)
+{
+	_uploadStore = storePath;
+}
+const std::string& LocationConfig::getUploadStore() const
+{
+	return _uploadStore;
+}

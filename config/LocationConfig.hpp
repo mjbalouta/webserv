@@ -18,6 +18,7 @@ class LocationConfig
 	unsigned long _maxBodySize; //if it is set to 0, use server size
 	std::map<std::string, std::string> _cgi; //CGI??
 	std::map<int, std::string> _errorPages; //custom HTML pages for HTTP errors
+	std::string _uploadStore; //path to store the upload files
 
 	public:
 	LocationConfig(const std::string& path);
@@ -34,6 +35,7 @@ class LocationConfig
 	void setReturnMessage(const std::string& message);
 	void addErrorPages(int code, const std::string& file);
 	void addCGI(const std::string& extension, const std::string& extensionPath);
+	void setUploadStore(const std::string& storePath);
 
 	const std::string& getPath() const;
 	const std::string& getRoot() const;
@@ -47,4 +49,5 @@ class LocationConfig
 	const std::string& getReturnMessage() const;
 	const std::map<int, std::string>& getErrorPages() const; // Retorna o map para poderes verificar se o erro existe
 	const std::map<std::string, std::string>& getCGI() const;
+	const std::string& getUploadStore() const; 
 };
