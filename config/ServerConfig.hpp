@@ -8,6 +8,7 @@ class LocationConfig;
 class ServerConfig
 {
 	private:
+	int _fd;
 	std::vector<int> _ports; //should it be a vector of ports???
 	bool _portDefined; //config file defined a port?
 	std::string _root; //base directory where files are served from
@@ -22,6 +23,7 @@ class ServerConfig
 	public:
 	ServerConfig();
 
+	void setFd(int fd);
 	void addPort(int port);
 	void setPortDefined(bool portDefined);
 	void setRoot(const std::string& root);
@@ -33,6 +35,7 @@ class ServerConfig
 	void setMaxBodySize(unsigned long size);
 	void setAutoIndex(bool status);
 
+	int getFd() const;
 	const std::vector<int>& getPorts() const;
 	bool getPortDefined() const;
 	const std::string& getRoot() const;

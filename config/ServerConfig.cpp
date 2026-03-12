@@ -1,7 +1,7 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _portDefined(false), _root("./www"), _host("0.0.0.0")
+: _fd(-1), _portDefined(false), _root("./www"), _host("0.0.0.0")
 , _maxBodySize(1048576), _autoIndex(false)
 {}
 
@@ -118,4 +118,14 @@ void ServerConfig::clearServerNames()
 bool ServerConfig::getAliasFlag() const
 {
 	return false;
+}
+
+void ServerConfig::setFd(int fd)
+{
+	_fd = fd;
+}
+
+int ServerConfig::getFd() const
+{
+	return _fd;
 }
