@@ -1,7 +1,7 @@
 #include "LocationConfig.hpp"
 
 LocationConfig::LocationConfig(const std::string& path)
-: _path(path), _root(""), _alias(""), _aliasSet(false), _autoIndex(false),
+: _path(path), _root(""), _rootDefined(false), _alias(""), _aliasSet(false), _autoIndex(false),
 _returnStatusCode(0), _returnURL(""), _returnMessage(""),
 _maxBodySize(0), _uploadStore("")
 {}
@@ -141,3 +141,14 @@ unsigned long LocationConfig::getMaxBodySize() const
 {
 	return _maxBodySize;
 }
+
+void LocationConfig::setRootFlag(bool status)
+{
+	_rootDefined = status;
+}
+
+bool LocationConfig::getRootFlag() const
+{
+	return _rootDefined;
+}
+

@@ -1,5 +1,6 @@
 #pragma once
-#include "Includes.hpp"
+#include <string>
+#include <exception>
 
 // Base exception for the project
 class AppException : public std::exception {

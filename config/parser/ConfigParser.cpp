@@ -67,8 +67,8 @@ void ConfigParser::parse(const std::string& filename)
 	tokenize(content);
 
 	//track if first token is 'server'
-	_currentToken = 0;
-	while (_currentToken < _tokens.size())
+	_currentToken = -1;
+	while (++_currentToken < _tokens.size())
 	{
 		if (_tokens[_currentToken] == "server")
 		{
@@ -87,5 +87,7 @@ void ConfigParser::parse(const std::string& filename)
 void ConfigParser::checkIfTokenExists()
 {
 	if (_currentToken >= _tokens.size())
+	{
 		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	}
 }
