@@ -37,7 +37,7 @@ void ConfigUtils::checkIfDirectory(std::string& token)
 void ConfigUtils::checksIfAlreadyExists(std::string& token, LocationConfig& location)
 {
 	std::map<std::string, std::string> temp = location.getCGI();
-	std::map<std::string, std::string>::iterator it = temp.find(".py");
+	std::map<std::string, std::string>::iterator it = temp.find("token");
 	if (it != temp.end())
 		throw ConfigException("Error: Extension already defined: " + token);
 }
@@ -226,6 +226,7 @@ void ConfigUtils::validatePort(std::string& token, ServerConfig& server)
 		throw ConfigException("Error: Invalid port " + token);
 	ConfigUtils::checkIfPortExists(token, server);
 	server.addPort(port); 
+	server.setPortDefined(true);
 }
 
 /**
