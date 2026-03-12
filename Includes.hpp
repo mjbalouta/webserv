@@ -53,11 +53,9 @@ class PathResolver;
 class FileSystemHandler;
 class MimeTypeResolver;
 
-#include "ServerManager/Server.hpp"
 #include "ServerManager/ServerManager.hpp"
 #include "ServerManager/Request.hpp"
 class ServerManager;
-class Server;
 class Request;
 
 // ANSI Color Codes for Terminal Output
