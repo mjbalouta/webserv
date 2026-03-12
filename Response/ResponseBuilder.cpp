@@ -35,7 +35,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 		std::vector<std::string>::iterator it = methods.begin();
 		bool Allowed = false;
 		for (; it != methods.end(); it++)
-			if (*it == request.getMethodString())
+			if (*it == request.getMethodStr())
 				Allowed = true;
 		if (!Allowed)
 			return returnErrorResponse(405, request, config);
