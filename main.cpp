@@ -28,12 +28,30 @@
 //             std::cout << names[n] << " ";
 //         std::cout << std::endl;
 
+//         // Print Server-level Allowed Methods
+//         const std::vector<std::string>& serverMethods = s.getAllowedMethods();
+//         if (!serverMethods.empty()) {
+//             std::cout << "  Server Methods: ";
+//             for (size_t sm = 0; sm < serverMethods.size(); ++sm)
+//                 std::cout << serverMethods[sm] << " ";
+//             std::cout << std::endl;
+//         }
+
 //         // Print Error Pages (Map)
 //         const std::map<int, std::string>& errors = s.getErrorPages();
 //         std::cout << "  Error Pages: ";
 //         for (std::map<int, std::string>::const_iterator itE = errors.begin(); itE != errors.end(); ++itE)
 //             std::cout << "[" << itE->first << " -> " << itE->second << "] ";
 //         std::cout << std::endl;
+
+//         // Print Index files
+//         const std::vector<std::string>& indexes = s.getIndexes();
+//         if (!indexes.empty()) {
+//             std::cout << "  Index Files: ";
+//             for (size_t idx = 0; idx < indexes.size(); ++idx)
+//                 std::cout << indexes[idx] << " ";
+//             std::cout << std::endl;
+//         }
 
 //         // Print Locations
 //         const std::vector<LocationConfig>& locs = s.getLocations();
@@ -43,20 +61,45 @@
 //             std::cout << "  --- Location " << l.getPath() << " ---" << std::endl;
 //             if (!l.getRoot().empty()) std::cout << "    Root: " << l.getRoot() << std::endl;
 //             if (l.getAliasFlag()) std::cout << "    Alias: " << l.getAlias() << std::endl;
-            
+
 //             // Methods
 //             std::cout << "    Methods: ";
 //             const std::vector<std::string>& meths = l.getAllowedMethods();
 //             for (size_t m = 0; m < meths.size(); ++m) std::cout << meths[m] << " ";
 //             std::cout << std::endl;
 
+//             // Autoindex (location-level)
+//             std::cout << "    Autoindex: " << (l.getAutoIndex() ? "on" : "off") << std::endl;
+
+//             // Return directive
 //             if (l.getReturnStatusCode() != 0)
 //                 std::cout << "    Return: " << l.getReturnStatusCode() << " " << l.getReturnURL() << std::endl;
+
+//             // Upload store
+//             if (!l.getUploadStore().empty())
+//                 std::cout << "    Upload Store: " << l.getUploadStore() << std::endl;
+
+//             // CGI configurations
+//             const std::map<std::string, std::string>& cgis = l.getCGI();
+//             if (!cgis.empty()) {
+//                 std::cout << "    CGI: ";
+//                 for (std::map<std::string, std::string>::const_iterator cgi = cgis.begin(); cgi != cgis.end(); ++cgi)
+//                     std::cout << "[" << cgi->first << " -> " << cgi->second << "] ";
+//                 std::cout << std::endl;
+//             }
+
+//             // Location index files (if different from server)
+//             const std::vector<std::string>& locIndexes = l.getIndexes();
+//             if (!locIndexes.empty()) {
+//                 std::cout << "    Index Files: ";
+//                 for (size_t lidx = 0; lidx < locIndexes.size(); ++lidx)
+//                     std::cout << locIndexes[lidx] << " ";
+//                 std::cout << std::endl;
+//             }
 //         }
 //         std::cout << "==========================\n" << std::endl;
 //     }
 // }
-
 
 int main(int ac, char **av)
 {

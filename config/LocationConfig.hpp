@@ -59,4 +59,5 @@ class LocationConfig
 	bool getRootFlag() const;
 
 	void clearIndexes();
+	void clearMethods();
 };

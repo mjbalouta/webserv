@@ -1,7 +1,44 @@
 #include "ConfigParser.hpp"
 
 /**
+ * @brief Checks information after 'allow_methods' keyword
+ * 
+ * (Allow_methods directive: lists the HTTP methods allowed for this location (GET, POST, DELETE).)
+ * 
+ * @param location 
+ */
+void ConfigParser::parseAllowMethods(LocationConfig& location)
+{
+	location.clearMethods();
+
+	++_currentToken;
+	checkIfTokenExists();
+
+	std::string token = _tokens[_currentToken];
+	if (token == ";")
+		throw ConfigException("Error: Missing definitions after 'allow_methods' keyword.");
+
+	while(_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
+	{
+		token = _tokens[_currentToken];
+		if (token != "GET" && token != "POST" && token != "DELETE")
+			throw ConfigException("Error: Invalid method: " + token);
+		location.addAllowedMethod(token);
+		++_currentToken;
+	}
+
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Expected a ';' after 'allow_methods' definition.");
+}
+
+
+/**
  * @brief Validates information after 'upload_store' keyword
+ * 
+ * (Upload_store directive: configures the directory path where uploaded files will be stored.
+ * This directive is used during POST requests with multipart/form-data. It defines the destination
+ * on the local file system where the server will create and save the uploaded files.)
  * 
  * @param location 
  */
@@ -27,6 +64,10 @@ void ConfigParser::parseUploadStore(LocationConfig& location)
 
 /**
  * @brief Validates information after 'cgi_pass' keyword
+ * 
+ * (Cgi_pass directive: maps a file extension to a specific CGI executable path.
+ * This directive tells the server which program to use when executing scripts. It enables
+ * the processing of dynamic content by passing the request to an external script.)
  * 
  * @param location 
  */
@@ -60,8 +101,11 @@ void ConfigParser::parseCGI(LocationConfig& location)
 
 /**
  * @brief Validates information after 'return' keyword
- * (Return function: when a return is triggered, the server stops looking for files and immediately
- * sends a response to the client.)
+ * 
+ * (Return directive: configurates an HTTP redirection for the location.
+ * When a return is triggered, the server stops normal processing and sends an HTTP
+ * redirect response with the provided status code and the 'Location' header pointing
+ * to the new URL.)
  * 
  * @param location 
  */
@@ -111,35 +155,11 @@ void ConfigParser::parseReturn(LocationConfig& location)
 }
 
 /**
- * @brief Checks information after 'allow_methods' keyword
- * 
- * @param location 
- */
-void ConfigParser::parseAllowMethods(LocationConfig& location)
-{
-	++_currentToken;
-	checkIfTokenExists();
-
-	std::string token = _tokens[_currentToken];
-	if (token == ";")
-		throw ConfigException("Error: Missing definitions after 'allow_methods' keyword.");
-
-	while(_currentToken < _tokens.size() && _tokens[_currentToken] != ";")
-	{
-		token = _tokens[_currentToken];
-		if (token != "GET" && token != "POST" && token != "DELETE")
-			throw ConfigException("Error: Invalid method: " + token);
-		location.addAllowedMethod(token);
-		++_currentToken;
-	}
-
-	checkIfTokenExists();
-	if (_tokens[_currentToken] != ";")
-		throw ConfigException("Error: Expected a ';' after 'allow_methods' definition.");
-}
-
-/**
  * @brief Checks information after 'alias' token
+ * 
+ * (Alias directive: defines a replacement for the specific location's path. Unlinke 'root',
+ * where the location path is appended to the root string, 'alias' completely replaces the part
+ * of the URI that matches the location with the specific file system path.)
  * 
  * @param location 
  */

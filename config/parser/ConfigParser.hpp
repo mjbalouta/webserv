@@ -21,10 +21,10 @@ class ConfigParser
 	void parseServerName(ServerConfig& server);
 	void parseLocation(ServerConfig& server);
 	void parseAlias(LocationConfig& location);
-	void parseAllowMethods(LocationConfig& location);
 	void parseReturn(LocationConfig& location);
 	void parseCGI(LocationConfig& location);
-	void parseUploadStore(LocationConfig& location);	
+	void parseUploadStore(LocationConfig& location);
+	void parseAllowMethods(LocationConfig& location);
 	template <typename T>
 	void parseRoot(T& object);
 	template <typename T>
