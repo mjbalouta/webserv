@@ -40,9 +40,6 @@ static std::string buildDefaultResponse(int status, bool keepAlive, const std::s
 	std::string responseBody = body;
 	if (responseBody.empty())
 		responseBody = getReasonPhrase(status) + "\n";
-	// buildDefaultResponse() always emits an HTTP/1.1 status line even when the request version is HTTP/1.0. 
-	// This can break older clients and makes Connection semantics ambiguous. 
-	// Consider storing the parsed request version in ClientSession and generating the response status line accordingly (or downgrade to HTTP/1.0 for HTTP/1.0 requests).
 	std::ostringstream oss;
 	oss << version << " " << status << " " << getReasonPhrase(status) << "\r\n";
 	oss << "Content-Type: text/plain\r\n";
@@ -58,15 +55,31 @@ static std::string buildDefaultResponse(int status, bool keepAlive, const std::s
  */
 static bool hasHeaderToken(const std::string &headersLower, const std::string &headerName, const std::string &token)
 {
-	size_t headerPos = headersLower.find(headerName);
-	if (headerPos == std::string::npos)
-		return false;
+	// Scan one header line at a time so matches are anchored to real line starts.
+	for (size_t lineStart = 0; lineStart < headersLower.size(); )
+	{
+		// Find the end of the current header line.
+		size_t lineEnd = headersLower.find("\r\n", lineStart);
+		if (lineEnd == std::string::npos)
+			// Last line in the buffer may not have trailing CRLF.
+			lineEnd = headersLower.size();
 
-	size_t lineEnd = headersLower.find("\r\n", headerPos);
-	if (lineEnd == std::string::npos)
-		lineEnd = headersLower.size();
+		// Accept only exact header-name match at the beginning of this line.
+		// This prevents spoofing via request target text or other header values.
+		if (lineEnd > lineStart
+			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
+		{
+			// Search token only inside the matched header line.
+			return headersLower.substr(lineStart, lineEnd - lineStart).find(token) != std::string::npos;
+		}
 
-	return headersLower.substr(headerPos, lineEnd - headerPos).find(token) != std::string::npos;
+		if (lineEnd == headersLower.size())
+			// Reached the last line.
+			break;
+		// Move to the next line (skip "\r\n").
+		lineStart = lineEnd + 2;
+	}
+	return false;
 }
 
 /**
@@ -78,22 +91,39 @@ static bool hasHeaderToken(const std::string &headersLower, const std::string &h
 static bool parseContentLengthValue(const std::string &headersLower, size_t &outContentLength)
 {
 	const std::string header = "content-length:";
-	size_t pos = headersLower.find(header);
-	if (pos == std::string::npos)
+	// `lineStart` walks line by line; `start/end` delimit the numeric slice.
+	size_t lineStart = 0;
+	size_t start = std::string::npos;
+	size_t end = std::string::npos;
+
+	// Find the Content-Length header only when it appears at a line start.
+	for (; lineStart < headersLower.size(); )
+	{
+		size_t lineEnd = headersLower.find("\r\n", lineStart);
+		if (lineEnd == std::string::npos)
+			lineEnd = headersLower.size();
+
+		if (lineEnd > lineStart
+			&& headersLower.compare(lineStart, header.length(), header) == 0)
+		{
+			// Number starts right after "content-length:" and ends at line end.
+			start = lineStart + header.length();
+			end = lineEnd;
+			break;
+		}
+
+		if (lineEnd == headersLower.size())
+			break;
+		lineStart = lineEnd + 2;
+	}
+
+	if (start == std::string::npos)
 		// Header absent is not automatically an error here; caller decides.
 		return true;
 
-	// Skip the header name and any optional whitespace before the number.
-	size_t start = pos + header.length();
-	while (start < headersLower.size() && (headersLower[start] == ' ' || headersLower[start] == '\t'))
+	// Skip optional whitespace before the number.
+	while (start < end && (headersLower[start] == ' ' || headersLower[start] == '\t'))
 		++start;
-
-	// Find the end of this header line starting from the first digit/char.
-	size_t end = headersLower.find("\r\n", start);
-	if (end == std::string::npos)
-		// If Content-Length is the last header line in the provided block,
-		// treat end-of-string as the line end.
-		end = headersLower.size();
 
 	// Trim optional trailing spaces/tabs after the numeric value.
 	while (end > start && (headersLower[end - 1] == ' ' || headersLower[end - 1] == '\t'))
@@ -108,10 +138,12 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 	long value;
 	try
 	{
+		// Shared parser validates range, format, and trailing characters.
 		value = strToLong(valueStr);
 	}
 	catch (const std::exception &)
 	{
+		// Convert parsing exceptions into this function's bool error contract.
 		return false;
 	}
 
@@ -251,7 +283,19 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	}
 
 	// Header parsing/inspection happens only after size limits pass.
-	std::string headersLower = toLower(client.readBuffer.substr(0, headerEnd));
+	// Build a lowercase view of the *header lines only* (exclude request line)
+	// so token scans cannot be spoofed via method/path/version text.
+	size_t requestLineEnd = client.readBuffer.find("\r\n");
+	if (requestLineEnd == std::string::npos || requestLineEnd >= headerEnd)
+	{
+		printLog("🚨 Malformed request line or headers", RED);
+		client.status = 400;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
+	size_t headerStart = requestLineEnd + 2;
+	std::string headersLower = toLower(client.readBuffer.substr(headerStart, headerEnd - headerStart));
 	if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
 	{
 		//MISSING CHUNKED PART
@@ -324,9 +368,34 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
  */
 void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &server)
 {
+	// Parse only the first complete request currently in readBuffer.
+	// Any trailing bytes (possible next pipelined request) are preserved.
+	size_t requestSize = std::string::npos;
+	// Find end of headers for the current request frame.
+	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+	if (headerEnd != std::string::npos)
+	{
+		size_t headerSize = headerEnd + 4;
+		// Guard bounds before computing total request bytes.
+		if (headerSize <= client.readBuffer.size()
+			&& client.contentLength <= client.readBuffer.size() - headerSize)
+			// Exact bytes belonging to this request only.
+			requestSize = headerSize + client.contentLength;
+	}
+
+	// `requestBuffer` is what we parse now; `remainingBuffer` is queued for next cycle.
+	std::string requestBuffer = client.readBuffer;
+	std::string remainingBuffer;
+	if (requestSize != std::string::npos && requestSize <= client.readBuffer.size())
+	{
+		requestBuffer = client.readBuffer.substr(0, requestSize);
+		if (requestSize < client.readBuffer.size())
+			remainingBuffer = client.readBuffer.substr(requestSize);
+	}
+
 	client.request = Request();
 	Request &request = client.request;
-	if (!request.parseRequest(client.readBuffer, client.contentLength))
+	if (!request.parseRequest(requestBuffer, client.contentLength))
 	{
 		client.writeBuffer.clear();
 		client.path = "";
@@ -335,6 +404,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 		printLog("⚠️ Malformed HTTP request handled", YEL);
 		client.keepAlive = false;
 		client.state = WRITING;
+		remainingBuffer.clear();
 	}
 	else
 	{
@@ -342,9 +412,12 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 		// routing/config result (best location, method validation, effective path, status).
 		// For now processClientRequest() copies the parsed metadata into transport fields.
 		processClientRequest(client, request, server);
+		if (!client.keepAlive)
+			remainingBuffer.clear();
 	}
 
-	client.readBuffer.clear();
+	// Keep only leftover bytes that belong to future requests.
+	client.readBuffer = remainingBuffer;
 	client.contentLength = 0;
 	return;
 }
@@ -438,7 +511,6 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		client.method = NONE;
 		client.status = 200;
 		client.contentLength = 0;
-		client.readBuffer.clear();
 		client.ioFailures = 0; // reset for the next request on this keep-alive connection
 		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
 		// on this keep-alive connection.

@@ -11,14 +11,20 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 	// Storage for the peer address returned by accept()
 	struct sockaddr_in clientAddr;
 	socklen_t clientLen = sizeof(clientAddr);
-	// accept() removes one pending connection from the listening socket queue
-	// and returns a brand-new connected client socket fd.
-	int client_fd = accept(fd, (struct sockaddr *)&clientAddr, &clientLen);
-	if (client_fd < 0)
+	int client_fd = -1;
+	while (true)
 	{
-		// EAGAIN/EWOULDBLOCK: No pending connections (non-blocking socket behavior). Retry on next epoll event.
-		// EINTR: System call was interrupted by a signal. Safe to retry.
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+		// accept() removes one pending connection from the listening socket queue
+		// and returns a brand-new connected client socket fd.
+		client_fd = accept(fd, (struct sockaddr *)&clientAddr, &clientLen);
+		if (client_fd >= 0)
+			break;
+
+		// EINTR: interrupted by signal, retry immediately so we keep draining queue.
+		if (errno == EINTR)
+			continue;
+		// EAGAIN/EWOULDBLOCK: non-blocking listener has no more queued clients now.
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			return false;
 		return (printLog("🚨 Accept failed on listening socket", RED), false);
 	}
