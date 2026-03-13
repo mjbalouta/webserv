@@ -36,7 +36,8 @@ void ConfigParser::parseServerName(ServerConfig& server)
 /**
  * @brief Validates information after the 'listen' keyword
  *
- *  (Listen directive: indicates the port/host:port/host)
+ *  (Listen directive: indicates the address to bind to. Supported forms are
+  *   "port", "host:port", or "host".)
  * 
  * @param server 
  */

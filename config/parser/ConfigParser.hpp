@@ -17,7 +17,6 @@ class ConfigParser
 	void tokenize(std::string& content);
 	void parseServer();
 	void parseListen(ServerConfig& server);
-	void parseHost(ServerConfig& server);
 	void parseServerName(ServerConfig& server);
 	void parseLocation(ServerConfig& server);
 	void parseAlias(LocationConfig& location);

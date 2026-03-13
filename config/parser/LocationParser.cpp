@@ -49,7 +49,7 @@ void ConfigParser::parseUploadStore(LocationConfig& location)
 	checkIfTokenExists();
 
 	if (_tokens[_currentToken] == ";")
-		throw ConfigException("Error: Missing definitions after 'cgi_pass' keyword.");
+		throw ConfigException("Error: Missing definitions after 'upload_store' keyword.");
 
 	ConfigUtils::checkIfDirectory(_tokens[_currentToken]);
 	//FALAR COM ELES E VERIFICAR AQUI SE DEVO SER EU A VERIFICAR SE O DIRETORIO EXISTE E
@@ -102,7 +102,7 @@ void ConfigParser::parseCGI(LocationConfig& location)
 /**
  * @brief Validates information after 'return' keyword
  * 
- * (Return directive: configurates an HTTP redirection for the location.
+ * (Return directive: configures an HTTP redirection for the location.
  * When a return is triggered, the server stops normal processing and sends an HTTP
  * redirect response with the provided status code and the 'Location' header pointing
  * to the new URL.)
@@ -157,7 +157,7 @@ void ConfigParser::parseReturn(LocationConfig& location)
 /**
  * @brief Checks information after 'alias' token
  * 
- * (Alias directive: defines a replacement for the specific location's path. Unlinke 'root',
+ * (Alias directive: defines a replacement for the specific location's path. Unlike 'root',
  * where the location path is appended to the root string, 'alias' completely replaces the part
  * of the URI that matches the location with the specific file system path.)
  * 
