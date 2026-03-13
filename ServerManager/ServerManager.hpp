@@ -36,6 +36,7 @@ class ServerManager {
 			bool keepAlive;
 			bool isRedirection;
 			bool headersSent;
+			int ioFailures;  // used to detect errors without errno
 			Request request;
 			ClientSession();
 			explicit ClientSession(int clientFd);

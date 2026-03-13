@@ -1,5 +1,7 @@
 #include "ServerManager.hpp"
 
+static const size_t MAX_HEADER_SIZE = 8192;
+
 /**
  * @brief Maps status code to reason phrase for fallback/plain responses.
  */
@@ -9,6 +11,7 @@ static std::string getReasonPhrase(int statusCode)
 	{
 		case 200: return "OK";
 		case 400: return "Bad Request";
+		case 431: return "Request Header Fields Too Large";
 		case 403: return "Forbidden";
 		case 404: return "Not Found";
 		case 405: return "Method Not Allowed";
@@ -85,17 +88,41 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 	while (start < headersLower.size() && (headersLower[start] == ' ' || headersLower[start] == '\t'))
 		++start;
 
-	// Read until the end of this header line.
+	// Find the end of this header line starting from the first digit/char.
 	size_t end = headersLower.find("\r\n", start);
 	if (end == std::string::npos)
-		return true;
+		// If Content-Length is the last header line in the provided block,
+		// treat end-of-string as the line end.
+		end = headersLower.size();
 
-	std::string valueStr = headersLower.substr(start, end - start);
-	char *endptr = NULL;
-	long value = std::strtol(valueStr.c_str(), &endptr, 10);
-	if (endptr == valueStr.c_str() || *endptr != '\0' || value < 0)
+	// Trim optional trailing spaces/tabs after the numeric value.
+	while (end > start && (headersLower[end - 1] == ' ' || headersLower[end - 1] == '\t'))
+		--end;
+
+	// Empty value after trimming is invalid (e.g. "content-length:   ").
+	if (end <= start)
 		return false;
 
+	// Isolate the raw Content-Length token to parse.
+	std::string valueStr = headersLower.substr(start, end - start);
+	long value;
+	try
+	{
+		value = strToLong(valueStr);
+	}
+	catch (const std::exception &)
+	{
+		return false;
+	}
+
+	if (value < 0)
+		return false;
+
+	// Ensure the parsed value can fit in size_t before casting.
+	if (static_cast<unsigned long>(value) > std::numeric_limits<size_t>::max())
+		return false;
+
+	// Store validated Content-Length.
 	outContentLength = static_cast<size_t>(value);
 	return true;
 }
@@ -115,6 +142,13 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			return;
 		case READING:
 			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
+			if (client.state == WRITING)
+			{
+				// readClientRequest() can decide an immediate error response
+				// (e.g. unsupported chunked, oversized headers/body).
+				modClientEpoll(client, EPOLLOUT);
+				break;
+			}
 			if (client.state != PROCESSING)
 				break;
 			// Full request received: continue directly into the processing step
@@ -155,10 +189,22 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	int readBytes = recv(client.fd, buffer, sizeof(buffer), 0);
 	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
 	// The last argument is 0, which means recv() is called with no special flags.
-	if (readBytes < 0){
+	if (readBytes < 0)
+	{
+		// Cannot inspect errno, so we cannot tell whether this is EAGAIN/EWOULDBLOCK/EINTR
+		//   First failure  → stay READING, return. EPOLLIN stays armed; retry next event.
+		//   Second consecutive failure, set state as CLOSING.
+		client.ioFailures++;
+		if (client.ioFailures < 2)
+		{
+			client.state = READING; // keep EPOLLIN; give the socket one more chance
+			return;
+		}
+		printLog("🚨 recv() failed twice consecutively — closing connection", RED);
 		client.state = CLOSING;
 		return;
 	}
+	client.ioFailures = 0; // successful read: reset the consecutive-failure counter
 
 	if (readBytes == 0)
 	{
@@ -171,10 +217,40 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	client.readBuffer.append(buffer, readBytes);
 	client.totalReceived += readBytes;
 
+	// Look for the HTTP header terminator: "\r\n\r\n". Until this appears, we only have a partial header block.
 	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
 	if (headerEnd == std::string::npos)
+	{
+		// DoS means Denial of Service. It’s an attack where someone makes a server unavailable by exhausting resources like
+		// Anti-DoS guard #1:
+		// If a client keeps sending bytes without finishing headers,
+		// readBuffer would grow forever. Cap header growth at MAX_HEADER_SIZE.
+		if (client.readBuffer.size() > MAX_HEADER_SIZE)
+		{
+			printLog("🚨 Request headers too large", RED);
+			// 431 = header section is too large (more precise than generic 413).
+			client.status = 431;
+			client.keepAlive = false;
+			// Move to write path so we send the error response immediately.
+			client.state = WRITING;
+		}
 		return;
+	}
 
+	// headerEnd points to the first '\r' of the terminator, so +4 includes "\r\n\r\n".
+	size_t headerSize = headerEnd + 4;
+	// Anti-DoS guard #2:
+	// Even with a terminator, reject oversized header blocks.
+	if (headerSize > MAX_HEADER_SIZE)
+	{
+		printLog("🚨 Request headers too large", RED);
+		client.status = 431;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
+
+	// Header parsing/inspection happens only after size limits pass.
 	std::string headersLower = toLower(client.readBuffer.substr(0, headerEnd));
 	if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
 	{
@@ -189,26 +265,51 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	if (client.contentLength == 0)
 	{
+		// Parse Content-Length once from headers and validate numeric format.
 		if (!parseContentLengthValue(headersLower, client.contentLength))
 		{
 			printLog("🚨 Invalid Content-Length", RED);
 			client.status = 400;
 			client.keepAlive = false;
-			client.state = PROCESSING;
+			client.state = WRITING;
 			return;
 		}
 	}
 
-	if ((long)client.contentLength > static_cast<long>(maxUploadSize))
+	// If declared body is larger than configured upload limit, fail early.
+	if (client.contentLength > maxUploadSize)
 	{
 		printLog("🚨 Content-Length exceeds maximum limit", RED);
-		client.state = PROCESSING;
+		client.state = WRITING;
 		client.keepAlive = false;
 		client.status = 413;
+		return;
 	}
-	else
+
+	// Overflow-safe guard before computing (headerSize + maxUploadSize).
+	// Prevents wrapping size_t on pathological configuration/input combinations.
+	if (headerSize > std::numeric_limits<size_t>::max() - maxUploadSize)
 	{
-		size_t headerSize = headerEnd + 4;
+		printLog("🚨 Request size overflow guard triggered", RED);
+		client.keepAlive = false;
+		client.status = 413;
+		client.state = WRITING;
+		return;
+	}
+
+	// Total request budget = bounded headers + bounded body.
+	// This prevents unbounded growth even after headers are complete.
+	size_t maxRequestSize = headerSize + maxUploadSize;
+	if (client.readBuffer.size() > maxRequestSize)
+	{
+		printLog("🚨 Request exceeds configured total size", RED);
+		client.keepAlive = false;
+		client.status = 413;
+		client.state = WRITING;
+		return;
+	}
+
+	{
 		size_t bodySize = client.readBuffer.size() - headerSize;
 		// Once enough body bytes have arrived, the request is complete and can be parsed.
 		if (bodySize >= client.contentLength)
@@ -308,9 +409,18 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		client.writeBuffer.size() - client.totalSent, MSG_NOSIGNAL);
 	if (sentBytes < 0)
 	{
+		//same thing as the recv problem. Give one change to try again, then set as closed
+		client.ioFailures++;
+		if (client.ioFailures < 2)
+		{
+			client.state = WRITING; // keep EPOLLOUT; give the buffer one chance to drain
+			return;
+		}
+		printLog("🚨 send() failed twice consecutively — closing connection", RED);
 		client.state = CLOSING;
 		return;
 	}
+	client.ioFailures = 0; // successful send: reset the consecutive-failure counter
 
 	client.totalSent += static_cast<size_t>(sentBytes);
 	// If not all bytes were sent this time, keep EPOLLOUT and continue later.
@@ -329,6 +439,7 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		client.status = 200;
 		client.contentLength = 0;
 		client.readBuffer.clear();
+		client.ioFailures = 0; // reset for the next request on this keep-alive connection
 		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
 		// on this keep-alive connection.
 		modClientEpoll(client, EPOLLIN);

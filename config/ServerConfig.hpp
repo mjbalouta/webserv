@@ -20,6 +20,7 @@ class ServerConfig
 	std::vector<LocationConfig> _locations; //all location blocks inside this server
 	unsigned long _maxBodySize;
 	bool _autoIndex;
+	std::vector<std::string> _allowedMethods;
 
 	public:
 	ServerConfig();
@@ -36,6 +37,7 @@ class ServerConfig
 	void setMaxBodySize(unsigned long size);
 	void setAutoIndex(bool status);
 	void setRootFlag(bool status);
+	void addAllowedMethod(const std::string& allowedMethod);
 
 	int getFd() const;
 	const std::vector<int>& getPorts() const;
@@ -50,6 +52,7 @@ class ServerConfig
 	bool getAutoIndex() const;
 	bool getAliasFlag() const;
 	bool getRootFlag() const;
+	const std::vector<std::string>& getAllowedMethods() const;
 
 	void clearIndexes();
 	void clearServerNames();

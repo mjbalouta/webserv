@@ -152,3 +152,8 @@ bool LocationConfig::getRootFlag() const
 	return _rootDefined;
 }
 
+void LocationConfig::clearMethods()
+{
+	_allowedMethods.clear();
+}
+
