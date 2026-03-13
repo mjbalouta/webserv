@@ -31,6 +31,7 @@ class ServerManager {
 			Method method;
 			int status;
 			std::string path;
+			std::string version;
 			size_t contentLength;
 			bool keepAlive;
 			bool isRedirection;

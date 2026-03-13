@@ -6,7 +6,7 @@
 ServerManager::ClientSession::ClientSession()
 	: fd(-1), ownerIndex(-1), state(IDLE), lastActive(time(NULL)), responseStr(""),
 	  readBuffer(""), writeBuffer(""), totalSent(0), totalReceived(0),
-	  method(NONE), status(200), path(""), contentLength(0),
+	  method(NONE), status(200), path(""), version("HTTP/1.1"), contentLength(0),
 	  keepAlive(true), isRedirection(false), headersSent(false) {}
 
 /**
@@ -16,7 +16,7 @@ ServerManager::ClientSession::ClientSession()
 ServerManager::ClientSession::ClientSession(int clientFd)
 	: fd(clientFd), ownerIndex(-1), state(IDLE), lastActive(time(NULL)), responseStr(""),
 	  readBuffer(""), writeBuffer(""), totalSent(0), totalReceived(0),
-	  method(NONE), status(200), path(""), contentLength(0),
+	  method(NONE), status(200), path(""), version(""), contentLength(0),
 	  keepAlive(true), isRedirection(false), headersSent(false) {}
 
 /**

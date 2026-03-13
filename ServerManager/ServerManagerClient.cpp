@@ -22,18 +22,29 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 			return false;
 		return (printLog("🚨 Accept failed on listening socket", RED), false);
 	}
-
-	// Accepted sockets must also be non-blocking, otherwise one slow client could block the whole event loop during recv()/send().
-	setNonBlockingFd(client_fd);
-	_clients[serverIndex][client_fd] = ClientSession(client_fd);
-	// Remember which server block accepted this client.
-	_clients[serverIndex][client_fd].ownerIndex = serverIndex;
-	_clientFdToServer[client_fd] = serverIndex;
-	// Register the new client in epoll to watch for readable incoming data.
-	addClientToEpoll(_clients[serverIndex][client_fd]);
-	// New connections always start in READING state, waiting for the first request.
-	_clients[serverIndex][client_fd].state = READING;
-	printLog("👤 New client fd=" + itostr(client_fd), BGRN);
+	try
+	{
+		// Accepted sockets must also be non-blocking, otherwise one slow client could block the whole event loop during recv()/send().
+		setNonBlockingFd(client_fd);
+		_clients[serverIndex][client_fd] = ClientSession(client_fd);
+		// Remember which server block accepted this client.
+		_clients[serverIndex][client_fd].ownerIndex = serverIndex;
+		_clientFdToServer[client_fd] = serverIndex;
+		// Register the new client in epoll to watch for readable incoming data.
+		addClientToEpoll(_clients[serverIndex][client_fd]);
+		// New connections always start in READING state, waiting for the first request.
+		_clients[serverIndex][client_fd].state = READING;
+		printLog("👤 New client fd=" + itostr(client_fd), BGRN);
+	}
+	catch(const std::exception& e)
+	{
+		close(client_fd);
+		_clients[serverIndex].erase(client_fd);
+		_clientFdToServer.erase(client_fd);
+		printLog("🚨 Failed to initialize new client connection, closing fd", RED);
+		return false;
+	}
+	
 	return true;
 }
 
@@ -91,8 +102,16 @@ void ServerManager::closeClient(int serverIndex, int fd)
 	if (it == serverClients.end())
 		return;
 
-	// Remove the fd from epoll first so the kernel stops sending readiness events for a socket that is about to disappear.
-	removeFromEpoll(_epollFd, fd);
+	// Try to remove from epoll first, but do not let cleanup paths throw.
+	// During shutdown it is possible the fd is already gone from epoll.
+	try
+	{
+		removeFromEpoll(_epollFd, fd);
+	}
+	catch (const std::exception &error)
+	{
+		printLog("⚠️ Failed to remove fd from epoll during close: " + std::string(error.what()), YEL);
+	}
 	// Close the socket itself and mark the session state as CLOSING.
 	closeClientSocket(it->second);
 	// Remove the reverse lookup entry fd -> serverIndex.

@@ -28,23 +28,25 @@ static std::string getReasonPhrase(int statusCode)
  * @param explicitBody Optional response body override.
  * @return Serialized HTTP response text.
  */
-static std::string buildDefaultResponse(int statusCode, bool keepAlive, const std::string &explicitBody)
+static std::string buildDefaultResponse(int status, bool keepAlive, const std::string &body, const std::string &version)
 {
 	//Person 3 ownership: replace this fallback with the final Response engine serializer.
 	// If no explicit body was prepared by higher-level logic, use a tiny
 	// fallback body derived from the status text so the client still gets
 	// a valid human-readable response.
-	std::string body = explicitBody;
-	if (body.empty())
-		body = getReasonPhrase(statusCode) + "\n";
-
+	std::string responseBody = body;
+	if (responseBody.empty())
+		responseBody = getReasonPhrase(status) + "\n";
+	// buildDefaultResponse() always emits an HTTP/1.1 status line even when the request version is HTTP/1.0. 
+	// This can break older clients and makes Connection semantics ambiguous. 
+	// Consider storing the parsed request version in ClientSession and generating the response status line accordingly (or downgrade to HTTP/1.0 for HTTP/1.0 requests).
 	std::ostringstream oss;
-	oss << "HTTP/1.1 " << statusCode << " " << getReasonPhrase(statusCode) << "\r\n";
+	oss << version << " " << status << " " << getReasonPhrase(status) << "\r\n";
 	oss << "Content-Type: text/plain\r\n";
-	oss << "Content-Length: " << body.size() << "\r\n";
+	oss << "Content-Length: " << responseBody.size() << "\r\n";
 	oss << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
 	oss << "\r\n";
-	oss << body;
+	oss << responseBody;
 	return oss.str();
 }
 
@@ -150,12 +152,13 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	// Temporary stack buffer used for one recv() call.
 	char buffer[BUFFER_SIZE];
-	int readBytes = recv(client.fd, buffer, sizeof(buffer), MSG_NOSIGNAL);
+	int readBytes = recv(client.fd, buffer, sizeof(buffer), 0);
 	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
-	// Returns: >0 number of bytes read, 0 if client closed connection, -1 when data is not currently available or on error.
-	// MSG_NOSIGNAL prevents SIGPIPE-related signals during socket operations.
-	if (readBytes < 0)
+	// The last argument is 0, which means recv() is called with no special flags.
+	if (readBytes < 0){
+		client.state = CLOSING;
 		return;
+	}
 
 	if (readBytes == 0)
 	{
@@ -180,7 +183,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		// implemented yet, so return 501 Not Implemented.
 		client.status = 501;
 		client.keepAlive = false;
-		client.state = PROCESSING;
+		client.state = WRITING; //WHEN CHUNKED IS FIXED CHANGE TO PROCESSING
 		return;
 	}
 
@@ -229,6 +232,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 		client.method = NONE;
 		client.status = request.getStatus();
 		printLog("⚠️ Malformed HTTP request handled", YEL);
+		client.keepAlive = false;
 		client.state = WRITING;
 	}
 	else
@@ -260,12 +264,12 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	client.path = request.getPath();
 	client.status = request.getStatus();
 	client.isRedirection = request.isRedirect();
-
+	client.version = request.getVersion();
 	// Determine keep-alive behavior from HTTP version + Connection header:
 	// - HTTP/1.0 defaults to close unless Connection: keep-alive
 	// - HTTP/1.1 defaults to keep-alive unless Connection: close
 	std::string clientHeader = toLower(request.getHeader("connection"));
-	if (request.getVersion() == "HTTP/1.0")
+	if (client.version == "HTTP/1.0")
 		client.keepAlive = (clientHeader == "keep-alive");
 	else
 		client.keepAlive = (clientHeader != "close");
@@ -297,15 +301,14 @@ void ServerManager::sendClientResponse(ClientSession &client)
 	if (client.writeBuffer.empty())
 		// Person 3 hook: build Response object + headers/body here, then
 		// serialize to HTTP text (status line, Content-Length, Connection).
-		client.writeBuffer = buildDefaultResponse(client.status, client.keepAlive, client.responseStr);
+		client.writeBuffer = buildDefaultResponse(client.status, client.keepAlive, client.responseStr, client.version);
 
 	// send() starts at writeBuffer + totalSent so partially sent responses can resume.
 	ssize_t sentBytes = send(client.fd, client.writeBuffer.c_str() + client.totalSent,
 		client.writeBuffer.size() - client.totalSent, MSG_NOSIGNAL);
 	if (sentBytes < 0)
 	{
-		// Subject rule: do not branch on errno after read/write.
-		// Keep connection open and retry on next EPOLLOUT notification.
+		client.state = CLOSING;
 		return;
 	}
 

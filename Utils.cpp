@@ -1,24 +1,6 @@
 #include "Utils.hpp"
 
 /**
- * @brief Checks if the string only contains a-z or A-Z
- * 
- * @param str 
- * @return int 
- */
-int allLetters(std::string& str)
-{
-	for (size_t i = 0; i < str.size(); i++)
-	{
-		if (str[i] < 'a' || str[i] > 'z')
-			return 0;
-		if (str[i] < 'A' || str[i] > 'Z')
-			return 0;
-	}
-	return 1;
-}
-
-/**
  * @brief Checks if the string only contains digits from '0' to '9'
  * 
  * @param str 
@@ -88,8 +70,18 @@ long strToLong(const std::string& value)
 	trimSpaces(trimmed);
 	if (trimmed.empty())
 		throw std::runtime_error("Invalid number: empty string");
+	// Reset errno
+	errno = 0;
+	// `end` will point at the first character that was NOT consumed as part of the number.
 	char *end = NULL;
 	long result = ::strtol(trimmed.c_str(), &end, 10);
+	// ERANGE means the parsed value does not fit inside the `long` type
+	if (errno == ERANGE)
+		throw std::runtime_error("Invalid number: out of range");
+	// If `end == trimmed.c_str()`, then strtol() could not parse any digits at all.
+	// If `*end != '\0'`, extra non-numeric characters remain after the number.
+	if (end == trimmed.c_str() || *end != '\0')
+		throw std::runtime_error("Invalid number: trailing characters");
 	return result;
 }
 
@@ -162,6 +154,6 @@ std::string toLower(const std::string &value)
 {
 	std::string result = value;
 	for (size_t i = 0; i < result.size(); ++i)
-		result[i] = static_cast<char>(std::tolower(result[i]));
+		result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
 	return result;
 }

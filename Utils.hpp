@@ -13,4 +13,3 @@ void setNonBlockingFd(int fd);
 
 std::string toLower(const std::string &value);
 int allDigits(std::string& str);
-int allLetters(std::string& str);

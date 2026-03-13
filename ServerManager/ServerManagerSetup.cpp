@@ -81,7 +81,15 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, int port, co
 	}
 
 	// Listening sockets must be non-blocking so accept() never freezes the entire server.
-	setNonBlockingFd(serverFd);
+	try
+	{
+		setNonBlockingFd(serverFd);
+	}
+	catch(const std::exception& e)
+	{
+		close(serverFd);
+		throw;
+	}
 	return serverFd;
 }
 
