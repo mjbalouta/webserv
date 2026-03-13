@@ -47,7 +47,7 @@ bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 		close(client_fd);
 		_clients[serverIndex].erase(client_fd);
 		_clientFdToServer.erase(client_fd);
-		printLog("🚨 Failed to initialize new client connection, closing fd", RED);
+		printLog("🚨 Failed to initialize new client connection, closing fd: " + std::string(e.what()), RED);
 		return false;
 	}
 	

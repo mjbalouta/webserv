@@ -85,7 +85,7 @@ int ServerManager::buildListeningSocket(const ServerConfig &server, int port, co
 	{
 		setNonBlockingFd(serverFd);
 	}
-	catch(const std::exception& e)
+	catch (const std::exception&)
 	{
 		close(serverFd);
 		throw;

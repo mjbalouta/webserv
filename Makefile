@@ -21,6 +21,7 @@ FILES			= main.cpp \
 				  ServerManager/ServerManagerClient.cpp \
 				  ServerManager/ServerManagerLoop.cpp \
 				  ServerManager/ServerManagerRequest.cpp \
+				  ServerManager/ServerManagerRequestRead.cpp \
 				  ServerManager/ServerManagerSetup.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
