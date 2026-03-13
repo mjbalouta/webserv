@@ -29,28 +29,12 @@
 #include <errno.h>      // errno, EINTR
 
 #include <sys/epoll.h>
-#include <arpa/inet.h> //inet_addr
-#include <fcntl.h> //fnctl
+#include <arpa/inet.h> // inet_addr
+#include <fcntl.h>     // fcntl
 
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
 #define KEEP_ALIVE_TIMEOUT 15
-
-// Custom Class Implementations and .hpp headers
-// #include "fileResourceManagement/PathResolver.hpp"
-// #include "config/LocationConfig.hpp"// 
-// #include "fileResourceManagement/PathResolver.hpp"
-// #include "config/LocationConfig.hpp"
-// #include "config/ServerConfig.hpp"
-// #include "config/parser/ConfigParser.hpp"
-// #include "Utils.hpp"
-// #include "config/parser/ConfigUtils.hpp"
-// #include "Exception.hpp"
-// #include "config/ServerConfig.hpp"
-// #include "config/parser/ConfigParser.hpp"
-// #include "Utils.hpp"
-// #include "config/parser/ConfigUtils.hpp"
-// #include "Exception.hpp"
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes
