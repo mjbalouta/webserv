@@ -3,7 +3,9 @@
 ServerConfig::ServerConfig()
 : _fd(-1), _portDefined(false), _root("./www"), _rootDefined(false), _host("0.0.0.0")
 , _maxBodySize(1048576), _autoIndex(false)
-{}
+{
+	addAllowedMethod("GET");
+}
 
 void ServerConfig::addPort(int port)
 {
@@ -138,4 +140,14 @@ void ServerConfig::setRootFlag(bool status)
 bool ServerConfig::getRootFlag() const
 {
 	return _rootDefined;
+}
+
+void ServerConfig::addAllowedMethod(const std::string& allowedMethod)
+{
+	_allowedMethods.push_back(allowedMethod);
+}
+
+const std::vector<std::string>& ServerConfig::getAllowedMethods() const
+{
+	return _allowedMethods;
 }

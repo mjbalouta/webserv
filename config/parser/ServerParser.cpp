@@ -3,6 +3,9 @@
 /**
  * @brief Validates information after 'server_name' keyword
  * 
+ * (Server_name directive: defines the domain names the server responds to - used to
+ * distinguish between multiple servers sharing the same IP and port)
+ * 
  * @param server 
  */
 void ConfigParser::parseServerName(ServerConfig& server)
@@ -31,31 +34,10 @@ void ConfigParser::parseServerName(ServerConfig& server)
 }
 
 /**
- * @brief Validates information after 'host' keyword
- * 
- * @param server 
- */
-void ConfigParser::parseHost(ServerConfig& server)
-{
-	++_currentToken;
-	checkIfTokenExists();
-
-	std::string host = _tokens[_currentToken];
-
-	if (host == ";")
-		throw ConfigException("Error: There must be a valid IP or hostname after keyword 'host");
-	
-	ConfigUtils::validateHost(host, server);
-
-	++_currentToken;
-	checkIfTokenExists();
-	if (_tokens[_currentToken] != ";")
-		throw ConfigException("Error: Expected a ';' after IP or hostname.");
-
-}
-
-/**
  * @brief Validates information after the 'listen' keyword
+ *
+ *  (Listen directive: indicates the address to bind to. Supported forms are
+  *   "port", "host:port", or "host".)
  * 
  * @param server 
  */
@@ -123,8 +105,6 @@ void ConfigParser::parseServer()
 			parseListen(server);
 		else if (_tokens[_currentToken] == "root")
 			parseRoot(server);
-		else if (_tokens[_currentToken] == "host")
-			parseHost(server);
 		else if (_tokens[_currentToken] == "server_name")
 			parseServerName(server);
 		else if (_tokens[_currentToken] == "index")
