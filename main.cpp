@@ -1,5 +1,6 @@
 #include "config/parser/ConfigParser.hpp"
 
+//  //FOR TESTING THE PARSING
 // void printServers(ConfigParser &config)
 // {
 //     const std::vector<ServerConfig>& servers = config.getServers();
