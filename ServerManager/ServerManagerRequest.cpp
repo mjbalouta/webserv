@@ -27,6 +27,7 @@ static std::string getReasonPhrase(int statusCode)
  * @param statusCode HTTP status code.
  * @param keepAlive Whether to keep connection open.
  * @param explicitBody Optional response body override.
+ * @param version HTTP version.
  * @return Serialized HTTP response text.
  */
 static std::string buildDefaultResponse(int status, bool keepAlive, const std::string &body, const std::string &version)
@@ -194,7 +195,6 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 /**
  * @brief Sends response bytes and handles keep-alive reset/close decisions.
  * @param client Client session.
- * @param epollFd Epoll instance descriptor (kept for interface consistency).
  */
 void ServerManager::sendClientResponse(ClientSession &client)
 {

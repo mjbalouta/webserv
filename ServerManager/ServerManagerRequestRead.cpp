@@ -220,16 +220,35 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	}
 	size_t headerStart = requestLineEnd + 2;
 	std::string headersLower = toLower(client.readBuffer.substr(headerStart, headerEnd - headerStart));
-	if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
+
+	// Transfer-Encoding support is not implemented.
+	// chunked, gzip, deflate is rejected with 501.
+	//
+	// When chunked decoding is done
+	//
+	//   if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
+	//   {
+	//       /* decode the chunked body into client.readBuffer */
+	//       client.state = PROCESSING;
+	//       return;
+	//   }
+	//   /* reject every OTHER TE value */
+	//   if (headersLower.find("transfer-encoding:") != std::string::npos)
+	//   {
+	//       client.status = 501;
+	//       client.keepAlive = false;
+	//       client.state = WRITING;
+	//       return;
+	//   }
+	// ALGUMA COISA ASSIM
+	if (headersLower.find("transfer-encoding:") != std::string::npos)
 	{
-		//MISSING CHUNKED PART
-		// Chunked request bodies are detected, but actual chunk decoding is not
-		// implemented yet, so return 501 Not Implemented.
 		client.status = 501;
 		client.keepAlive = false;
-		client.state = WRITING; //WHEN CHUNKED IS FIXED CHANGE TO PROCESSING
+		client.state = WRITING;
 		return;
 	}
+	//WHEN CHUNKED IS FIXED CHANGE TO COMMENT PART
 
 	if (client.contentLength == 0)
 	{
