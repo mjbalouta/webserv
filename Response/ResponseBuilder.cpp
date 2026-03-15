@@ -28,7 +28,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 		}
 	}
 	if (matchedLocation == NULL)
-		return returnErrorResponse(404, request, config);
+		return returnGenericErrorResponse(404, request, config);
 	else
 	{
 		std::vector<std::string> methods = matchedLocation->getAllowedMethods();
@@ -37,15 +37,74 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Server
 		for (; it != methods.end(); it++)
 			if (*it == request.getMethodStr())
 				Allowed = true;
-		if (!Allowed)
-			return returnErrorResponse(405, request, config);
-		
+		if (!Allowed && request.getMethodStr() == "GET")
+		{
+			if (config.getAllowedMethods() == "GET")
+				Allowed = true;
+		}
+		else
+			return returnGenericErrorResponse(405, request, config);
 	}
 	std::string response;
+	if (matchedLocation->getReturnStatusCode())
+	{
+		if (matchedLocation->getReturnStatusCode() >= 400)
+			return returnRedirectErrorResponse(matchedLocation->getReturnStatusCode(), request, config);
+		_statusCode = matchedLocation->getReturnStatusCode();
+		std::stringstream ss;
+		ss << _statusCode;
+		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_location = matchedLocation->getReturnURL();
+		if (matchedLocation->getReturnMessage().empty() || matchedLocation->getReturnStatusCode() == 304 || matchedLocation->getReturnStatusCode() == 204)
+		{
+			_body = "";
+			_contentLength = 0;
+		}
+		else{
+			_body = matchedLocation->getReturnMessage();
+			_contentLength = _body.size();
+		}
+		_contentType = "text/html"; // need to determine what the right type is
+		response =	_statusLine;
+		response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
+		response += "Content-Type: " + contentType + "\r\n";
+		response += "Location: " + _location + "\r\n";
+		response += "Date: " + getDateString() + "\r\n";
+		response += "Connection: close\r\n";
+		response += "\r\n" + _body;
+		return response;
+	} // General idea of redirect response
+
+	
 	return response; // Placeholder response
 }
 
-std::string ResponseBuilder::returnErrorResponse(int statusCode, const Request& request, const ServerConfig& config){
+std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const Request& request, const ServerConfig& config, const LocationConfig* matchedLocation){
+	_statusCode = statusCode;
+		std::stringstream ss;
+		ss << _statusCode;
+		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_contentType = "text/html";
+		if (matchedLocation->getReturnMessage().empty()){
+			_body = "";
+			_contentLength = 0;
+		}
+		else{
+			_body = matchedLocation->getReturnMessage();
+			_contentLength = _body.size();
+		}
+		std::string response = _statusLine;
+		response += "Content-Type: " + contentType + "\r\n";
+		response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
+		response += "Date: " + getDateString() + "\r\n";
+		response += "Last-Modified: " + getLastModifiedString() + "\r\n";
+		response += "Connection: close\r\n";
+		response += "\r\n" + _body;
+		return response;
+}
+
+
+std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Request& request, const ServerConfig& config){
 		_statusCode = statusCode;
 		std::stringstream ss;
 		ss << _statusCode;

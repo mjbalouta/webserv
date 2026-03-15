@@ -13,6 +13,7 @@ class ResponseBuilder{
 		size_t _date;
 		std::time_t _lastModified;
 		std::string _body;
+		std::string _location;
 
 		ErrorPageGenerator error;
 		PathResolver pathResolver;
@@ -23,7 +24,8 @@ class ResponseBuilder{
 		void setStatusCode(int statusCode);
 		int determineStatusCode(const std::string& request, const ServerConfig& config);
 
-		std::string returnErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
+		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
+		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ServerConfig& config, const LocationConfig* matchedLocation);
 
 		std::string getStatusLine();
 		std::string getContentType();
