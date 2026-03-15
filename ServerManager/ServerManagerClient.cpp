@@ -8,23 +8,49 @@
  */
 bool ServerManager::acceptClientConnection(int fd, int serverIndex)
 {
+	// Storage for the peer address returned by accept()
 	struct sockaddr_in clientAddr;
 	socklen_t clientLen = sizeof(clientAddr);
-	int client_fd = accept(fd, (struct sockaddr *)&clientAddr, &clientLen); // accept(listenFd, addrOut, lenInOut): creates a new client socket fd from the listening fd, writes peer address into clientAddr, and updates clientLen with actual size.
-	if (client_fd < 0)
+	int client_fd = -1;
+	while (true)
 	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-			return false;
-		return (printLog("🟥 Accept failed on listening socket", RED), false);
-	}
+		// accept() removes one pending connection from the listening socket queue
+		// and returns a brand-new connected client socket fd.
+		client_fd = accept(fd, (struct sockaddr *)&clientAddr, &clientLen);
+		if (client_fd >= 0)
+			break;
 
-	setNonBlockingFd(client_fd);
-	_clients[serverIndex][client_fd] = ClientSession(client_fd);
-	_clients[serverIndex][client_fd].ownerIndex = serverIndex;
-	_clientFdToServer[client_fd] = serverIndex;
-	addClientToEpoll(_clients[serverIndex][client_fd]);
-	_clients[serverIndex][client_fd].state = READING;
-	printLog("🔗 Client accepted fd=" + itostr(client_fd), GRN);
+		// EINTR: interrupted by signal, retry immediately so we keep draining queue.
+		if (errno == EINTR)
+			continue;
+		// EAGAIN/EWOULDBLOCK: non-blocking listener has no more queued clients now.
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return false;
+		return (printLog("🚨 Accept failed on listening socket", RED), false);
+	}
+	try
+	{
+		// Accepted sockets must also be non-blocking, otherwise one slow client could block the whole event loop during recv()/send().
+		setNonBlockingFd(client_fd);
+		_clients[serverIndex][client_fd] = ClientSession(client_fd);
+		// Remember which server block accepted this client.
+		_clients[serverIndex][client_fd].ownerIndex = serverIndex;
+		_clientFdToServer[client_fd] = serverIndex;
+		// Register the new client in epoll to watch for readable incoming data.
+		addClientToEpoll(_clients[serverIndex][client_fd]);
+		// New connections always start in READING state, waiting for the first request.
+		_clients[serverIndex][client_fd].state = READING;
+		printLog("👤 New client fd=" + itostr(client_fd), BGRN);
+	}
+	catch(const std::exception& e)
+	{
+		close(client_fd);
+		_clients[serverIndex].erase(client_fd);
+		_clientFdToServer.erase(client_fd);
+		printLog("🚨 Failed to initialize new client connection, closing fd: " + std::string(e.what()), RED);
+		return false;
+	}
+	
 	return true;
 }
 
@@ -39,8 +65,10 @@ void ServerManager::cleanupSockets()
 		if (fd >= 0)
 			close(fd);
 	}
+	// Clear the mapping now that no listening sockets remain open.
 	_listenerFdToServer.clear();
 
+	// Reset the stored fd inside each ServerConfig so runtime state matches reality.
 	for (size_t i = 0; i < _servers.size(); ++i)
 		_servers[i].setFd(-1);
 }
@@ -50,6 +78,7 @@ void ServerManager::cleanupSockets()
  */
 void ServerManager::cleanupClients()
 {
+	// Iterate over each server's client map because clients are grouped by owner server.
 	for (size_t i = 0; i < _clients.size(); i++)
 	{
 		std::map<int, ClientSession>::iterator it = _clients[i].begin();
@@ -69,17 +98,31 @@ void ServerManager::cleanupClients()
  */
 void ServerManager::closeClient(int serverIndex, int fd)
 {
+	// Ignore impossible or already-invalid inputs.
 	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _clients.size() || fd < 0)
 		return;
 
+	// Look up the client in the owning server's client map.
 	std::map<int, ClientSession> &serverClients = _clients[serverIndex];
 	std::map<int, ClientSession>::iterator it = serverClients.find(fd);
 	if (it == serverClients.end())
 		return;
 
-	removeFromEpoll(_epollFd, fd);
+	// Try to remove from epoll first, but do not let cleanup paths throw.
+	// During shutdown it is possible the fd is already gone from epoll.
+	try
+	{
+		removeFromEpoll(_epollFd, fd);
+	}
+	catch (const std::exception &error)
+	{
+		printLog("⚠️ Failed to remove fd from epoll during close: " + std::string(error.what()), YEL);
+	}
+	// Close the socket itself and mark the session state as CLOSING.
 	closeClientSocket(it->second);
+	// Remove the reverse lookup entry fd -> serverIndex.
 	_clientFdToServer.erase(fd);
+	// Finally erase the session object from the server's client map.
 	serverClients.erase(it);
 	printLog("Closed client fd=" + itostr(fd), MAG);
 }
@@ -90,6 +133,7 @@ void ServerManager::closeClient(int serverIndex, int fd)
  */
 void ServerManager::closeClientSocket(ClientSession &client)
 {
+	// Only close real open sockets; fd == -1 means already closed/reset.
 	if (client.fd >= 0)
 	{
 		close(client.fd);

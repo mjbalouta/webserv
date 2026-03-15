@@ -1,6 +1,10 @@
 #pragma once
 
-#include "Includes.hpp"
+#include "Exception.hpp"
+#include "../ServerConfig.hpp"
+#include "../../Utils.hpp"
+
+class ServerConfig;
 
 class ConfigUtils
 {
@@ -16,4 +20,8 @@ class ConfigUtils
 	static unsigned long calculateSize(unsigned long size, int option);
 	static void validateURL(std::string& url);
 	static void validateMessage(std::string& token);
+	static void checkExtension(std::string& token);
+	static void checksIfAlreadyExists(std::string& token, LocationConfig& location);
+	static void checkIfDirectory(std::string& token);
+	static void checkIfPortExists(std::string& token, ServerConfig& server);
 };

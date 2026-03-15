@@ -1,8 +1,12 @@
 #pragma once
 
+#include "../config/ServerConfig.hpp"
+#include "Request.hpp"
+#include "../Utils.hpp"
+#include "../config/parser/ConfigParser.hpp"
 #include "../Includes.hpp"
 
-class Server;
+class ServerConfig;
 
 class ServerManager {
 	private:
@@ -27,10 +31,12 @@ class ServerManager {
 			Method method;
 			int status;
 			std::string path;
+			std::string version;
 			size_t contentLength;
 			bool keepAlive;
 			bool isRedirection;
 			bool headersSent;
+			int ioFailures;  // used to detect errors without errno
 			Request request;
 			ClientSession();
 			explicit ClientSession(int clientFd);

@@ -1,7 +1,8 @@
 #include "ConfigParser.hpp"
 
-ConfigParser::ConfigParser(const std::string& filename)
-: _filename(filename) {}
+ConfigParser::ConfigParser()
+: _currentToken(0) 
+{}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
 {
@@ -13,7 +14,7 @@ const std::vector<ServerConfig>& ConfigParser::getServers() const
  * container of tokens
  * 
  */
-void ConfigParser::tokenize(std::string content)
+void ConfigParser::tokenize(std::string& content)
 {
 	std::string spacedContent = "";
 
@@ -46,15 +47,14 @@ void ConfigParser::tokenize(std::string content)
 	}
 }
 
-
 /**
  * @brief Opens the config file, stores each line in _lines and then goes
  * through the container and checks if the first word is 'server'
  * 
  */
-void ConfigParser::parse()
+void ConfigParser::parse(const std::string& filename)
 {
-	std::ifstream file(_filename.c_str());
+	std::ifstream file(filename.c_str());
 	if (!file.is_open())
 		throw FileException("Error: Unable to open config file.");
 
@@ -67,8 +67,8 @@ void ConfigParser::parse()
 	tokenize(content);
 
 	//track if first token is 'server'
-	_currentToken = 0;
-	while (_currentToken < _tokens.size())
+	_currentToken = -1;
+	while (++_currentToken < _tokens.size())
 	{
 		if (_tokens[_currentToken] == "server")
 		{
@@ -87,5 +87,7 @@ void ConfigParser::parse()
 void ConfigParser::checkIfTokenExists()
 {
 	if (_currentToken >= _tokens.size())
+	{
 		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
+	}
 }

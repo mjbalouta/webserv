@@ -1,12 +1,15 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _port(80), _portDefined(false), _root("."), _host("0.0.0.0")
-{}
-
-void ServerConfig::setPort(int port)
+: _fd(-1), _portDefined(false), _root("./www"), _rootDefined(false), _host("0.0.0.0")
+, _maxBodySize(1048576), _autoIndex(false)
 {
-	_port = port;
+	addAllowedMethod("GET");
+}
+
+void ServerConfig::addPort(int port)
+{
+	_ports.push_back(port);
 }
 
 void ServerConfig::setPortDefined(bool portDefined)
@@ -44,9 +47,9 @@ void ServerConfig::addLocation(const LocationConfig& location)
 	_locations.push_back(location);
 }
 
-int ServerConfig::getPort() const
+const std::vector<int>& ServerConfig::getPorts() const
 {
-	return _port;
+	return _ports;
 }
 
 bool ServerConfig::getPortDefined() const
@@ -107,4 +110,44 @@ void ServerConfig::setAutoIndex(bool status)
 bool ServerConfig::getAutoIndex() const
 {
 	return _autoIndex;
+}
+
+void ServerConfig::clearServerNames()
+{
+	_serverNames.clear();
+}
+
+bool ServerConfig::getAliasFlag() const
+{
+	return false;
+}
+
+void ServerConfig::setFd(int fd)
+{
+	_fd = fd;
+}
+
+int ServerConfig::getFd() const
+{
+	return _fd;
+}
+
+void ServerConfig::setRootFlag(bool status)
+{
+	_rootDefined = status;
+}
+
+bool ServerConfig::getRootFlag() const
+{
+	return _rootDefined;
+}
+
+void ServerConfig::addAllowedMethod(const std::string& allowedMethod)
+{
+	_allowedMethods.push_back(allowedMethod);
+}
+
+const std::vector<std::string>& ServerConfig::getAllowedMethods() const
+{
+	return _allowedMethods;
 }

@@ -3,6 +3,9 @@
 /**
  * @brief Validates information after 'error_page' keyword
  * 
+ * (Error_page directive: configures custom error pages for specific HTTP status codes.
+ * Maps one or more error codes to a specific file path.)
+ * 
  * @param server 
  */
 template <typename T>
@@ -50,6 +53,9 @@ void ConfigParser::parseErrorPage(T& object)
 /**
  * @brief Validates information after 'autoindex' keyword
  * 
+ * (Auto_index directive: enables or disables directory listing when no index file
+ * is found. If 'on', the server generates an HTML page listing the directory contents.)
+ * 
  * @param server 
  */
 template <typename T>
@@ -76,6 +82,10 @@ void ConfigParser::parseAutoindex(T& object)
 
 /**
  * @brief Validates information after 'index' keyword
+ * 
+ * (Index directive: sets the default file(s) to look for when a directory is requested.
+ * The server will check for these files in order: if found, it serves the file instead
+ * of a directory listing.)
  * 
  * @param object 
  */
@@ -109,15 +119,19 @@ void ConfigParser::parseIndex(T& object)
  * @brief Validates information after 'root' keyword
  * (being a template method, it works for server and location objects)
  * 
+ * (Root directive: sets the base directory on the file system to look for
+ * requested files. The final path is created by appending the URI to this root path.)
+ * 
  * @tparam T 
  * @param object
  */
 template <typename T>
 void ConfigParser::parseRoot(T& object)
 {
-	std::string root = object.getRoot();
-	if (!root.empty())
+	if (object.getRootFlag() == true)
 		throw ConfigException("Error: Root was already defined.");
+	if (object.getAliasFlag() == true)
+		throw ConfigException("Error: Root and alias cannot coexist in a location block.");
 
 	++_currentToken;
 	checkIfTokenExists();
@@ -128,18 +142,20 @@ void ConfigParser::parseRoot(T& object)
 		throw ConfigException("Error: There must be a valid path after 'root' keyword.");
 
 	ConfigUtils::validatePath(rootPath);
-
-	//there can only be one token between the 'root' word and the ';', because the path can't have spaces in between
-	if (_currentToken + 1 >= _tokens.size())
-		throw ConfigException("Error: Unexpected end of file after " + _tokens[_currentToken - 1]);
-	if (_tokens[_currentToken + 1] != ";")
-		throw ConfigException("Error: Unknown path detected after 'root'.");
-
 	object.setRoot(rootPath);
+	object.setRootFlag(true);
+
+	++_currentToken;
+	checkIfTokenExists();
+	if (_tokens[_currentToken] != ";")
+		throw ConfigException("Error: Unknown path detected after 'root'.");
 }
 
 /**
  * @brief Validates information after 'client_max_body_size' keyword
+ * 
+ * (Client_max_body_size directive: sets the maximum allowed size for the client request
+ * body (content-length). Prevents Denial of Service attacks by limiting large file uploads.)
  * 
  * @param server 
  */

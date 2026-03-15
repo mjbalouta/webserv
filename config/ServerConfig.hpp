@@ -3,12 +3,16 @@
 #include "Includes.hpp"
 #include "LocationConfig.hpp"
 
+class LocationConfig;
+
 class ServerConfig
 {
 	private:
-	int _port; //should it be a vector of ports???
+	int _fd;
+	std::vector<int> _ports; //should it be a vector of ports???
 	bool _portDefined; //config file defined a port?
-	std::string _root; //base directory where files are served from
+	std::string _root; //base directory where files are served from'
+	bool _rootDefined;
 	std::vector<std::string> _indexes; //the default file served when a directory is requested 
 	std::map<int, std::string> _errorPages; //custom HTML pages for HTTP errors
 	std::string _host; //the IP address the server binds to
@@ -16,11 +20,13 @@ class ServerConfig
 	std::vector<LocationConfig> _locations; //all location blocks inside this server
 	unsigned long _maxBodySize;
 	bool _autoIndex;
+	std::vector<std::string> _allowedMethods;
 
 	public:
 	ServerConfig();
 
-	void setPort(int port);
+	void setFd(int fd);
+	void addPort(int port);
 	void setPortDefined(bool portDefined);
 	void setRoot(const std::string& root);
 	void addIndex(const std::string& index);
@@ -30,8 +36,11 @@ class ServerConfig
 	void addLocation(const LocationConfig& location);
 	void setMaxBodySize(unsigned long size);
 	void setAutoIndex(bool status);
+	void setRootFlag(bool status);
+	void addAllowedMethod(const std::string& allowedMethod);
 
-	int getPort() const;
+	int getFd() const;
+	const std::vector<int>& getPorts() const;
 	bool getPortDefined() const;
 	const std::string& getRoot() const;
 	const std::vector<std::string>& getIndexes() const;
@@ -41,6 +50,10 @@ class ServerConfig
 	const std::vector<LocationConfig>& getLocations() const;
 	unsigned long getMaxBodySize() const;
 	bool getAutoIndex() const;
+	bool getAliasFlag() const;
+	bool getRootFlag() const;
+	const std::vector<std::string>& getAllowedMethods() const;
 
 	void clearIndexes();
+	void clearServerNames();
 };

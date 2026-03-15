@@ -1,6 +1,64 @@
 #include "ConfigUtils.hpp"
 
 /**
+ * @brief Goes through the ports vector and checks if the token already exists there
+ * 
+ * @param token 
+ * @param server 
+ */
+void ConfigUtils::checkIfPortExists(std::string& token, ServerConfig& server)
+{
+	int port = atoi(token.c_str());
+	std::vector<int> ports = server.getPorts();
+	for (std::vector<int>::iterator it = ports.begin(); it != ports.end(); ++it)
+	{
+		if (*it == port)
+			throw ConfigException("Error: Duplicated port: " + token);
+	}
+}
+
+/**
+ * @brief Checks if the path is a directory
+ * 
+ * @param token 
+ */
+void ConfigUtils::checkIfDirectory(std::string& token)
+{
+	validatePath(token);
+	if (token.find("//") != std::string::npos)
+		throw ConfigException("Error: Invalid path format: " + token);
+}
+
+/**
+ * @brief Goes through the cgi container and checks if the extension already exists
+ * 
+ * @param token 
+ */
+void ConfigUtils::checksIfAlreadyExists(std::string& token, LocationConfig& location)
+{
+	std::map<std::string, std::string> temp = location.getCGI();
+	std::map<std::string, std::string>::iterator it = temp.find("token");
+	if (it != temp.end())
+		throw ConfigException("Error: Extension already defined: " + token);
+}
+
+/**
+ * @brief Validates the extension format
+ * 
+ * @param token 
+ */
+void ConfigUtils::checkExtension(std::string& token)
+{
+	if (token.size() < 2) //menor do que 2 ou 3? aceitamos .c?
+		throw ConfigException("Error: Wrong extension format: " + token);
+	if (token[0] != '.')
+		throw ConfigException("Error: Wrong extension format: " + token);
+	if (token.find('.', 1) != std::string::npos)
+		throw ConfigException("Error: Wrong extension format: " + token);
+	
+}
+
+/**
  * @brief Validates the message format after a status code in return
  * 
  * @param token 
@@ -166,7 +224,9 @@ void ConfigUtils::validatePort(std::string& token, ServerConfig& server)
 	int port = atoi(token.c_str());
 	if (port < 1 || port > 65535)
 		throw ConfigException("Error: Invalid port " + token);
-	server.setPort(port); 
+	ConfigUtils::checkIfPortExists(token, server);
+	server.addPort(port); 
+	server.setPortDefined(true);
 }
 
 /**
