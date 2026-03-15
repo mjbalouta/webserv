@@ -1,82 +1,176 @@
 #include "ResponseBuilder.hpp"
 
-std::string ResponseBuilder::returnResponse(const Request& request, const ServerConfig& config) {
-	std::vector<LocationConfig> locations = config.getLocations();
-	// Determine the appropriate location block based on the request path
-	// This is a simplified example and should be expanded to handle more complex scenarios
-	const LocationConfig* matchedLocation = NULL;
-	for (size_t i = 0; i < locations.size(); ++i) 
+
+std::string ResponseBuilder::formatHttpDate(std::time_t t)
+{
+	// RFC 7231 IMF-fixdate: Sun, 06 Nov 1994 08:49:37 GMT
+	char buf[64];
+	std::tm *gmt = std::gmtime(&t);
+	if (!gmt)
+		return "";
+	if (std::strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", gmt) == 0)
+		return "";
+	return std::string(buf);
+}
+
+bool ResponseBuilder::startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath)
+{
+	if (locPath.empty())
+		return false;
+	if (uriPath.size() < locPath.size())
+		return false;
+	if (uriPath.compare(0, locPath.size(), locPath) != 0)
+		return false;
+	if (uriPath.size() == locPath.size())
+		return true;
+	// Boundary: either location ends with '/', or next char in uri is '/'
+	if (locPath[locPath.size() - 1] == '/')
+		return true;
+	return (uriPath[locPath.size()] == '/');
+}
+
+std::string ResponseBuilder::ensureLeadingSlash(const std::string &p)
+{
+	if (p.empty())
+		return "/";
+	if (p[0] == '/')
+		return p;
+	return "/" + p;
+}
+
+std::string ResponseBuilder::ensureTrailingSlash(const std::string &p)
+{
+	if (!p.empty() && p[p.size() - 1] == '/')
+		return p;
+	return p + "/";
+}
+
+std::string ResponseBuilder::joinPathSimple(const std::string &a, const std::string &b)
+{
+	if (a.empty())
+		return b;
+	if (b.empty())
+		return a;
+	if (a[a.size() - 1] == '/' && b[0] == '/')
+		return a + b.substr(1);
+	if (a[a.size() - 1] != '/' && b[0] != '/')
+		return a + "/" + b;
+	return a + b;
+}
+
+std::string ResponseBuilder::buildAutoIndexBody(const std::string &uriPath, const std::string &dirFsPath, FileSystemHandler &fs)
+{
+	std::vector<std::string> entries = fs.listDirectory(dirFsPath);
+	std::string body;
+	body += "<!DOCTYPE html><html><head><meta charset=\"utf-8\">";
+	body += "<title>Index of " + uriPath + "</title></head><body>";
+	body += "<h1>Index of " + uriPath + "</h1><ul>";
+	for (size_t i = 0; i < entries.size(); ++i)
 	{
-		std::string requestpath = request.getPath();
-		PathResolver resolver;
-		std::string locationRoot;
-		if (locations[i].getRoot().empty())
-			locationRoot = config.getRoot();
-		else
-			locationRoot = locations[i].getRoot();
-		if (resolver.isPathSafe(requestpath, locationRoot) == true) {
-			if (requestpath.find(locations[i].getPath()) == 0)
-			{
-				if (matchedLocation != NULL)
-				{
-					if (matchedLocation->getPath().length() < locations[i].getPath().length())
-						matchedLocation = &locations[i];
-				}
-				else
-					matchedLocation = &locations[i];
-			}
-		}
+		std::string name = entries[i];
+		std::string entryFs = joinPathSimple(dirFsPath, name);
+		bool isDir = fs.isDirectory(entryFs);
+		std::string href = ensureTrailingSlash(uriPath) + name + (isDir ? "/" : "");
+		body += "<li><a href=\"" + href + "\">" + name + (isDir ? "/" : "") + "</a></li>";
 	}
-	if (matchedLocation == NULL)
-		return returnGenericErrorResponse(404, request, config);
-	else
+	body += "</ul></body></html>";
+	return body;
+}
+
+bool ResponseBuilder::isMethodAllowed(const std::string &method, const LocationConfig *loc, const ServerConfig &config)
+{
+	if (loc)
 	{
-		std::vector<std::string> methods = matchedLocation->getAllowedMethods();
-		std::vector<std::string>::iterator it = methods.begin();
-		bool Allowed = false;
-		for (; it != methods.end(); it++)
-			if (*it == request.getMethodStr())
-				Allowed = true;
-		if (!Allowed && request.getMethodStr() == "GET")
+		const std::vector<std::string> &locMethods = loc->getAllowedMethods();
+		if (!locMethods.empty())
 		{
-			if (config.getAllowedMethods() == "GET")
-				Allowed = true;
+			for (size_t i = 0; i < locMethods.size(); ++i)
+				if (locMethods[i] == method)
+					return true;
+			return false;
 		}
-		else
-			return returnGenericErrorResponse(405, request, config);
 	}
-	std::string response;
-	if (matchedLocation->getReturnStatusCode())
+	const std::vector<std::string> &srvMethods = config.getAllowedMethods();
+	if (srvMethods.empty())
+		return true;
+	for (size_t i = 0; i < srvMethods.size(); ++i)
+		if (srvMethods[i] == method)
+			return true;
+	return false;
+}
+
+
+std::string ResponseBuilder::returnResponse(const Request& request, const ServerConfig& config) {
+	std::string uriPath = request.getPath();
+
+	const LocationConfig *matchedLocation = NULL;
+	const std::vector<LocationConfig> &locations = config.getLocations();
+	for (size_t i = 0; i < locations.size(); ++i)
 	{
-		if (matchedLocation->getReturnStatusCode() >= 400)
-			return returnRedirectErrorResponse(matchedLocation->getReturnStatusCode(), request, config);
-		_statusCode = matchedLocation->getReturnStatusCode();
+		if (!startsWithLocationBoundary(uriPath, locations[i].getPath()))
+			continue;
+		if (!matchedLocation || matchedLocation->getPath().size() < locations[i].getPath().size())
+			matchedLocation = &locations[i];
+	}
+	if (!matchedLocation)
+		return returnGenericErrorResponse(404, request, config);
+
+	// 2) Enforce method allow-list (location overrides server when set).
+	if (!isMethodAllowed(request.getMethodStr(), matchedLocation, config))
+		return returnGenericErrorResponse(405, request, config);
+
+	// 3) Handle explicit "return" directive (redirect/custom response).
+	if (matchedLocation->getReturnStatusCode())	
+	{
+		int code = matchedLocation->getReturnStatusCode();
+		if (code >= 400)
+			return returnGenericErrorResponse(code, request, config);
+		_statusCode = code;
 		std::stringstream ss;
 		ss << _statusCode;
 		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 		_location = matchedLocation->getReturnURL();
-		if (matchedLocation->getReturnMessage().empty() || matchedLocation->getReturnStatusCode() == 304 || matchedLocation->getReturnStatusCode() == 204)
+		_contentType = "text/html";
+		if (matchedLocation->getReturnMessage().empty() || code == 304 || code == 204)
 		{
-			_body = "";
+			_body.clear();
 			_contentLength = 0;
 		}
-		else{
+		else
+		{
 			_body = matchedLocation->getReturnMessage();
 			_contentLength = _body.size();
 		}
-		_contentType = "text/html"; // need to determine what the right type is
-		response =	_statusLine;
-		response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
-		response += "Content-Type: " + contentType + "\r\n";
-		response += "Location: " + _location + "\r\n";
-		response += "Date: " + getDateString() + "\r\n";
-		response += "Connection: close\r\n";
-		response += "\r\n" + _body;
+
+		std::string response = _statusLine;
+		response += "Content-Type: " + _contentType + "\r\n";
+		response += "Content-Length: " + std::to_string(_contentLength) + "\r\n";
+		if (!_location.empty())
+			response += "Location: " + _location + "\r\n";
+		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+		response += "Connection: close\r\n\r\n";
+		response += _body;
 		return response;
 	} // General idea of redirect response
+	if (matchedLocation->getAutoIndex())
+	{
+		std::string dirFSPath = matchedLocation->getRoot() + uriPath.substr(matchedLocation->getPath().size());
+		std::string body = buildAutoIndexBody(uriPath, dirFSPath, fileSystemHandler);
+		_statusCode = 200;
+		std::stringstream ss;
+		ss << _statusCode;
+		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_contentType = "text/html";
+		_body = body;
+		_contentLength = _body.size();
+		std::string response = _statusLine;
+		setStandardHeaders(response, _contentType, _contentLength);
+		response += "\r\n" + _body;
+		return response;
+	}
 
 	
-	return response; // Placeholder response
+//	return response; // Placeholder response
 }
 
 std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const Request& request, const ServerConfig& config, const LocationConfig* matchedLocation){
@@ -85,7 +179,7 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 		ss << _statusCode;
 		_statusLine = request.getVersion() + " " + ss.str() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 		_contentType = "text/html";
-		if (matchedLocation->getReturnMessage().empty()){
+		if (!matchedLocation || matchedLocation->getReturnMessage().empty()){
 			_body = "";
 			_contentLength = 0;
 		}
@@ -94,10 +188,10 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 			_contentLength = _body.size();
 		}
 		std::string response = _statusLine;
-		response += "Content-Type: " + contentType + "\r\n";
-		response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
-		response += "Date: " + getDateString() + "\r\n";
-		response += "Last-Modified: " + getLastModifiedString() + "\r\n";
+		response += "Content-Type: " + _contentType + "\r\n";
+		response += "Content-Length: " + std::to_string(_contentLength) + "\r\n";
+		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
 		response += "Connection: close\r\n";
 		response += "\r\n" + _body;
 		return response;
@@ -124,8 +218,12 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 void ResponseBuilder::setStandardHeaders(std::string& response, const std::string& contentType, size_t contentLength) {
 	response += "Content-Type: " + contentType + "\r\n";
 	response += "Content-Length: " + std::to_string(contentLength) + "\r\n";
-	response += "Date: " + getDateString() + "\r\n";
-	response += "Last-Modified: " + getLastModifiedString() + "\r\n";
+	if (_date == 0)
+		_date = static_cast<size_t>(std::time(NULL));
+	if (_lastModified == 0)
+		_lastModified = static_cast<std::time_t>(_date);
+	response += "Date: " + formatHttpDate(static_cast<std::time_t>(_date)) + "\r\n";
+	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
 	response += "Connection: close\r\n";
 }
 
@@ -154,9 +252,7 @@ std::time_t ResponseBuilder::getLastModified() {
 }
 
 std::string ResponseBuilder::getLastModifiedString() {
-	std::stringstream ss;
-	ss << _lastModified;
-	return ss.str();
+	return formatHttpDate(_lastModified);
 }
 
 size_t ResponseBuilder::getDate() {
@@ -164,7 +260,5 @@ size_t ResponseBuilder::getDate() {
 }
 
 std::string ResponseBuilder::getDateString(){
-	std::stringstream ss;
-	ss << _date;
-	return ss.str();
+	return formatHttpDate(static_cast<std::time_t>(_date));
 }
