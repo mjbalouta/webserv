@@ -1,42 +1,40 @@
 #include "ConfigResolved.hpp"
 
-ConfigResolve::ConfigResolve(const ConfigParser& config, const Request& request)
+ConfigResolved::ConfigResolved(const ConfigParser& config, const Request& request, const ServerConfig& server)
 {
-	_server = findServerBlock(config, request);
-	_location = findLocationBlock(config, request);
+	_server = &server;
+	_location = findLocationBlock(server, request);
 }
 
-const ServerConfig* ConfigResolve::findServerBlock(const ConfigParser& config, const Request& request)
-{
-	std::string host = request.getHost();
-	std::vector<ServerConfig> serverBlocks = config.getServers();
-
-	for (std::vector<ServerConfig>::iterator serverIt = serverBlocks.begin(); serverIt != serverBlocks.end(); ++serverIt)
-	{
-		std::vector<std::string> serverNames = serverIt->getServerNames();
-		for (std::vector<std::string>::const_iterator namesIt = serverNames.begin(); namesIt != serverNames.end(); ++namesIt)
-		{
-			if (*namesIt == host)
-				return &(*serverIt);
-		}
-	}
-	return (&serverBlocks[0]); //return the first block as a default (even if it isn't a match, the server still needs to respond)
-}
-
-const LocationConfig* ConfigResolve::findLocationBlock(const ConfigParser& config, const Request& request)
+/**
+ * @brief after finding the server block, we must look for the most accurate match for the request path
+ * in the location block's path
+ * 
+ * @param server 
+ * @param request 
+ * @return const LocationConfig* 
+ */
+const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& server, const Request& request)
 {
 	std::string path = request.getPath();
-	std::vector<ServerConfig> serverBlocks = config.getServers();
 
-	for (std::vector<ServerConfig>::iterator serverIt = serverBlocks.begin(); serverIt != serverBlocks.end(); ++serverIt)
+	const std::vector<LocationConfig>& locationBlocks = server.getLocations();
+	const LocationConfig* bestMatch = NULL;
+	size_t longestMatchSize = 0;
+
+	for (std::vector<LocationConfig>::const_iterator locationIt = locationBlocks.begin(); locationIt != locationBlocks.end(); ++locationIt)
 	{
-		std::vector<LocationConfig> locationBlocks = serverIt->getLocations();
-		for (std::vector<LocationConfig>::iterator locationIt = locationBlocks.begin(); locationIt != locationBlocks.end(); ++locationIt)
+		std::string locationPath = locationIt->getPath();
+		//finding the longest match (if the path is /images/more/more, we have to search for the best possible
+		// match - it can be just /images, but if there is a path /images/more, we have to select this last one)
+		if (path.find(locationPath) == 0)
 		{
-			std::string locationPath = locationIt->getPath();
-			if (locationPath == path)
-				return &(*locationIt);
+			if (locationPath.size() > longestMatchSize)
+			{
+				bestMatch = &(*locationIt);
+				longestMatchSize = locationPath.size();
+			}
 		}
 	}
-	//what should i return for default?
+	return bestMatch;
 }

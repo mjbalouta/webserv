@@ -5,17 +5,16 @@
 #include "../ServerManager/Request.hpp"
 #include "../config/parser/ConfigParser.hpp"
 
-class ConfigResolve
+class ConfigResolved
 {
 	private:
 	const ServerConfig* _server;
 	const LocationConfig* _location;
 
-	const ServerConfig* findServerBlock(const ConfigParser& config, const Request& request);
-	const LocationConfig* findLocationBlock(const ConfigParser& config, const Request& request);
+	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request);
 
 	public:
-	ConfigResolve(const ConfigParser& config, const Request& request);
+	ConfigResolved(const ConfigParser& config, const Request& request, const ServerConfig& server);
 
 	const ServerConfig& getServer() const;
 	const LocationConfig& getLocation() const;
