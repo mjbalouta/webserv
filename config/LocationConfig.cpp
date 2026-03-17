@@ -2,8 +2,8 @@
 
 LocationConfig::LocationConfig(const std::string& path)
 : _path(path), _root(""), _rootDefined(false), _alias(""), _aliasSet(false), _autoIndex(false),
-_returnStatusCode(0), _returnURL(""), _returnMessage(""),
-_maxBodySize(0), _uploadStore("")
+_autoIndexSet(false), _returnStatusCode(0), _returnURL(""), _returnMessage(""),
+_maxBodySize(0), _maxBodySizeFlag(false), _uploadStore("")
 {}
 
 void LocationConfig::setRoot(const std::string& root)
@@ -24,6 +24,11 @@ void LocationConfig::addAllowedMethod(const std::string& allowedMethod)
 void LocationConfig::setAutoIndex(bool autoIndex)
 {
 	_autoIndex = autoIndex;
+}
+
+void LocationConfig::setAutoIndexFlag(bool autoIndex)
+{
+	_autoIndexSet = true;
 }
 
 const std::string& LocationConfig::getPath() const
@@ -155,5 +160,20 @@ bool LocationConfig::getRootFlag() const
 void LocationConfig::clearMethods()
 {
 	_allowedMethods.clear();
+}
+
+bool LocationConfig::getAutoIndexFlag () const
+{
+	return _autoIndexSet;
+}
+
+void LocationConfig::setMaxBodySizeFlag(bool status)
+{
+	_maxBodySizeFlag = status;
+}
+
+bool LocationConfig::getMaxBodySizeFlag() const
+{
+	return _maxBodySizeFlag;
 }
 
