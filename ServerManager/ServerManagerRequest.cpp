@@ -165,6 +165,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 void ServerManager::processClientRequest(ClientSession &client, Request &request, ServerConfig &server)
 {
 	ConfigResolved routing(request, server);
+	(void)routing; //person 3 should uncomment this
 	// Person 3 hook: use `server` error pages/root/indexes to build final body.
 	client.method = request.getMethod();
 	client.path = request.getPath();

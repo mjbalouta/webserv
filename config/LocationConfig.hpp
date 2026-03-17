@@ -51,7 +51,7 @@ class LocationConfig
 	const std::vector<std::string>& getIndexes() const; // Retorna o vetor para quando o pedido for um diretório
 	const std::vector<std::string>& getAllowedMethods() const;
 	bool getAutoIndex() const;
-	bool getAutoIndexFlag () const;
+	bool getAutoIndexFlag() const;
 	const std::string& getAlias() const;
 	bool getAliasFlag() const;
 	int getReturnStatusCode() const;

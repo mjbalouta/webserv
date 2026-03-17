@@ -162,7 +162,7 @@ void LocationConfig::clearMethods()
 	_allowedMethods.clear();
 }
 
-bool LocationConfig::getAutoIndexFlag () const
+bool LocationConfig::getAutoIndexFlag() const
 {
 	return _autoIndexSet;
 }

@@ -16,23 +16,20 @@ class ConfigResolved
 	public:
 	ConfigResolved(const Request& request, const ServerConfig& server);
 	
-	const ServerConfig& getServer() const;
-	const LocationConfig& getLocation() const;
-	
-	const std::string getLocationPath() const;
-	const std::string getResolvedPath(const Request& request) const;
-	const std::string getRoot() const;
-	const std::string getAlias() const;
+	std::string getLocationPath() const;
+	std::string getResolvedPath(const Request& request) const;
+	const std::string& getRoot() const;
+	std::string getAlias() const;
 	const std::vector<std::string>& getIndexes() const;
 	const std::vector<std::string>& getAllowedMethods() const;
 	const std::map<int, std::string>& getErrorPages() const;
-	const std::string getHost() const;
+	const std::string& getHost() const;
 	const std::vector<std::string>& getServerNames() const;
 	unsigned long getMaxBodySize() const;
 	bool getAutoIndex() const;
 	int getReturnStatusCode() const;
-	const std::string getReturnURL() const;
-	const std::string getReturnMessage() const;
+	std::string getReturnURL() const;
+	std::string getReturnMessage() const;
 	const std::map<std::string, std::string>& getCgi() const;
-	const std::string getUploadStore() const;
+	std::string getUploadStore() const;
 };

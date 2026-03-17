@@ -29,7 +29,11 @@ const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& serv
 		// match - it can be just /images, but if there is a path /images/more, we have to select this last one)
 		if (path.find(locationPath) == 0)
 		{
-			if (locationPath.size() > longestMatchSize)
+			//it needs to be a full match (can't match /images2 with /images) so we need to check these:
+			bool isFullMatch = (locationPath == "/" || path.size() == locationPath.size()
+								|| locationPath[locationPath.size() - 1] == '/'
+								|| path[locationPath.size()] == '/');
+			if (isFullMatch && locationPath.size() > longestMatchSize)
 			{
 				bestMatch = &(*locationIt);
 				longestMatchSize = locationPath.size();
@@ -44,7 +48,7 @@ const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& serv
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getLocationPath() const
+std::string ConfigResolved::getLocationPath() const
 {
 	if (_location && !_location->getPath().empty())
 		return _location->getPath();
@@ -57,7 +61,7 @@ const std::string ConfigResolved::getLocationPath() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getRoot() const
+const std::string& ConfigResolved::getRoot() const
 {
 	if (_location && !_location->getRoot().empty())
 		return _location->getRoot();
@@ -69,7 +73,7 @@ const std::string ConfigResolved::getRoot() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getAlias() const
+std::string ConfigResolved::getAlias() const
 {
 	if (_location && !_location->getAlias().empty())
 		return _location->getAlias();
@@ -85,7 +89,7 @@ const std::string ConfigResolved::getAlias() const
  * @param request 
  * @return const std::string 
  */
-const std::string ConfigResolved::getResolvedPath(const Request& request) const
+std::string ConfigResolved::getResolvedPath(const Request& request) const
 {
 	std::string alias = this->getAlias();
 	std::string serverPath;
@@ -153,7 +157,7 @@ const std::map<int, std::string>& ConfigResolved::getErrorPages() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getHost() const
+const std::string& ConfigResolved::getHost() const
 {
 	return _server->getHost();
 }
@@ -210,7 +214,7 @@ int ConfigResolved::getReturnStatusCode() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getReturnURL() const
+std::string ConfigResolved::getReturnURL() const
 {
 	if (_location)
 		return _location->getReturnURL();
@@ -222,7 +226,7 @@ const std::string ConfigResolved::getReturnURL() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getReturnMessage() const
+std::string ConfigResolved::getReturnMessage() const
 {
 	if (_location)
 		return _location->getReturnMessage();
@@ -250,7 +254,7 @@ const std::map<std::string, std::string>& ConfigResolved::getCgi() const
  * 
  * @return const std::string 
  */
-const std::string ConfigResolved::getUploadStore() const
+std::string ConfigResolved::getUploadStore() const
 {
 	if (_location)
 		return _location->getUploadStore();
