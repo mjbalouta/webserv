@@ -19,7 +19,9 @@ class ServerConfig
 	std::vector<std::string> _serverNames; //the domain names this server responds to (one machine can host multiple websites on the same port)
 	std::vector<LocationConfig> _locations; //all location blocks inside this server
 	unsigned long _maxBodySize;
+	bool _maxBodySizeFlag;
 	bool _autoIndex;
+	bool _autoIndexSet; //activated if autoindex exists in the config file
 	std::vector<std::string> _allowedMethods;
 
 	public:
@@ -35,7 +37,9 @@ class ServerConfig
 	void addServerName(const std::string& serverName);
 	void addLocation(const LocationConfig& location);
 	void setMaxBodySize(unsigned long size);
+	void setMaxBodySizeFlag(bool status);
 	void setAutoIndex(bool status);
+	void setAutoIndexFlag(bool status);
 	void setRootFlag(bool status);
 	void addAllowedMethod(const std::string& allowedMethod);
 

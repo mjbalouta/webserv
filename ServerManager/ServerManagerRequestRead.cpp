@@ -2,37 +2,37 @@
 
 static const size_t MAX_HEADER_SIZE = 8192;
 
-/**
- * @brief Checks if a given header line contains a specific token.
- */
-static bool hasHeaderToken(const std::string &headersLower, const std::string &headerName, const std::string &token)
-{
-	// Scan one header line at a time so matches are anchored to real line starts.
-	for (size_t lineStart = 0; lineStart < headersLower.size(); )
-	{
-		// Find the end of the current header line.
-		size_t lineEnd = headersLower.find("\r\n", lineStart);
-		if (lineEnd == std::string::npos)
-			// Last line in the buffer may not have trailing CRLF.
-			lineEnd = headersLower.size();
+// /**
+//  * @brief Checks if a given header line contains a specific token.
+//  */
+// static bool hasHeaderToken(const std::string &headersLower, const std::string &headerName, const std::string &token)
+// {
+// 	// Scan one header line at a time so matches are anchored to real line starts.
+// 	for (size_t lineStart = 0; lineStart < headersLower.size(); )
+// 	{
+// 		// Find the end of the current header line.
+// 		size_t lineEnd = headersLower.find("\r\n", lineStart);
+// 		if (lineEnd == std::string::npos)
+// 			// Last line in the buffer may not have trailing CRLF.
+// 			lineEnd = headersLower.size();
 
-		// Accept only exact header-name match at the beginning of this line.
-		// This prevents spoofing via request target text or other header values.
-		if (lineEnd > lineStart
-			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
-		{
-			// Search token only inside the matched header line.
-			return headersLower.substr(lineStart, lineEnd - lineStart).find(token) != std::string::npos;
-		}
+// 		// Accept only exact header-name match at the beginning of this line.
+// 		// This prevents spoofing via request target text or other header values.
+// 		if (lineEnd > lineStart
+// 			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
+// 		{
+// 			// Search token only inside the matched header line.
+// 			return headersLower.substr(lineStart, lineEnd - lineStart).find(token) != std::string::npos;
+// 		}
 
-		if (lineEnd == headersLower.size())
-			// Reached the last line.
-			break;
-		// Move to the next line (skip "\r\n").
-		lineStart = lineEnd + 2;
-	}
-	return false;
-}
+// 		if (lineEnd == headersLower.size())
+// 			// Reached the last line.
+// 			break;
+// 		// Move to the next line (skip "\r\n").
+// 		lineStart = lineEnd + 2;
+// 	}
+// 	return false;
+// }
 
 /**
  * @brief Parses `Content-Length` from normalized headers when present.

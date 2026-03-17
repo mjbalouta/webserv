@@ -74,24 +74,20 @@ std::string ErrorPageGenerator::generateErrorPage(int statusCode, const std::str
     return html;
 }
 
-std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const ServerConfig& config){
-     std::vector<LocationConfig> _locations = config.getLocations();
-    std::vector<LocationConfig>::const_iterator locIt = _locations.begin();
-    for (; locIt != _locations.end(); ++locIt) 
+std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const ConfigResolved& config){
+
+    std::map<int, std::string> errorPages = config.getErrorPages();
+    std::map<int, std::string>::const_iterator pageIt = errorPages.find(statusCode);
+    if (pageIt != errorPages.end())
     {
-        std::map<int, std::string> errorPages = locIt->getErrorPages();
-        std::map<int, std::string>::const_iterator pageIt = errorPages.find(statusCode);
-        if (pageIt != errorPages.end())
-        {
-            std::string filePath = locIt->getRoot() + "/" + pageIt->second; // Assumindo que a root não tem uma barra no final
-            std::ifstream file(filePath);
-            if (file.is_open())            {
-                std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                file.close();
-                return content;
-            }
+        std::string filePath = config.getRoot() + "/" + pageIt->second; // Assumindo que a root não tem uma barra no final
+        std::ifstream file(filePath);
+        if (file.is_open()){
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            return content;
         }
-    } 
+    }
 /*        std::vector<std::string> errorPages = locIt->getIndexes();
         std::vector<std::string>::const_iterator pageIt = errorPages.begin();
         for (; pageIt != errorPages.end(); ++pageIt) 
@@ -109,22 +105,5 @@ std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const Server
             }                    
         }
     }    */ 
-    std::map<int, std::string> customPages = config.getErrorPages(); // Pedir Maria para criar um map das paginas de erro no config
-    std::map<int, std::string>::const_iterator it = customPages.find(statusCode);
-    if (it != customPages.end()) {
-        std::string filePath = config.getRoot() + "/" + it->second; // Assumindo que a root não tem uma barra no final
-        std::ifstream file(filePath);
-        if (file.is_open()) {
-            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-/*             std::string content;
-            while (file.good()){
-                std::string line;
-                std::getline(file, line);
-                content += line + "\n";
-            } */
-            file.close();
-            return content;
-        }
-    }
     return generateErrorPage(statusCode, getReasonPhrase(statusCode)); // Fallback para a página de erro genérica se não houver uma personalizada
 }

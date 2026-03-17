@@ -1,10 +1,18 @@
 #pragma once
 
 #include "../Includes.hpp"
+#include "../config/ServerConfig.hpp"
+#include "../config/LocationConfig.hpp"
+#include "../ServerManager/Request.hpp"
+#include "../fileResourceManagement/PathResolver.hpp"
+#include "../fileResourceManagement/FileSystemHandler.hpp"
+#include "../fileResourceManagement/MimeTypeResolver.hpp"
+#include "../fileResourceManagement/ErrorPageGenerator.hpp"
+#include "../routing/ConfigResolved.hpp"
 
 class ResponseBuilder{
 	public:
-		std::string returnResponse(const Request& request, const ServerConfig& config);
+		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig);
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -21,10 +29,10 @@ class ResponseBuilder{
 		MimeTypeResolver mimeTypeResolver;
 
 		int getStatusCode();
-		int determineStatusCode(const std::string& request, const ServerConfig& config);
+		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
 
-		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
-		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const LocationConfig* matchedLocation);
+		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 
 		std::string getStatusCodeString();
 		std::string getStatusLine();
@@ -43,7 +51,7 @@ class ResponseBuilder{
 		void setLastModified(std::time_t lastModified);
 		void setBody(const std::string& body);
 
-		bool isMethodAllowed(const std::string &method, const LocationConfig *loc, const ServerConfig &cfg);
+		bool isMethodAllowed(const std::string &method, const ConfigResolved &resolvedConfig);
 		std::string buildAutoIndexBody(const std::string &uriPath, const std::string &dirFsPath, FileSystemHandler &fs);
 		std::string joinPathSimple(const std::string &a, const std::string &b);
 		std::string ensureTrailingSlash(const std::string &p);
@@ -51,10 +59,10 @@ class ResponseBuilder{
 		bool startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath);
 		std::string formatHttpDate(std::time_t t);
 
-		 std::string buildRedirectResponse(const LocationConfig &matched, const Request &request, const ServerConfig &config);
-		 std::string buildFileResponse(const std::string& filePath, const ServerConfig& config);
-		 std::string buildErrorResponse(int statusCode, const ServerConfig& config);
-		//std::string buildDirectoryListingResponse(const std::string& dirPath, const ServerConfig& config);
-		//std::string buildCGIResponse(const std::string& scriptPath, const ServerConfig& config);
+		 std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
+		 std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
+		 std::string buildErrorResponse(int statusCode, const ConfigResolved& resolvedConfig);
+		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
+		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);		
 };
