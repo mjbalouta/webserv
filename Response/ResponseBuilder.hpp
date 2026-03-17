@@ -21,15 +21,16 @@ class ResponseBuilder{
 		MimeTypeResolver mimeTypeResolver;
 
 		int getStatusCode();
-		void setStatusCode(int statusCode);
 		int determineStatusCode(const std::string& request, const ServerConfig& config);
 
-		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
-		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ServerConfig& config, const LocationConfig* matchedLocation);
+		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ServerConfig& config);
+		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const LocationConfig* matchedLocation);
 
+		std::string getStatusCodeString();
 		std::string getStatusLine();
 		std::string getContentType();
 		size_t getContentLength();
+		std::string getContentLengthString();
 		std::time_t getLastModified();
 		size_t getDate();
 		std::string getDateString();
@@ -50,9 +51,10 @@ class ResponseBuilder{
 		bool startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath);
 		std::string formatHttpDate(std::time_t t);
 
-		static std::string buildFileResponse(const std::string& filePath, const ServerConfig& config);
-		static std::string buildErrorResponse(int statusCode, const ServerConfig& config);
-		static std::string buildDirectoryListingResponse(const std::string& dirPath, const ServerConfig& config);
-		static std::string buildCGIResponse(const std::string& scriptPath, const ServerConfig& config);
-		void setStandardHeaders(std::string& response, const std::string& contentType, size_t contentLength);		
+		 std::string buildRedirectResponse(const LocationConfig &matched, const Request &request, const ServerConfig &config);
+		 std::string buildFileResponse(const std::string& filePath, const ServerConfig& config);
+		 std::string buildErrorResponse(int statusCode, const ServerConfig& config);
+		//std::string buildDirectoryListingResponse(const std::string& dirPath, const ServerConfig& config);
+		//std::string buildCGIResponse(const std::string& scriptPath, const ServerConfig& config);
+		void setStandardHeaders(std::string& response, const std::string& contentType);		
 };

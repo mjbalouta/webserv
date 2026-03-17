@@ -128,6 +128,8 @@ Keep longest match wins (you already do this conceptually).
 3 Decide the effective base path: root vs alias
 Your configs support both in LocationConfig.hpp. Treat them differently:
 
+
+Still not taking care of the alias case atm (See how to do it)
 No alias: use “root semantics”
 
 Effective root = location.root if set, else server.root from ServerConfig.hpp
