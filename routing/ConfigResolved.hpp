@@ -12,14 +12,14 @@ class ConfigResolved
 	const LocationConfig* _location;
 
 	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request);
-	const std::string getLocationPath() const;
-
+	
 	public:
 	ConfigResolved(const Request& request, const ServerConfig& server);
-
+	
 	const ServerConfig& getServer() const;
 	const LocationConfig& getLocation() const;
-
+	
+	const std::string getLocationPath() const;
 	const std::string getResolvedPath(const Request& request) const;
 	const std::string getRoot() const;
 	const std::string getAlias() const;
