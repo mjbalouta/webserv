@@ -26,9 +26,9 @@ void LocationConfig::setAutoIndex(bool autoIndex)
 	_autoIndex = autoIndex;
 }
 
-void LocationConfig::setAutoIndexFlag(bool autoIndex)
+void LocationConfig::setAutoIndexFlag(bool status)
 {
-	_autoIndexSet = true;
+	_autoIndexSet = status;
 }
 
 const std::string& LocationConfig::getPath() const

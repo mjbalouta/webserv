@@ -1,6 +1,6 @@
 #include "ConfigResolved.hpp"
 
-ConfigResolved::ConfigResolved(const ConfigParser& config, const Request& request, const ServerConfig& server)
+ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& server)
 {
 	_server = &server;
 	_location = findLocationBlock(server, request);

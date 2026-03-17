@@ -15,7 +15,7 @@ class ConfigResolved
 	const std::string getLocationPath() const;
 
 	public:
-	ConfigResolved(const ConfigParser& config, const Request& request, const ServerConfig& server);
+	ConfigResolved(const Request& request, const ServerConfig& server);
 
 	const ServerConfig& getServer() const;
 	const LocationConfig& getLocation() const;

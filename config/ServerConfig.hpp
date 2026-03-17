@@ -39,7 +39,7 @@ class ServerConfig
 	void setMaxBodySize(unsigned long size);
 	void setMaxBodySizeFlag(bool status);
 	void setAutoIndex(bool status);
-	void setAutoIndexFlag(bool autoIndex);
+	void setAutoIndexFlag(bool status);
 	void setRootFlag(bool status);
 	void addAllowedMethod(const std::string& allowedMethod);
 

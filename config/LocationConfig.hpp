@@ -33,7 +33,7 @@ class LocationConfig
 	void addIndex(const std::string& index);
 	void addAllowedMethod(const std::string& allowedMethod);
 	void setAutoIndex(bool autoIndex);
-	void setAutoIndexFlag(bool autoIndex);
+	void setAutoIndexFlag(bool status);
 	void setAlias(const std::string& alias);
 	void setAliasFlag(bool status);
 	void setReturnStatusCode(int code);

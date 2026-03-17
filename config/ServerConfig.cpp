@@ -107,9 +107,9 @@ void ServerConfig::setAutoIndex(bool status)
 	_autoIndex = status;
 }
 
-void ServerConfig::setAutoIndexFlag(bool autoIndex)
+void ServerConfig::setAutoIndexFlag(bool status)
 {
-	_autoIndexSet = true;
+	_autoIndexSet = status;
 }
 
 bool ServerConfig::getAutoIndex() const
