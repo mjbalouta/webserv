@@ -18,4 +18,7 @@ class ConfigResolved
 
 	const ServerConfig& getServer() const;
 	const LocationConfig& getLocation() const;
+
+	const std::string getResolvedPath(const Request& request) const;
+	const std::string getRoot() const;
 };

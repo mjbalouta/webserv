@@ -38,3 +38,39 @@ const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& serv
 	}
 	return bestMatch;
 }
+
+/**
+ * @brief Checks if location exists and if it has a root: if it has, returns it, if it does not,
+ * it returns the server's root instead
+ * 
+ * @return const std::string 
+ */
+const std::string ConfigResolved::getRoot() const
+{
+	if (_location && !_location->getRoot().empty())
+		return _location->getRoot();
+	return _server->getRoot();
+}
+
+/**
+ * @brief Joins the serverPath with the requestPath in order to obtain the resolvedPath
+ * (the actual location on the computer's hard drive where a file is stored.)
+ * 
+ * @param request 
+ * @return const std::string 
+ */
+const std::string ConfigResolved::getResolvedPath(const Request& request) const
+{
+	std::string serverPath = this->getRoot();
+	std::string requestPath = request.getPath(); //same as URI
+
+	if (serverPath.empty())
+		return requestPath;
+
+	if (serverPath.find_last_of('/') != serverPath.size() - 1)
+		serverPath += '/';
+	if (requestPath.find_first_of('/') == 0)
+		requestPath.erase(0, 1);
+	std::string resolvedPath = serverPath + requestPath;
+	return resolvedPath;
+}
