@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../Utils.hpp"
+#include "Utils.hpp"
 #include "ConfigParser.hpp"
-#include "../../Exception.hpp"
+#include "Exception.hpp"
 #include "ConfigUtils.hpp"
 
 class ServerConfig;
