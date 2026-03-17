@@ -18,6 +18,7 @@ FILES			= main.cpp \
 				  Utils.cpp \
 				  ServerManager/Request.cpp \
 				  ServerManager/ServerManager.cpp \
+				  ServerManager/ServerManagerChunked.cpp \
 				  ServerManager/ServerManagerClient.cpp \
 				  ServerManager/ServerManagerLoop.cpp \
 				  ServerManager/ServerManagerRequest.cpp \

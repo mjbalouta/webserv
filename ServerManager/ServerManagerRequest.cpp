@@ -106,9 +106,25 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 	size_t requestSize = std::string::npos;
 	// Find end of headers for the current request frame.
 	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+	// Header size limit (RFC 6585, 431): 8KB is common, adjust as needed
+	const size_t MAX_HEADER_SIZE = 8192;
 	if (headerEnd != std::string::npos)
 	{
 		size_t headerSize = headerEnd + 4;
+		if (headerSize > MAX_HEADER_SIZE) {
+			client.writeBuffer.clear();
+			client.path = "";
+			client.method = NONE;
+			client.status = 431;
+			printLog("🚨 Oversized headers: 431 Request Header Fields Too Large", RED);
+			client.keepAlive = false;
+			client.state = WRITING;
+			client.readBuffer.clear();
+			client.contentLength = 0;
+			client.version = "HTTP/1.1";
+			modClientEpoll(client, EPOLLOUT); // Ensure response is sent
+			return;
+		}
 		// Guard bounds before computing total request bytes.
 		if (headerSize <= client.readBuffer.size()
 			&& client.contentLength <= client.readBuffer.size() - headerSize)

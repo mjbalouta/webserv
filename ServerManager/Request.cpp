@@ -1,5 +1,41 @@
 #include "Request.hpp"
 
+/**
+ * @brief Checks if a string is valid UTF-8 and contains only printable characters.
+ * @param s Input string to validate.
+ * @return true if valid, false otherwise.
+ */
+static bool isValidUtf8AndPrintable(const std::string &s) {
+		size_t len = s.size();
+		size_t i = 0;
+		while (i < len) {
+			unsigned char c = s[i];
+			// Use std::isprint for ASCII, allow tab
+			if (c < ASCII_MASK) {
+				if (!std::isprint(c) && c != '\t') return false;
+				i++;
+				continue;
+			}
+			size_t remaining = len - i;
+			if ((c & TWO_BYTE_MASK) == TWO_BYTE_PREFIX) {
+				if (remaining < 2 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 2;
+			} else if ((c & THREE_BYTE_MASK) == THREE_BYTE_PREFIX) {
+				if (remaining < 3 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+2]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 3;
+			} else if ((c & FOUR_BYTE_MASK) == FOUR_BYTE_PREFIX) {
+				if (remaining < 4 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+2]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+3]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 4;
+			} else {
+				return false;
+			}
+		}
+		return true;
+}
+
 Request::Request()
 	: _status(200), _isRedirect(false), _isAutoindex(false),
 	  _method(GET), _autoIndexPath(""), _path(""), _version(""),
@@ -120,13 +156,16 @@ bool Request::parseTargetAndQuery(const std::string &target)
 bool Request::parseHeaders(std::istringstream &headStream)
 {
 	std::string line;
-	while (std::getline(headStream, line))
-	{
+	while (std::getline(headStream, line)) {
 		// Strip the trailing '\r' left by CRLF line endings.
 		if (!line.empty() && line[line.size() - 1] == '\r')
 			line.erase(line.size() - 1);
 		if (line.empty())
 			continue;
+
+		// Validate UTF-8 and printable characters in the header line
+		if (!isValidUtf8AndPrintable(line))
+			return (printLog("🚨 Invalid UTF-8 or non-printable in header", RED), _status = 400, false);
 
 		// The first ':' separates the field name from the field value.
 		// colonPos == 0 means the name is empty, which is invalid.
@@ -173,7 +212,6 @@ bool Request::validateAndCacheHostHeader()
 void Request::cacheTransferEncodingFlags()
 {
 	// Transfer-Encoding: chunked means the body arrives in size-prefixed chunks
-	// instead of a single payload delimited by Content-Length.
 	// We cache the flag here; actual chunk parsing is not yet implemented.
 	std::map<std::string, std::string>::const_iterator transferEncodingIt = _headers.find("transfer-encoding");
 	if (transferEncodingIt != _headers.end())
@@ -190,12 +228,12 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 {
 	std::map<std::string, std::string>::const_iterator contentLengthIt = _headers.find("content-length");
 
-	// A POST request must declare how long its body is.
-	// Without Content-Length (and without chunked encoding) we cannot know where the body ends, so we reject with 411 Length Required.
-	if (_method == POST && contentLengthIt == _headers.end())
+	// A POST request must declare body length either via Content-Length,
+	// or via Transfer-Encoding: chunked already decoded by transport.
+	if (_method == POST && contentLengthIt == _headers.end() && !_isChunked)
 		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
 
-	if (contentLengthIt != _headers.end())
+	if (contentLengthIt != _headers.end() || _isChunked)
 	{
 		// If buffer is not enough bytes yet the request is incomplete.
 		if (body.size() < contentLength)
@@ -207,10 +245,10 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 		// No Content-Length header and non-POST method.
 		_body = "";
 
-	// POST bodies must declare their MIME type.
+/*	// POST bodies must declare their MIME type.
 	if (_method == POST && _headers.find("content-type") == _headers.end())
 		return (printLog("⚠️ Content-Type header missing", RED), _status = 400, false);
-
+*/  //For both HTTP/1.0 and HTTP/1.1, Content-Type is recommended but not required for POST requests. Your server should accept POST requests without
 	return true;
 }
 

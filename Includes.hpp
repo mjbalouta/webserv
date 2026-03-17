@@ -1,3 +1,4 @@
+
 #pragma once
 
 // Standard C++ Library
@@ -35,6 +36,17 @@
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
 #define KEEP_ALIVE_TIMEOUT 15
+
+//UTF-8 byte masks and prefixes
+#define ASCII_MASK 0x80
+#define TWO_BYTE_MASK 0xE0
+#define TWO_BYTE_PREFIX 0xC0
+#define THREE_BYTE_MASK 0xF0
+#define THREE_BYTE_PREFIX 0xE0
+#define FOUR_BYTE_MASK 0xF8
+#define FOUR_BYTE_PREFIX 0xF0
+#define CONTINUATION_MASK 0xC0
+#define CONTINUATION_PREFIX 0x80
 
 // ANSI Color Codes for Terminal Output
 #define RESET   "\033[0m"       // Reset all attributes

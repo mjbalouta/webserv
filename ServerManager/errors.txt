@@ -1,0 +1,47 @@
+1. GET with very long URI | expected: 414 | got: 200
+
+Problem: No URI length check.
+Location: Request::parseRequestLine or Request::parseTargetAndQuery
+Fix: Add a check for URI length (e.g., if target.size() > 2048, set status 414).
+
+
+2. GET with multiple Host headers | expected: 400 | got: 200
+
+Problem: No check for duplicate Host headers.
+Location: Request::parseHeaders
+Fix: Count Host headers; if more than one, set status 400.
+
+
+3. GET with whitespace in method | expected: 400 | got: 200
+
+Problem: Method token not validated for whitespace.
+Location: Request::parseRequestLine
+Fix: Check if methodToken contains whitespace or is not a valid method.
+
+
+4. GET with tab in header name | expected: 400 | got: 200
+
+Problem: Header key not checked for tabs.
+Location: Request::parseHeaders
+Fix: Reject header keys containing tab ('\t').
+
+
+5. POST with chunked TE | expected: 200 | got:
+
+Problem: Chunked Transfer-Encoding not handled.
+Location: Request::parseAndValidateBody
+Fix: Implement chunked body parsing.
+
+
+6. GET with HTTP/1.0 and no Host | expected: 200 | got: 400
+
+Problem: Host header required for HTTP/1.0 (should not be).
+Location: Request::validateAndCacheHostHeader
+Fix: Only require Host for HTTP/1.1.
+
+
+7. GET with trailing whitespace | expected: 400 | got: 200
+
+Problem: Request-line not checked for trailing whitespace.
+Location: Request::parseRequestLine
+Fix: Reject request-lines with trailing whitespace.
