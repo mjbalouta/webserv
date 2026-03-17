@@ -23,6 +23,7 @@ FILES			= main.cpp \
 				  ServerManager/ServerManagerRequest.cpp \
 				  ServerManager/ServerManagerRequestRead.cpp \
 				  ServerManager/ServerManagerSetup.cpp \
+				  routing/ConfigResolved.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 

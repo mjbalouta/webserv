@@ -64,6 +64,8 @@ void ConfigParser::parseAutoindex(T& object)
 	++_currentToken;
 	checkIfTokenExists();
 
+	object.setAutoIndexFlag(true);
+
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing definition after keyword 'autoindex'.");
 
@@ -164,6 +166,8 @@ void ConfigParser::parseMaxBodySize(T& object)
 {
 	++_currentToken;
 	checkIfTokenExists();
+
+	object.setMaxBodySizeFlag(true);
 
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing definition after keyword 'client_max_body_size'.");

@@ -1,4 +1,5 @@
 #include "ServerManager.hpp"
+#include "../routing/ConfigResolved.hpp"
 
 /**
  * @brief Maps status code to reason phrase for fallback/plain responses.
@@ -163,10 +164,9 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
  */
 void ServerManager::processClientRequest(ClientSession &client, Request &request, ServerConfig &server)
 {
-	// Person 2 hook: use `server` + `request` to compute final route,
-	// location match, allowed methods, and resolved filesystem path.
+	ConfigResolved routing(request, server);
+	(void)routing; //person 3 should uncomment this
 	// Person 3 hook: use `server` error pages/root/indexes to build final body.
-	(void)server;
 	client.method = request.getMethod();
 	client.path = request.getPath();
 	client.status = request.getStatus();

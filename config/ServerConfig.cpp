@@ -2,7 +2,7 @@
 
 ServerConfig::ServerConfig()
 : _fd(-1), _portDefined(false), _root("./www"), _rootDefined(false), _host("0.0.0.0")
-, _maxBodySize(1048576), _autoIndex(false)
+, _maxBodySize(1048576), _maxBodySizeFlag(false), _autoIndex(false), _autoIndexSet(false)
 {
 	addAllowedMethod("GET");
 }
@@ -107,6 +107,11 @@ void ServerConfig::setAutoIndex(bool status)
 	_autoIndex = status;
 }
 
+void ServerConfig::setAutoIndexFlag(bool status)
+{
+	_autoIndexSet = status;
+}
+
 bool ServerConfig::getAutoIndex() const
 {
 	return _autoIndex;
@@ -150,4 +155,9 @@ void ServerConfig::addAllowedMethod(const std::string& allowedMethod)
 const std::vector<std::string>& ServerConfig::getAllowedMethods() const
 {
 	return _allowedMethods;
+}
+
+void ServerConfig::setMaxBodySizeFlag(bool status)
+{
+	_maxBodySizeFlag = status;
 }
