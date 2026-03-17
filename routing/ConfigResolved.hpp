@@ -3,7 +3,6 @@
 #include "../config/LocationConfig.hpp"
 #include "../config/ServerConfig.hpp"
 #include "../ServerManager/Request.hpp"
-#include "../config/parser/ConfigParser.hpp"
 
 class ConfigResolved
 {
