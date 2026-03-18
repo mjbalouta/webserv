@@ -8,7 +8,22 @@ SRC_PATH		= .
 INC_PATH		= .
 BUILD_PATH		= .build
 
-FILES			= main.cpp
+FILES			= main.cpp \
+				  config/parser/ConfigParser.cpp \
+				  config/parser/ConfigUtils.cpp \
+				  config/parser/LocationParser.cpp \
+				  config/parser/ServerParser.cpp \
+				  config/LocationConfig.cpp \
+				  config/ServerConfig.cpp \
+				  Utils.cpp \
+				  ServerManager/Request.cpp \
+				  ServerManager/ServerManager.cpp \
+				  ServerManager/ServerManagerClient.cpp \
+				  ServerManager/ServerManagerLoop.cpp \
+				  ServerManager/ServerManagerRequest.cpp \
+				  ServerManager/ServerManagerRequestRead.cpp \
+				  ServerManager/ServerManagerSetup.cpp \
+				  routing/ConfigResolved.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
@@ -23,6 +38,8 @@ MKDIR_P		= mkdir -p
 
 # Out-of-source build directory and object list
 OBJS			= $(SRC:$(SRC_PATH)/%.cpp=$(BUILD_PATH)/%.o)
+
+.DEFAULT_GOAL := all
 
 help:
 	@echo "\n"
@@ -67,7 +84,7 @@ fclean: clean			## Remove executable and build artifacts
 re: fclean all	## Purge & Recompile
 
 run: $(NAME)
-	@./$(NAME) config.file
+	@./$(NAME) default.conf
 
 .PHONY: help all clean fclean re run
 
