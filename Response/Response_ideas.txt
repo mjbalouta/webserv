@@ -1,0 +1,198 @@
+Core Components to Build:
+1. Status Line
+
+HTTP version (HTTP/1.1)
+Status code (200, 404, 500, etc.)
+Reason phrase ("OK", "Not Found", etc.)
+2. Headers
+
+Content-Type (use MimeTypeResolver)
+Content-Length
+Date, Server
+Optional: Last-Modified, Cache-Control, Connection
+3. Body
+
+Actual content (file, error page, directory listing, or CGI output)
+Resources to Grab in Order:
+From the Request:
+
+Requested URI/path
+HTTP method (GET, POST, DELETE)
+Any request headers you need
+From ServerConfig/LocationConfig:
+
+Match location - Find which LocationConfig matches the URI path
+Check allowed methods - Validate method is in getAllowedMethods()
+Check for return directive - If getReturnStatusCode() is set, handle redirect/return
+Get document root - Use location's getRoot()/getAlias() or fall back to server's getRoot()
+Get index files - Location's getIndexes() or server's getIndexes()
+Get error pages - Location or server's getErrorPages()
+Check autoIndex - Whether to generate directory listing
+Then Use Your Tools:
+
+PathResolver: Resolve URI to filesystem path, validate safety
+FileSystemHandler: Check if path exists, is directory, is readable, get file size
+MimeTypeResolver: Determine Content-Type from file extension
+ErrorPageGenerator: Generate error responses when needed
+Decision Flow:
+
+Validate request → determine status code
+If error → use ErrorPageGenerator
+If directory + no index → use buildDirectoryListingResponse or error
+If directory + index exists → serve index file
+If regular file → use FileSystemHandler + MimeTypeResolver for buildFileResponse
+If CGI script → buildCGIResponse
+
+
+
+1. Security (Path Traversal Prevention)
+
+Users could request passwd or similar
+You must ensure the resolved path stays within your document root
+Use PathResolver's isPathSafe() for this validation
+2. Functionality (Path Resolution)
+
+URI path /images/photo.jpg needs to become filesystem path /var/www/html/images/photo.jpg
+Combine the root + requested path correctly
+Use PathResolver's resolveToFilesystem() for this
+The Flow:
+
+Get root from LocationConfig (with alias handling) or ServerConfig
+Use PathResolver::resolveToFilesystem(uriPath, root) → get full filesystem path
+Use PathResolver::isPathSafe(resolvedPath, root) → validate it's safe
+If unsafe → return 403 Forbidden
+If safe → proceed with FileSystemHandler to check existence, read file, etc.
+Example scenario to prevent:
+
+Root: /var/www/html
+Request: GET /../../../etc/passwd
+Without checking: could expose passwd
+With checking: isPathSafe() returns false → 403 error
+This is essential security - never skip it.
+
+
+
+Matching Algorithm:
+
+Prefix Match - Check if request path starts with the location path
+
+Request: /images/photo.jpg
+Location: /images → matches (prefix)
+Location: /api → no match
+Find Longest Match - If multiple locations match, choose the most specific
+
+Request: /images/thumbnails/photo.jpg
+/ → matches (length 1)
+/images → matches (length 7)
+/images/thumbnails → matches (length 18) → use this one
+Handle Exact vs Prefix
+
+/images matches /images/photo.jpg (prefix)
+/images matches /images (exact)
+/images does NOT match /imageshack.com (must match directory boundary)
+Verifications to Do:
+
+Check the request path starts with location path
+Verify character after location path is / or end of string (to avoid /images matching /imageshack)
+Among all matching locations, select the one with the longest path
+Have a fallback to root location / if no specific match
+Example Logic:
+
+This mirrors how nginx and other web servers handle location matching - most specific wins.
+
+bestMatch = nullptr
+longestMatchLength = 0
+
+for each location in locations:
+    if requestPath starts with location.getPath():
+        if path boundary is valid (/ or end):
+            if location.getPath().length() > longestMatchLength:
+                bestMatch = location
+                longestMatchLength = location.getPath().length()
+
+Proceed in small, testable layers: first make “URI → filesystem path” correct and safe, then add “directory vs file” behavior, then finally fill in headers/body.
+
+1 Establish the response decision order
+In ResponseBuilder.cpp, structure returnResponse() as a sequence of early exits:
+
+If request.getStatus() is not 200, immediately return your generic error response with that status (so parse/validation errors propagate cleanly).
+Find the best matching LocationConfig (longest prefix match with a boundary check).
+Enforce allowed methods (location rules first; if location has no methods configured, fall back to server).
+If the location has a return directive (getReturnStatusCode()), return that redirect/response immediately (no filesystem work).
+Otherwise resolve to filesystem and serve (or error).
+2 Fix location matching semantics (before touching files)
+Your current matching is “requestPath.find(locationPath) == 0”, which will incorrectly match /images for /images123.
+
+Use “boundary prefix” matching: match if the URI equals the location path, OR it starts with locationPath + "/".
+Keep longest match wins (you already do this conceptually).
+3 Decide the effective base path: root vs alias
+Your configs support both in LocationConfig.hpp. Treat them differently:
+
+
+Still not taking care of the alias case atm (See how to do it)
+No alias: use “root semantics”
+
+Effective root = location.root if set, else server.root from ServerConfig.hpp
+Filesystem path = effectiveRoot + URI path
+Then run safety/normalization via PathResolver.cpp
+Alias set (getAliasFlag()): use “replace-prefix semantics”
+
+Take suffix = uriPath minus matchedLocationPath
+Filesystem path = aliasBase + suffix
+Safety check must be relative to the alias base (not the server root)
+This is the “core idea” that makes location resolution feel nginx-like.
+
+4 Apply normalization + safety at the right time
+Use PathResolver.cpp for both cases:
+
+Normalize to collapse . and ..
+Reject if it escapes the base directory (isPathSafe())
+Important: your Request parser in Request.cpp does not percent-decode (%2e%2e) and does not canonicalize repeated slashes. Decide when/where you will decode; whenever you add decoding later, make sure the safety check happens after decoding.
+
+5 Once you have a safe filesystem path, handle “directory vs file”
+Use FileSystemHandler.cpp:
+
+If resolved path does not exist:
+
+Return 404 via your existing error response (you already have ErrorPageGenerator integrated).
+If it’s a directory:
+
+If the URI doesn’t end with /, return a 301 redirect to uri + "/" (prevents relative-link weirdness).
+Else try index files:
+Prefer location.getIndexes(); if empty, fall back to server.getIndexes().
+If an index exists and is readable, serve it.
+If no index:
+If autoindex is enabled (location.getAutoIndex() or fallback server.getAutoIndex()), generate a directory listing.
+Otherwise return 403.
+If it’s a regular file:
+
+If not readable: 403
+Else serve it.
+6 Build the “serve file” response
+You already have the pieces in ResponseBuilder.hpp:
+
+Status line: HTTP/1.1 200 OK (use ErrorPageGenerator::getReasonPhrase() from ErrorPageGenerator.cpp)
+Content-Type: from MimeTypeResolver.cpp based on extension
+Content-Length: file size
+Last-Modified: from FileSystemHandler::getLastMODTime()
+Date: current time
+Connection: close
+Note: right now your date/last-modified getters return raw numeric timestamps in ResponseBuilder.cpp. HTTP expects an RFC1123 date string (e.g. Sun, 06 Nov 1994 08:49:37 GMT). You’ll want to format those eventually so clients behave correctly.
+
+7 Be aware of two helper pitfalls that will block correct static serving
+These are worth addressing early (even before fancy features), otherwise images/CSS/etc may break:
+
+FileSystemHandler.cpp currently reads files line-by-line and appends \n, which corrupts binary assets and changes text files.
+getFileSize() currently won’t return the real file size (it uses tellg() without seeking).
+If you hit “files serve but are broken”, it’ll almost certainly be one of these.
+
+8 Test incrementally
+After each layer, test just that layer:
+
+Location match correctness (two locations with overlapping prefixes)
+Root vs alias mapping (request a file under each)
+Directory redirect (/dir → /dir/)
+Index resolution (/dir/ serves index.html)
+Autoindex on/off behavior
+MIME correctness (CSS/JS/PNG)
+If you want, paste a sample config snippet with a root, one location using root, and one using alias, and I’ll walk through exactly what the resolved filesystem path should be for a few example URLs using your current helper behavior.
