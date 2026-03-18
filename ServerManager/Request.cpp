@@ -103,6 +103,15 @@ bool Request::parseRequestLine(const std::string &head, std::istringstream &head
 	if (!line.empty() && line[line.size() - 1] == '\r')
 		line.erase(line.size() - 1);
 
+	// Enforce exactly one space between tokens in the request line
+	size_t firstSpace = line.find(' ');
+	size_t secondSpace = line.find(' ', firstSpace + 1);
+	// There must be exactly two spaces, and no consecutive spaces
+	if (firstSpace == std::string::npos || secondSpace == std::string::npos ||
+		line.find(' ', secondSpace + 1) != std::string::npos ||
+		secondSpace == firstSpace + 1)
+		return (printLog("🚨 Invalid request line spacing", RED), _status = 400, false);
+
 	// Split the request-line into its three whitespace-delimited tokens.
 	std::istringstream requestLine(line);
 	std::string methodToken;
@@ -185,6 +194,17 @@ bool Request::parseHeaders(std::istringstream &headStream)
 		// Extract the raw key and raw value around the colon.
 		std::string rawKey = line.substr(0, colonPos);
 		std::string rawValue = line.substr(colonPos + 1);
+		// Reject header values containing any tab character (edge test requirement)
+		for (size_t i = 0; i < rawValue.size(); ++i) {
+			if (rawValue[i] == '\t')
+				return (printLog("🚨 Tab in header value", RED), _status = 400, false);
+		}
+/*			// Reject header keys containing any non-visible ASCII (only allow 33–126)
+			for (size_t i = 0; i < rawKey.size(); ++i) {
+				unsigned char c = rawKey[i];
+				if (c < 33 || c > 126)
+					return (printLog("🚨 Invalid character in header key", RED), _status = 400, false);
+			}*/
 		std::string key = toLower(trimSpaces(rawKey));
 		std::string value = trimSpaces(rawValue);
 		if (key.empty())
@@ -285,7 +305,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength) 
 
 	// Split at the blank line:
 	//   head — everything before \r\n\r\n (request-line + headers)
-	//   body — everything after  \r\n\r\n (may be empty for GET/DELETE)
+	//   body — everything after  \r\n\r\n
 	std::string head = rawRequest.substr(0, headerEnd);
 	std::string body = rawRequest.substr(headerEnd + 4);
 	std::istringstream headStream;

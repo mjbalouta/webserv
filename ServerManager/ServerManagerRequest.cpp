@@ -123,6 +123,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			client.readBuffer.clear();
 			client.contentLength = 0;
 			client.version = "HTTP/1.1";
+			client.writeBuffer = buildDefaultResponse(431, false, "", client.version);
 			modClientEpoll(client, EPOLLOUT); // Ensure response is sent
 			return;
 		}
