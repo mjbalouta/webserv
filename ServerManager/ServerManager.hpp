@@ -5,6 +5,7 @@
 #include "../Utils.hpp"
 #include "../config/parser/ConfigParser.hpp"
 #include "../Includes.hpp"
+#include "../Response/ResponseBuilder.hpp"
 
 class ServerConfig;
 

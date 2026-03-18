@@ -59,13 +59,16 @@ std::string ErrorPageGenerator::getReasonPhrase(int status_code){
 
 std::string ErrorPageGenerator::generateErrorPage(int statusCode, const std::string& message) {
     std::string reasonPhrase = getReasonPhrase(statusCode);
+	std::stringstream ss;
+	ss << statusCode;
+	std::string codeStr = ss.str();
     std::string html = "<!DOCTYPE html>";
     html += "<html>";
     html += "<head>";
-    html += "<title>" + std::to_string(statusCode) + " " + reasonPhrase + "</title>";
+    html += "<title>" + codeStr + " " + reasonPhrase + "</title>";
     html += "</head>";
     html += "<body>";
-    html += "<h1>" + std::to_string(statusCode) + " " + reasonPhrase + "</h1>";
+    html += "<h1>" + codeStr + " " + reasonPhrase + "</h1>";
     html += "<p>" + message + "</p>";
     html += "<a href=\"/\">Return to Home</a>";
     html += "</body>";
@@ -81,7 +84,7 @@ std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const Config
     if (pageIt != errorPages.end())
     {
         std::string filePath = config.getRoot() + "/" + pageIt->second; // Assumindo que a root não tem uma barra no final
-        std::ifstream file(filePath);
+		std::ifstream file(filePath.c_str());
         if (file.is_open()){
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             file.close();

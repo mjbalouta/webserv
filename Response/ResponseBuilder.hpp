@@ -12,7 +12,7 @@
 
 class ResponseBuilder{
 	public:
-		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive);
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -22,6 +22,7 @@ class ResponseBuilder{
 		std::time_t _lastModified;
 		std::string _body;
 		std::string _location;
+		bool _keepAlive;
 
 		ErrorPageGenerator error;
 		PathResolver pathResolver;

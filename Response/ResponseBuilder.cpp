@@ -147,7 +147,7 @@ bool ResponseBuilder::isMethodAllowed(const std::string &method, const ConfigRes
  * @param resolvedConfig The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::returnResponse(const Request& request, const ConfigResolved& resolvedConfig) {
+std::string ResponseBuilder::returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive) {
 	// Reset state (ResponseBuilder may be reused across requests).
 	_statusCode = 0;
 	_statusLine.clear();
@@ -157,6 +157,11 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	_lastModified = 0;
 	_body.clear();
 	_location.clear();
+	_keepAlive = false;
+
+	// Transport/connection policy is decided by the server loop; ResponseBuilder
+	// just reflects it in the Connection header.
+	_keepAlive = keepAlive;
 
 	if (request.getStatus() != 200)
 		return returnGenericErrorResponse(request.getStatus(), request, resolvedConfig);
@@ -221,7 +226,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			response += "Content-Length: " + getContentLengthString() + "\r\n";
 			response += "Location: " + _location + "\r\n";
 			response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-			response += "Connection: close\r\n\r\n";
+			response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 			return response;
 		}
 
@@ -261,7 +266,7 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 		response += "Content-Length: " + getContentLengthString() + "\r\n";
 		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
 		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += "Connection: close\r\n";
+		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 		response += "\r\n";
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
@@ -309,7 +314,7 @@ void ResponseBuilder::setStandardHeaders(std::string& response, const std::strin
 		_lastModified = static_cast<std::time_t>(_date);
 	response += "Date: " + formatHttpDate(static_cast<std::time_t>(_date)) + "\r\n";
 	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
-	response += "Connection: close\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 }
 
 /**
@@ -345,7 +350,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 	if (!_location.empty())
 		response += "Location: " + _location + "\r\n";
 	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-	response += "Connection: close\r\n\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 	if (request.getMethodStr() != "HEAD")
 		response += _body;
 	return response;
