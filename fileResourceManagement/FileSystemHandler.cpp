@@ -67,25 +67,21 @@ std::string FileSystemHandler::readFile(const std::string& path, size_t maxSize)
         throw std::runtime_error("No file path");
     if (!isReadable(path))
         throw std::runtime_error("File is not readable");
-    if (getFileSize(path) > maxSize)
+    size_t size = getFileSize(path);
+    if (size > maxSize)
         throw std::runtime_error("File size exceeds maximum allowed size");
-    std::string fileContent;
-    std::string line;
 
-// Read from the text file
-    std::ifstream readFile(path.c_str(), std::ios::binary);
-
+    std::ifstream readFile(path.c_str(), std::ios::in | std::ios::binary);
     if (!readFile)
         throw std::runtime_error("Cannot open file");
 
-// Use a while loop together with the getline() function to read the file line by line
-    while (getline(readFile, line)) {
-        fileContent += line + "\n";
-    }
-
-// Close the file
-    readFile.close();
-    return fileContent;
+    std::string content;
+    content.resize(size);
+    if (size > 0)
+        readFile.read(&content[0], size);
+    if (!readFile && size > 0)
+        throw std::runtime_error("Failed to read file");
+    return content;
 }
 
 
@@ -131,8 +127,12 @@ std::vector<std::string> FileSystemHandler::listDirectory(const std::string& pat
 size_t FileSystemHandler::getFileSize(const std::string& path){
     if (path.empty())
         return 0;
-    std::ifstream file(path);
-    return (file.tellg());
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0)
+        return 0;
+    if (!S_ISREG(st.st_mode))
+        return 0;
+    return static_cast<size_t>(st.st_size);
 }
 
 std::time_t FileSystemHandler::getLastMODTime(const std::string& path){
