@@ -14,9 +14,7 @@ static bool hasHeaderToken(const std::string &headersLower, const std::string &h
 		size_t lineEnd = headersLower.find("\r\n", lineStart);
 		if (lineEnd == std::string::npos)
 			// Last line in the buffer may not have trailing CRLF.
-			lineEnd = headersLower.size();
-
-		// Accept only exact header-name match at the beginning of this line.
+			lineEnd = headersLower.size(); // Accept only exact header-name match at the beginning of this line.
 		// This prevents spoofing via request target text or other header values.
 		if (lineEnd > lineStart
 			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)

@@ -9,6 +9,7 @@
  */
 
 std::string PathResolver::normalizePath(const std::string& path){
+    bool hasLeadingSlash = (!path.empty() && path[0] == '/');
     std::string normalizedPath;
     std::stringstream split(path);
     std::string temp;
@@ -37,6 +38,12 @@ std::string PathResolver::normalizePath(const std::string& path){
                 normalizedPath += '/';
             normalizedPath += *it;
         }
+    }
+    if (hasLeadingSlash)
+    {
+        if (normalizedPath.empty())
+            return "/";
+        return "/" + normalizedPath;
     }
     return normalizedPath;
 }

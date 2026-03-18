@@ -1,4 +1,6 @@
 #include "ServerManager.hpp"
+#include "../routing/ConfigResolved.hpp"
+#include "../Response/ResponseBuilder.hpp"
 
 /**
  * @brief Maps status code to reason phrase for fallback/plain responses.
@@ -181,10 +183,8 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
  */
 void ServerManager::processClientRequest(ClientSession &client, Request &request, ServerConfig &server)
 {
-	// Person 2 hook: use `server` + `request` to compute final route,
-	// location match, allowed methods, and resolved filesystem path.
+	ConfigResolved routing(request, server);
 	// Person 3 hook: use `server` error pages/root/indexes to build final body.
-	(void)server;
 	client.method = request.getMethod();
 	client.path = request.getPath();
 	client.status = request.getStatus();
@@ -199,14 +199,18 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	else
 		client.keepAlive = (clientHeader != "close");
 
-	// Placeholder response source until the real resource engine exists.
+	ResponseBuilder rb;
+	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
+    client.totalSent = 0;
+    client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
+/* 	// Placeholder response source until the real resource engine exists.
 	if (request.isAutoIndex())
 		// Person 3 hook: replace this placeholder body source with final
 		// resource engine output (file content/error page/rendered directory).
 		client.responseStr = request.getAutoIndexPath();
 	else
 		client.responseStr.clear();
-	// Parsing + request processing is done; next step is writing a response.
+	// Parsing + request processing is done; next step is writing a response. */
 	client.state = WRITING;
 }
 

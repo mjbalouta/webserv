@@ -24,6 +24,12 @@ FILES			= main.cpp \
 				  ServerManager/ServerManagerRequest.cpp \
 				  ServerManager/ServerManagerRequestRead.cpp \
 				  ServerManager/ServerManagerSetup.cpp \
+				  routing/ConfigResolved.cpp \
+				  fileResourceManagement/ErrorPageGenerator.cpp \
+				  fileResourceManagement/FileSystemHandler.cpp \
+				  fileResourceManagement/MimeTypeResolver.cpp \
+				  fileResourceManagement/PathResolver.cpp \
+				  Response/ResponseBuilder.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 
