@@ -43,7 +43,7 @@ test_case "GET with Connection: keep-alive" "GET / HTTP/1.1\r\nHost: localhost\r
 test_case "GET with Connection: close" "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" "200 OK"
 test_case "GET with folded header" "GET / HTTP/1.1\r\nHost: localhost\r\nX-Folded: value\r\n another line\r\n\r\n" "400 Bad Request"
 test_case "GET with invalid UTF-8 in header" "GET / HTTP/1.1\r\nHost: localhost\r\nX-Bad: \xFF\xFE\r\n\r\n" "400 Bad Request"
-LONG_URI=$(printf '/%.0sA' {1..500})
+LONG_URI=$(printf '/%.0sA' {1..2050})
 test_case "GET with very long URI" "GET $LONG_URI HTTP/1.1\r\nHost: localhost\r\n\r\n" "414 Request-URI Too Long"
 test_case "GET with multiple Host headers" "GET / HTTP/1.1\r\nHost: localhost\r\nHost: example.com\r\n\r\n" "400 Bad Request"
 test_case "GET with whitespace in method" "GET   / HTTP/1.1\r\nHost: localhost\r\n\r\n" "400 Bad Request"

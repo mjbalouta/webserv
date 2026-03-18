@@ -109,12 +109,20 @@ bool Request::parseRequestLine(const std::string &head, std::istringstream &head
 	if (!(requestLine >> methodToken >> target >> _version))
 		return (printLog("🚨 Malformed request line", RED), _status = 400, false);
 
+	if (target.size() > 2048)
+		return (printLog("🚨 URI too long", RED), _status = 414, false);
 	// HTTP/1.x allows exactly three tokens on the request-line.
 	// A fourth token means the client sent garbage.
 	std::string trailingToken;
 	if (requestLine >> trailingToken)
 		return (printLog("🚨 Invalid request line format", RED), _status = 400, false);
 
+	// Validate method token for whitespace or non-ASCII
+	for (size_t i = 0; i < methodToken.size(); ++i) {
+		unsigned char c = methodToken[i];
+		if (std::isspace(static_cast<unsigned char>(c)) || c < 65 || c > 90) // 'A'-'Z'
+			return (printLog("🚨 Invalid whitespace or non-uppercase in method", RED), _status = 400, false);
+	}
 	// Validate the method string and store the corresponding enum value.
 	if (!parseMethodToken(methodToken))
 		return false;
@@ -156,6 +164,7 @@ bool Request::parseTargetAndQuery(const std::string &target)
 bool Request::parseHeaders(std::istringstream &headStream)
 {
 	std::string line;
+	int hostCount = 0;
 	while (std::getline(headStream, line)) {
 		// Strip the trailing '\r' left by CRLF line endings.
 		if (!line.empty() && line[line.size() - 1] == '\r')
@@ -181,6 +190,11 @@ bool Request::parseHeaders(std::istringstream &headStream)
 		if (key.empty())
 			return (printLog("🚨 Empty header key", RED), _status = 400, false);
 
+		if (key == "host") {
+			hostCount++;
+			if (hostCount > 1)
+				return (printLog("🚨 Multiple Host headers", RED), _status = 400, false);
+		}
 		_headers[key] = value;
 	}
 
