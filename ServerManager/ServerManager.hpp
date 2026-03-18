@@ -59,7 +59,7 @@ class ServerManager {
 		void readClientRequest(ClientSession &client, size_t maxUploadSize);
 		void parseClientRequest(ClientSession &client, ServerConfig &server);
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
-		void sendClientResponse(ClientSession &client);
+		void sendClientResponse(ClientSession &client, ServerConfig &server);
 		void handleReadyEvent(const epoll_event &event);
 		void cleanupSockets();
 		void cleanupClients();

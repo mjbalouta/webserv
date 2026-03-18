@@ -13,6 +13,8 @@
 class ResponseBuilder{
 	public:
 		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive);
+		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -31,9 +33,6 @@ class ResponseBuilder{
 
 		int getStatusCode();
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
-
-		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 
 		std::string getStatusCodeString();
 		std::string getStatusLine();

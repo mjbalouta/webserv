@@ -1,6 +1,46 @@
 #include "Request.hpp"
 
 /**
+ * @brief Decodes a chunked Transfer-Encoding body according to RFC 7230 Section 3.3.1.
+ * @param rawBody The raw chunked body string.
+ * @param decoded Output string for the decoded body.
+ * @return true if decoding succeeds, false if malformed.
+ */
+static bool decodeChunkedBody(const std::string &rawBody, std::string &decoded) {
+	decoded.clear();
+	size_t pos = 0;
+	while (pos < rawBody.size()) {
+		// Find chunk size line
+		size_t lineEnd = rawBody.find("\r\n", pos);
+		if (lineEnd == std::string::npos)
+			return false;
+		std::string sizeLine = rawBody.substr(pos, lineEnd - pos);
+		// Parse chunk size (hex)
+		size_t chunkSize = 0;
+		std::istringstream iss(sizeLine);
+		iss >> std::hex >> chunkSize;
+		if (iss.fail())
+			return false;
+		pos = lineEnd + 2;
+		if (chunkSize == 0) {
+			// End of chunks; next should be CRLF
+			// Optionally, handle trailers here
+			return true;
+		}
+		// Ensure enough bytes for chunk
+		if (pos + chunkSize > rawBody.size())
+			return false;
+		decoded.append(rawBody.substr(pos, chunkSize));
+		pos += chunkSize;
+		// Expect CRLF after chunk
+		if (rawBody.substr(pos, 2) != "\r\n")
+			return false;
+		pos += 2;
+	}
+	return false;
+}
+
+/**
  * @brief Checks if a string is valid UTF-8 and contains only printable characters.
  * @param s Input string to validate.
  * @return true if valid, false otherwise.
@@ -229,8 +269,10 @@ bool Request::validateAndCacheHostHeader()
 {
 	// HTTP/1.1 clients MUST send a Host header
 	// HTTP/1.0 clients are not required to
-	if (_version == "HTTP/1.1" && _headers.find("host") == _headers.end())
-		return (printLog("🚨 Missing Host header", RED), _status = 400, false);
+	if (_version == "HTTP/1.1") {
+		if (_headers.find("host") == _headers.end())
+			return (printLog("🚨 Missing Host header", RED), _status = 400, false);
+	}
 
 	// Cache the Host value in _host
 	std::map<std::string, std::string>::const_iterator hostIt = _headers.find("host");
@@ -267,17 +309,21 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 	if (_method == POST && contentLengthIt == _headers.end() && !_isChunked)
 		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
 
-	if (contentLengthIt != _headers.end() || _isChunked)
-	{
+	if (_isChunked) {
+		std::string decoded;
+		if (!decodeChunkedBody(body, decoded))
+			return (printLog("🚨 Malformed chunked body", RED), _status = 400, false);
+		_body = decoded;
+	} else if (contentLengthIt != _headers.end()) {
 		// If buffer is not enough bytes yet the request is incomplete.
 		if (body.size() < contentLength)
 			return (printLog("🚨 Incomplete request body", RED), _status = 400, false);
 		// Copy exactly contentLength bytes to avoid reading into the next
 		_body = body.substr(0, contentLength);
-	}
-	else
+	} else {
 		// No Content-Length header and non-POST method.
 		_body = "";
+	}
 
 /*	// POST bodies must declare their MIME type.
 	if (_method == POST && _headers.find("content-type") == _headers.end())
