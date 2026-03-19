@@ -34,6 +34,9 @@ AI tools were used during this project's development to assist with task organiz
 
 ## From our Notebooks
 
+### What is Nginx?   
+It's a high-performance, open-source HTTP server and reverse proxy. It is used as a reference in this project because, while old servers often create a new "thread" or "process" for every single visitor (which consumes a lot of memory), Nginx revolutionized the field with an Asynchronous, Event-Driven Architecture. Our project also uses Non-Blocking I/O (single process to handle thousands of connections simultaneously); Modular Configuration (a hierarchical "block" system - server and location blocks); Efficiency (high currency with very low memory usage, achieved through the same multiplexing logic - epoll - used in this project).
+
 ### WEBSERVER FLOW
 "building a webserver is like building a high-speed post office that never sleeps."   
    
@@ -86,7 +89,7 @@ The request is divided into three main parts. This entire block is received as o
 - Path: /index.html;
 - Version: HTTP/1.1
 
-*B. Header:* these provide metadata about the request. Each line ends with a carriage return and line feed - "\r\n".   
+*B. Header:* these provide metadata about the request. Each line ends with a carriage return and line feed - `\r\n`.   
 - Host: localhost:8080;
 - User-Agent: Mozilla/5.0;
 - Content-Length: 42;   
@@ -119,20 +122,20 @@ The Response person doesn't send the data themselves. They fill up a string or a
    
       
 **The Client States:**   
-*A. READING:*   
+1. READING:   
 . the server is calling recv()/read(). Since the internet is slower than your CPU, the request usually arrives in chunks;   
 . it keeps reading until it catches the end of headers marker;   
 . once the full request (including the body) is in the buffer, the state flips to PROCESSING. If they send a file that is greater than the limit, the client state is switched again to WRITING and immediately sends 413 Payload Too Large;   
-*B. PROCESSING:*   
+2. PROCESSING:   
 . the request is split into Method, Path and Headers;   
 . the routing matches the path to a location block, or a server block if there are no location blocks;   
 . the response builder finds the file on disk or prepares de CGI script;   
 . once the HTTP response string is fully built and ready, the state flips to WRITING.   
-*C. WRITING:*   
+3. WRITING:   
 . the server calls send(). If you're sending a large image, the network "pipe" might get full - the server send a chunk, sees if it can send more and stays in the WRITING state;   
 . the epoll: "wake me up when this client's mailbox is empty so I can send the next chunk";   
 . once the last byte is sent: if connection is keep-alive, it flips back into READING state waiting for a new request; if the connection is close, it flips to CLOSING.   
-*D. CLOSING:*   
+4. CLOSING:   
 . close(fd) is called;   
 . this is the most important part for stability. It releases the File Descriptor. If you don't reach this state, your server will eventually run out of 'slots' and stop accepting new people.
 
