@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Bitcount+Ink:wght@100..900&family=Bitcount+Prop+Double:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap');
+
+body {
+	background-color: #121212;
+  	color: #e0e0e0;
+	text-align: center;
+}
+
+.tech-glow {
+    text-shadow: 0 0 20px rgba(100, 20, 120, 0.4);
+}
+
+.nav-bar {
+	font-family: Google Sans Flex;
+	text-align: center;
+	margin-left: 0;
+}
+
+.nav-bar a {
+	text-decoration: none;
+	margin: 5px;
+}
+
+h1 {
+	font-family: "Bitcount Prop Double", system-ui;
+	font-size: 12vw;
+	text-align: center;
+	font-weight: 350;
+	color:rgb(100, 20, 120);
+	margin-bottom: 0px;
+	margin-top: 100px;
+}
+
+.description {
+	font-size: 14px;
+	font-family: Google Sans Flex;
+	color: rgb(58, 79, 145);
+}
+
+.description a{
+	color: rgb(58, 79, 145);
+	text-decoration: none;
+}
