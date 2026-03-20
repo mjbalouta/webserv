@@ -208,7 +208,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	// Build a lowercase view of the *header lines only* (exclude request line)
 	// so token scans cannot be spoofed via method/path/version text.
 	size_t requestLineEnd = client.readBuffer.find("\r\n");
-	if (requestLineEnd == std::string::npos || requestLineEnd >= headerEnd)
+	if (requestLineEnd == std::string::npos || requestLineEnd > headerEnd)
 	{
 		printLog("🚨 Malformed request line or headers", RED);
 		client.status = 400;
