@@ -357,6 +357,32 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 }
 
 /**
+ * 
+ * MARIA
+ * @brief Replaces all occurrences of a placeholder tag with a specific value.
+ * * @param content The string (HTML body) to modify.
+ * @param tag The placeholder to look for (e.g., "{{LISTEN_PORT}}").
+ * @param value The real data to insert.
+ */
+void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, const std::string &value)
+{
+    if (tag.empty())
+        return;
+
+    size_t pos = 0;
+    // Find the first occurrence of the tag
+    while ((pos = content.find(tag, pos)) != std::string::npos)
+    {
+        // Replace the tag with the new value
+        content.replace(pos, tag.length(), value);
+        
+        // Advance 'pos' by the length of the new value to avoid infinite loops
+        // (in case the value contains the tag itself)
+        pos += value.length();
+    }
+}
+
+/**
  * @brief Builds a file response based on the given request, file path, and configuration.
  * 
  * @param request The incoming HTTP request.
@@ -370,9 +396,46 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	_contentType = mimeTypeResolver.getTypeByExtension(filePath);
 	_contentLength = fileSystemHandler.getFileSize(filePath);
 	_lastModified = fileSystemHandler.getLastMODTime(filePath);
-	try{
-		_body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-	}
+
+	try {
+        _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
+
+        //PARA APARECER NA LANDING PAGE NA ABA 'SERVER INFO'
+        // If it's the index or info page, swap the placeholders
+        if (_contentType == "text/html")
+        {
+            // You'll need helper methods in your Config class to get these as strings
+			const std::vector<int>& ports = config.getPorts();
+			std::string portsStr;
+			for (size_t i = 0; i < ports.size(); i++)
+			{
+				portsStr += itostr(ports[i]);
+				if (i < ports.size() - 1)
+					portsStr += ", ";
+			}
+			replaceTag(_body, "{{PORTS}}", portsStr);
+            replaceTag(_body, "{{ROOT}}", config.getRoot());
+    		replaceTag(_body, "{{HOST}}", config.getHost());
+    		replaceTag(_body, "{{LOCATION_PATH}}", config.getLocationPath());
+    		replaceTag(_body, "{{UPLOAD_DIR}}", config.getUploadStore());
+
+			replaceTag(_body, "{{MAX_BODY}}", itostr(static_cast<int>(config.getMaxBodySize())));
+    		replaceTag(_body, "{{RET_CODE}}", itostr(config.getReturnStatusCode()));
+
+			replaceTag(_body, "{{AUTOINDEX}}", config.getAutoIndex() ? "On" : "Off");
+
+			const std::vector<std::string>& methods = config.getAllowedMethods();
+    		std::string methodsStr;
+    		for (size_t i = 0; i < methods.size(); ++i)
+			{
+        		methodsStr += methods[i];
+				if (i < methods.size() - 1)
+					methodsStr += ", ";
+   			}
+    		replaceTag(_body, "{{METHODS}}", methodsStr);
+        }
+        _contentLength = _body.size();
+    }
 	catch (const std::exception& e){
 		(void)e;
 		return returnGenericErrorResponse(500, request, config);

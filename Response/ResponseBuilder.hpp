@@ -65,5 +65,6 @@ class ResponseBuilder{
 		 std::string buildErrorResponse(int statusCode, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
 		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
-		void setStandardHeaders(std::string& response, const std::string& contentType);		
+		void setStandardHeaders(std::string& response, const std::string& contentType);
+		void replaceTag(std::string &content, const std::string &tag, const std::string &value);	
 };

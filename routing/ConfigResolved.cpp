@@ -260,3 +260,13 @@ std::string ConfigResolved::getUploadStore() const
 		return _location->getUploadStore();
 	return "";
 }
+
+/**
+ * @brief Get the Ports that are listening on the server
+ * 
+ * @return std::vector<int>& 
+ */
+std::vector<int> ConfigResolved::getPorts() const
+{
+	return _server->getPorts();
+}

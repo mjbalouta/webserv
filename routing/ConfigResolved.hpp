@@ -15,6 +15,7 @@ class ConfigResolved
 	public:
 	ConfigResolved(const Request& request, const ServerConfig& server);
 	
+	std::vector<int> getPorts() const;
 	std::string getLocationPath() const;
 	std::string getResolvedPath(const Request& request) const;
 	const std::string& getRoot() const;
