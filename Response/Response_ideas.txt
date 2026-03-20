@@ -1,3 +1,9 @@
+
+Important: CHECK METHODS AND RETURN RESPONSE DEPENDING ON METHODS
+Check Post - ver se o diretorio existe etc no config ( se ja existir modifica e da replace ou criar uma versao (2))
+Check delete - ver se o ficheiro existe e apagar
+utilizar absolute path para verificar as locations
+
 Core Components to Build:
 1. Status Line
 
@@ -125,7 +131,7 @@ Your current matching is “requestPath.find(locationPath) == 0”, which will i
 
 Use “boundary prefix” matching: match if the URI equals the location path, OR it starts with locationPath + "/".
 Keep longest match wins (you already do this conceptually).
-3 Decide the effective base path: root vs alias
+3 Decide the effective base path: root vs alias is behind 'origin/ResponseBuilder' by 70 commits, and can be fast-forwarded.
 Your configs support both in LocationConfig.hpp. Treat them differently:
 
 
