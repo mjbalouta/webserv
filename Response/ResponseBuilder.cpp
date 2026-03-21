@@ -360,7 +360,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
  * 
  * MARIA
  * @brief Replaces all occurrences of a placeholder tag with a specific value.
- * * @param content The string (HTML body) to modify.
+ * @param content The string (HTML body) to modify.
  * @param tag The placeholder to look for (e.g., "{{LISTEN_PORT}}").
  * @param value The real data to insert.
  */
@@ -383,6 +383,83 @@ void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, c
 }
 
 /**
+ * @brief Checks server info and builds the block of info for the HTML
+ * 
+ * @param config The resolved configuration for the current location.
+ */
+void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
+{
+    // If it's the index or info page, swap the server block tag
+    if (_contentType == "text/html")
+    {
+		//add ports info
+		const std::vector<int>& ports = config.getPorts();
+		std::string serverBlock;
+		serverBlock += "Ports: ";
+		for (size_t i = 0; i < ports.size(); i++)
+		{
+			serverBlock += itostr(ports[i]);
+			if (i < ports.size() - 1)
+				serverBlock += ", ";
+		}
+		serverBlock += ";\n";
+
+		//add root info
+		std::string root = config.getRoot();
+		serverBlock += "Root: ";
+		serverBlock += root;
+		serverBlock += ";\n";
+		
+		//add host info
+		std::string host = config.getHost();
+		serverBlock += "Host: ";
+		serverBlock += host;
+		serverBlock += ";\n";
+
+    	//add upload_store
+		std::string upload = config.getUploadStore();
+		if (upload != "")
+		{
+			serverBlock += "Upload Store: ";
+			serverBlock += upload;
+			serverBlock += ";\n";
+		}
+    	
+		//add client_max_body_size
+		std::string size = itostr(static_cast<int>(config.getMaxBodySize()));
+		serverBlock += "Max Body Size: ";
+		serverBlock += size;
+		serverBlock += ";\n";
+
+		//add return code
+		std::string returnCode = itostr(config.getReturnStatusCode());
+    	if (returnCode != "0")
+		{
+			serverBlock += "Return code: ";
+			serverBlock += returnCode;
+			serverBlock += ";\n";
+		}
+
+		//add autoindex
+		std::string autoindex = config.getAutoIndex() ? "On" : "Off";
+		serverBlock += "Autoindex: ";
+		serverBlock += autoindex;
+		serverBlock += ";\n";
+
+		//add allowed_methods
+		const std::vector<std::string>& methods = config.getAllowedMethods();
+		serverBlock += "Allowed Methods: ";
+    	for (size_t i = 0; i < methods.size(); ++i)
+		{
+        	serverBlock += methods[i];
+			if (i < methods.size() - 1)
+				serverBlock += ", ";
+   		}
+    	replaceTag(_body, "{{SERVER_DETAILS}}", serverBlock);
+    }
+}
+
+/**
  * @brief Builds a file response based on the given request, file path, and configuration.
  * 
  * @param request The incoming HTTP request.
@@ -399,42 +476,8 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-
-        //PARA APARECER NA LANDING PAGE NA ABA 'SERVER INFO'
-        // If it's the index or info page, swap the placeholders
-        if (_contentType == "text/html")
-        {
-            // You'll need helper methods in your Config class to get these as strings
-			const std::vector<int>& ports = config.getPorts();
-			std::string portsStr;
-			for (size_t i = 0; i < ports.size(); i++)
-			{
-				portsStr += itostr(ports[i]);
-				if (i < ports.size() - 1)
-					portsStr += ", ";
-			}
-			replaceTag(_body, "{{PORTS}}", portsStr);
-            replaceTag(_body, "{{ROOT}}", config.getRoot());
-    		replaceTag(_body, "{{HOST}}", config.getHost());
-    		replaceTag(_body, "{{LOCATION_PATH}}", config.getLocationPath());
-    		replaceTag(_body, "{{UPLOAD_DIR}}", config.getUploadStore());
-
-			replaceTag(_body, "{{MAX_BODY}}", itostr(static_cast<int>(config.getMaxBodySize())));
-    		replaceTag(_body, "{{RET_CODE}}", itostr(config.getReturnStatusCode()));
-
-			replaceTag(_body, "{{AUTOINDEX}}", config.getAutoIndex() ? "On" : "Off");
-
-			const std::vector<std::string>& methods = config.getAllowedMethods();
-    		std::string methodsStr;
-    		for (size_t i = 0; i < methods.size(); ++i)
-			{
-        		methodsStr += methods[i];
-				if (i < methods.size() - 1)
-					methodsStr += ", ";
-   			}
-    		replaceTag(_body, "{{METHODS}}", methodsStr);
-        }
         _contentLength = _body.size();
+		insertServerInfo(config);
     }
 	catch (const std::exception& e){
 		(void)e;
