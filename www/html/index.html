@@ -7,7 +7,7 @@
 	<link rel="stylesheet" href="style.css">
 	<script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-darkbg text-gray-200 font-googlesans min-h-screen flex flex-col items-center">
+<body class="bg-darkbg text-gray-200 font-googlesans min-h-screen flex flex-col items-center overflow-x-hidden">
 
     <h1 class="font-bitcount text-[clamp(5rem,6rem+3vw,12rem)] font-[350] text-techpurple mt-24 mb-0 leading-none tracking-tight uppercase">
         WEBSERVER
@@ -38,11 +38,11 @@
         <div></div>
     </main>
 
-	<div class="flex justify-center space-x-6">
+	<div class="w-full flex flex-wrap justify-center gap-6 px-4">
 		<!-- GET TEST SECTION -->
-		<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
+		<div class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
 			<h3 class="mt-2 mb-6 text-purple-900 uppercase">GET Request Test:</h3>
-			<div>
+			<div class="flex justify-center">
 				<form class="mb-2 flex" action="/index.html" method="GET">
 					<input class="text-purple-900 px-4 py-2 rounded-2xl" type="text" name="path" placeholder="Enter a location path">
 					   <button class="ml-3 text-gray-600 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.5)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)]" type="submit">Search Info</button>
@@ -50,25 +50,25 @@
 			</div>
 			<div class="">
 				<p class="text-[16px] mb-1 mt-8 text-purple-900">Request: </p>
-				<ul id="request-details" class="text-[16px] whitespace-pre-line text-gray-600">{{REQUEST_DETAILS}}</ul>
+				<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-600">{{REQUEST_DETAILS}}</ul>
 			</div>
 			<div>
 				<p class="text-[16px] mb-1 mt-6 text-purple-900">Location's Info: </p>
-				<ul id="location-details" class="text-[16px] whitespace-pre-line text-gray-600">{{LOCATION_DETAILS}}</ul>
+				<ul id="location-details" class="text-[16px] whitespace-pre-line break-words text-gray-600">{{LOCATION_DETAILS}}</ul>
 			</div>
 		</div>
 
 		<!-- POST TEST SECTION-->
-		<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
+		<div class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
 			<h3 class="mt-2 mb-6 text-purple-900 uppercase">POST Request Test:</h3>
 		</div>
 	</div>
 
-    <footer class="mt-auto mb-10 text-gray-600">
+    <footer class="mb-8 text-gray-600">
         <p>developed by 
             <a href="https://github.com/DanielFonsecaa" class="hover:text-purple-900 transition-colors">@dda-fons</a>,
             <a href="https://github.com/NukyYuki" class="hover:text-purple-900 transition-colors">@mipinhei</a>,
-            <a href="https://github.com/mjbalouta" class="hover:text-purple-900 transition-colors">@mjoao-fr</a>
+            <a href="https://github.com/mjbalouta" class="hover:text-purple-900 transition-colors">@mjoao-fr</a>.
         </p>
     </footer>
 
