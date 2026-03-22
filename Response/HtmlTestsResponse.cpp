@@ -25,34 +25,61 @@ void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, c
     }
 }
 
-// /**
-//  * @brief Builds the html block {{REQUEST_DETAILS}}
-//  * 
-//  * @param request 
-//  */
-// void ResponseBuilder::insertRequestDetails(const Request& request)
-// {
-// 	std::string requestBlock;
+/**
+ * @brief Builds the html block {{REQUEST_DETAILS}}
+ * 
+ * @param request 
+ */
+void ResponseBuilder::insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath)
+{
+	std::string requestBlock;
 
-// 	Method method = request.getMethod();
-// 	switch (method)
-// 	{
-// 	case 0:
-// 		requestBlock += "GET";
-// 		break;
-// 	case 1:
-// 		requestBlock += "POST";
-// 		break;
-// 	case 2:
-// 		requestBlock += "DELETE";
-// 		break;
-// 	default:
-// 		requestBlock += "NONE";
-// 		break;
-// 	}
-// 	requestBlock += " ";
+	Method method = request.getMethod();
+	switch (method)
+	{
+	case 0:
+		requestBlock += "GET";
+		break;
+	case 1:
+		requestBlock += "POST";
+		break;
+	case 2:
+		requestBlock += "DELETE";
+		break;
+	default:
+		requestBlock += "NONE";
+		break;
+	}
+	requestBlock += " ";
 	
-// }
+	requestBlock += request.getPath();
+	requestBlock += " ";
+	requestBlock += request.getVersion();
+	requestBlock += ";\n";
+
+	requestBlock += "Host: ";
+	requestBlock += request.getHost();
+	requestBlock += ";\n";
+
+	requestBlock += "Searched Path: ";
+	requestBlock += userInput;
+	requestBlock += ";\n";
+
+	if (!locPath.empty())
+	{
+		requestBlock += "Matched Location: ";
+		requestBlock += locPath;
+		requestBlock += ";\n";
+	}
+
+	requestBlock += "Result: ";
+	requestBlock += itostr(getStatusCode());
+	requestBlock += " ";
+	requestBlock += error.getReasonPhrase(getStatusCode());
+	requestBlock += ";\n";
+
+	replaceTag(_body, "{{REQUEST_DETAILS}}", requestBlock);
+}
 
 /**
  * @brief Builds the response accordingly to /search request (from index.html)
@@ -72,6 +99,7 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	std::cout << userInput << std::endl;
 	if (userInput.empty())
 	{
+		replaceTag(_body, "{{REQUEST_DETAILS}}", "Insert a location's path to send a request.");
 		replaceTag(_body, "{{LOCATION_DETAILS}}", "Insert a location's path to search its info.");
 		return;
 	}
@@ -102,10 +130,13 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 
 	if (!selectedLocation)
 	{
+		_statusCode = 404;
+		insertRequestInfo(request, userInput, "");
 		replaceTag(_body, "{{LOCATION_DETAILS}}", "That location block doesn't exist in the config file.");
 		return;
 	}
 
+	insertRequestInfo(request, userInput, selectedLocation->getPath());
 	std::string locationBlock;
 	//add path
 	locationBlock += "Path: ";
@@ -207,16 +238,17 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	const std::map<std::string, std::string>& cgi = selectedLocation->getCGI();
 	if (!cgi.empty())
 	{
-		locationBlock += "CGI:";
+
 		for (std::map<std::string, std::string>::const_iterator it = cgi.begin(); it != cgi.end(); ++it)
-	{
+		{
+			locationBlock += "CGI:";
 			locationBlock += " ";
 			locationBlock += it->first;
 			locationBlock += " ";
 			locationBlock += it->second;
 			locationBlock += ";";
+			locationBlock += "\n";
 		}
-		locationBlock += "\n";
 	}
 
 	//add error_pages

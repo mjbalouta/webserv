@@ -374,7 +374,7 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
         _contentLength = _body.size();
-		insertServerInfo(config);
+		insertServerInfo(config); 
 		insertLocationInfo(request, config); 
     }
 	catch (const std::exception& e){
