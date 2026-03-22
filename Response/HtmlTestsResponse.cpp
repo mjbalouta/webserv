@@ -96,7 +96,6 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	std::map<std::string, std::string> queryParams = request.getQueryParams();
 	//searches for the userInput in the query path (the name of the input in the html)
 	std::string userInput = request.getSpecificQuery("path");
-	std::cout << userInput << std::endl;
 	if (userInput.empty())
 	{
 		replaceTag(_body, "{{REQUEST_DETAILS}}", "Insert a location's path to send a request.");

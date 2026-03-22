@@ -32,34 +32,35 @@
 
 		<!-- SERVER INFO SECTION -->
         <div>
-            <h3 class="mt-3 text-purple-900 uppercase">Network Configuration</h3>
-			<ul class="mt-0 whitespace-pre-line text-gray-600">
-				{{SERVER_DETAILS}}
-			</ul>
+            <p class="text-[16px] mt-3 mb-2 text-purple-900">Network Configuration</p>
+			<ul class="mt-0 whitespace-pre-line text-gray-600">{{SERVER_DETAILS}}</ul>
         </div>
         <div></div>
     </main>
 
-	<!-- GET TEST SECTION -->
-	<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
-		<h3 class="mt-2 mb-6 text-purple-900 uppercase">GET Request Test:</h3>
-		<div>
-			<form class="mb-2 flex" action="/index.html" method="GET">
-    			<input class="text-purple-900 px-4 py-2 rounded-2xl" type="text" name="path" placeholder="Enter a location path">
-   				<button class="ml-3 text-gray-600 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.5)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)]" type="submit">Search Info</button>
-			</form>
+	<div class="flex justify-center space-x-6">
+		<!-- GET TEST SECTION -->
+		<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
+			<h3 class="mt-2 mb-6 text-purple-900 uppercase">GET Request Test:</h3>
+			<div>
+				<form class="mb-2 flex" action="/index.html" method="GET">
+					<input class="text-purple-900 px-4 py-2 rounded-2xl" type="text" name="path" placeholder="Enter a location path">
+					   <button class="ml-3 text-gray-600 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.5)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)]" type="submit">Search Info</button>
+				</form>
+			</div>
+			<div class="">
+				<p class="text-[16px] mb-1 mt-8 text-purple-900">Request: </p>
+				<ul id="request-details" class="text-[16px] whitespace-pre-line text-gray-600">{{REQUEST_DETAILS}}</ul>
+			</div>
+			<div>
+				<p class="text-[16px] mb-1 mt-6 text-purple-900">Location's Info: </p>
+				<ul id="location-details" class="text-[16px] whitespace-pre-line text-gray-600">{{LOCATION_DETAILS}}</ul>
+			</div>
 		</div>
-		<div class="">
-			<p class="mt-8 text-purple-900">Request: </p>
-			<ul id="request-details" class="text-[16px] whitespace-pre-line text-gray-600">
-				{{REQUEST_DETAILS}}
-			</ul>
-		</div>
-		<div>
-			<p class="mt-2 text-purple-900">Location's Info: </p>
-			<ul id="location-details" class="text-[16px] whitespace-pre-line text-gray-600">
-				{{LOCATION_DETAILS}}
-			</ul>
+
+		<!-- POST TEST SECTION-->
+		<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
+			<h3 class="mt-2 mb-6 text-purple-900 uppercase">POST Request Test:</h3>
 		</div>
 	</div>
 
