@@ -98,7 +98,7 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	std::string userInput = request.getSpecificQuery("path");
 	if (userInput.empty())
 	{
-		replaceTag(_body, "{{REQUEST_DETAILS}}", "Insert a location's path to send a request.");
+		replaceTag(_body, "{{REQUEST_DETAILS}}", "Waiting for a request...");
 		replaceTag(_body, "{{LOCATION_DETAILS}}", "Insert a location's path to search its info.");
 		return;
 	}

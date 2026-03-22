@@ -373,8 +373,8 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-		insertServerInfo(config); 
-		insertLocationInfo(request, config); 
+		insertServerInfo(config); //to replace the placeholder in index.html
+		insertLocationInfo(request, config); //to replace the placeholder in index.html
         _contentLength = _body.size();
     }
 	catch (const std::exception& e){
