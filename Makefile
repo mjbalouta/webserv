@@ -29,6 +29,7 @@ FILES			= main.cpp \
 				  fileResourceManagement/MimeTypeResolver.cpp \
 				  fileResourceManagement/PathResolver.cpp \
 				  Response/ResponseBuilder.cpp \
+				  Response/HtmlTestsResponse.cpp \
 
 SRC				= $(addprefix $(SRC_PATH)/, $(FILES))
 

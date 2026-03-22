@@ -67,5 +67,6 @@ class ResponseBuilder{
 		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);
 		void replaceTag(std::string &content, const std::string &tag, const std::string &value);
-		void insertServerInfo(const ConfigResolved& config);	
+		void insertServerInfo(const ConfigResolved& config);
+		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
 };

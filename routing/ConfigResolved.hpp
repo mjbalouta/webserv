@@ -10,11 +10,11 @@ class ConfigResolved
 	const ServerConfig* _server;
 	const LocationConfig* _location;
 
-	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request);
-	
 	public:
 	ConfigResolved(const Request& request, const ServerConfig& server);
 	
+	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request) const;
+	const ServerConfig& getServerBlock() const;
 	std::vector<int> getPorts() const;
 	std::string getLocationPath() const;
 	std::string getResolvedPath(const Request& request) const;

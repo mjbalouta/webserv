@@ -33,21 +33,9 @@
 		<!-- SERVER INFO SECTION -->
         <div>
             <h3 class="mt-3 text-purple-900 uppercase">Network Configuration</h3>
-            <!-- ver se faço um bloco total como na parte do location para não
-			 	 aparecerem parâmetros vazios -->
 			<ul class="mt-0 whitespace-pre-line text-gray-600">
 				{{SERVER_DETAILS}}
 			</ul>
-                <!-- <li><span>Ports: </span> <strong>{{PORTS}}</strong></li>
-                <li><span>Root: </span> <strong>{{ROOT}}</strong></li>
-                <li><span>Root: </span> <strong>{{ROOT}}</strong></li>
-                <li><span>Host:</span> <strong>{{HOST}}</strong></li>
-                <li><span>Location Path:</span> <strong>{{LOCATION_PATH}}</strong></li>
-                <li><span>Upload Directory:</span> <strong>{{UPLOAD_DIR}}</strong></li>
-                <li><span>Max Body Size:</span> <strong>{{MAX_BODY}}</strong></li>
-                <li><span>Return Code:</span> <strong>{{RET_CODE}}</strong></li>
-                <li><span>Autoindex:</span> <strong>{{AUTOINDEX}}</strong></li>
-                <li><span>Methods:</span> <strong>{{METHODS}}</strong></li> -->
         </div>
         <div></div>
     </main>
@@ -56,14 +44,20 @@
 	<div class="mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.5)]">
 		<h3 class="mt-2 mb-6 text-purple-900 uppercase">GET Request Test:</h3>
 		<div>
-			<form class="mb-2 flex" action="/search" method="GET">
-    			<input class="text-purple-900 px-4 py-2 rounded-2xl" type="text" name="data" placeholder="Enter a location path">
+			<form class="mb-2 flex" action="/index.html" method="GET">
+    			<input class="text-purple-900 px-4 py-2 rounded-2xl" type="text" name="path" placeholder="Enter a location path">
    				<button class="ml-3 text-gray-600 px-4 py-2 rounded-full hover:shadow-[0_0_15px_rgba(100,20,120,0.5)]" type="submit">Search Info</button>
 			</form>
 		</div>
 		<div>
+			<p class="mt-8 text-purple-900">Request: </p>
+			<ul id="request-details" class="whitespace-pre-line text-gray-600">
+				{{REQUEST_DETAILS}}
+			</ul>
+		</div>
+		<div>
 			<p class="mt-8 text-purple-900">Location's Info: </p>
-			<ul class="text-gray-600">
+			<ul id="location-details" class="whitespace-pre-line text-gray-600">
 				{{LOCATION_DETAILS}}
 			</ul>
 		</div>

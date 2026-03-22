@@ -357,109 +357,6 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 }
 
 /**
- * 
- * MARIA
- * @brief Replaces all occurrences of a placeholder tag with a specific value.
- * @param content The string (HTML body) to modify.
- * @param tag The placeholder to look for (e.g., "{{LISTEN_PORT}}").
- * @param value The real data to insert.
- */
-void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, const std::string &value)
-{
-    if (tag.empty())
-        return;
-
-    size_t pos = 0;
-    // Find the first occurrence of the tag
-    while ((pos = content.find(tag, pos)) != std::string::npos)
-    {
-        // Replace the tag with the new value
-        content.replace(pos, tag.length(), value);
-        
-        // Advance 'pos' by the length of the new value to avoid infinite loops
-        // (in case the value contains the tag itself)
-        pos += value.length();
-    }
-}
-
-/**
- * @brief Checks server info and builds the block of info for the HTML
- * 
- * @param config The resolved configuration for the current location.
- */
-void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
-{
-    // If it's the index or info page, swap the server block tag
-    if (_contentType == "text/html")
-    {
-		//add ports info
-		const std::vector<int>& ports = config.getPorts();
-		std::string serverBlock;
-		serverBlock += "Ports: ";
-		for (size_t i = 0; i < ports.size(); i++)
-		{
-			serverBlock += itostr(ports[i]);
-			if (i < ports.size() - 1)
-				serverBlock += ", ";
-		}
-		serverBlock += ";\n";
-
-		//add root info
-		std::string root = config.getRoot();
-		serverBlock += "Root: ";
-		serverBlock += root;
-		serverBlock += ";\n";
-		
-		//add host info
-		std::string host = config.getHost();
-		serverBlock += "Host: ";
-		serverBlock += host;
-		serverBlock += ";\n";
-
-    	//add upload_store
-		std::string upload = config.getUploadStore();
-		if (upload != "")
-		{
-			serverBlock += "Upload Store: ";
-			serverBlock += upload;
-			serverBlock += ";\n";
-		}
-    	
-		//add client_max_body_size
-		std::string size = itostr(static_cast<int>(config.getMaxBodySize()));
-		serverBlock += "Max Body Size: ";
-		serverBlock += size;
-		serverBlock += ";\n";
-
-		//add return code
-		std::string returnCode = itostr(config.getReturnStatusCode());
-    	if (returnCode != "0")
-		{
-			serverBlock += "Return code: ";
-			serverBlock += returnCode;
-			serverBlock += ";\n";
-		}
-
-		//add autoindex
-		std::string autoindex = config.getAutoIndex() ? "On" : "Off";
-		serverBlock += "Autoindex: ";
-		serverBlock += autoindex;
-		serverBlock += ";\n";
-
-		//add allowed_methods
-		const std::vector<std::string>& methods = config.getAllowedMethods();
-		serverBlock += "Allowed Methods: ";
-    	for (size_t i = 0; i < methods.size(); ++i)
-		{
-        	serverBlock += methods[i];
-			if (i < methods.size() - 1)
-				serverBlock += ", ";
-   		}
-    	replaceTag(_body, "{{SERVER_DETAILS}}", serverBlock);
-    }
-}
-
-/**
  * @brief Builds a file response based on the given request, file path, and configuration.
  * 
  * @param request The incoming HTTP request.
@@ -478,6 +375,7 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
         _contentLength = _body.size();
 		insertServerInfo(config);
+		insertLocationInfo(request, config); 
     }
 	catch (const std::exception& e){
 		(void)e;
