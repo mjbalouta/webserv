@@ -3,7 +3,7 @@
 *.a
 *.lib
 .build/
-/webserver
+/webserv
 /a.out
 .vscode
 *.swp

@@ -161,3 +161,13 @@ void ServerConfig::setMaxBodySizeFlag(bool status)
 {
 	_maxBodySizeFlag = status;
 }
+
+void ServerConfig::setAbsolutePath(const std::string& path)
+{
+	_absolutePath = path;
+}
+
+const std::string& ServerConfig::getAbsolutePath() const
+{
+	return _absolutePath;
+}

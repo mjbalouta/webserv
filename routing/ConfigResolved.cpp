@@ -91,6 +91,7 @@ std::string ConfigResolved::getAlias() const
  */
 std::string ConfigResolved::getResolvedPath(const Request& request) const
 {
+	std::string absolutePath = getAbsolutePath();
 	std::string alias = this->getAlias();
 	std::string serverPath;
 	std::string requestPath = request.getPath(); //URI
@@ -99,13 +100,26 @@ std::string ConfigResolved::getResolvedPath(const Request& request) const
 	{
 		if (requestPath.find(this->getLocationPath()) == 0)
 	 		requestPath.erase(0, this->getLocationPath().size());
-		serverPath = alias;
+		serverPath += absolutePath;
+			if (alias.find_first_of('/') != 0)
+				serverPath += '/';
+		serverPath += alias;
 	}
 	else
 	{
-		serverPath = this->getRoot();
-		if (serverPath.empty())
-			return requestPath;
+		serverPath = absolutePath;
+		std::string root = this->getRoot();
+		if (root.empty())
+		{
+			std::string fullPath = absolutePath;
+			if (requestPath.find_first_of('/') != 0)
+				fullPath += '/';
+			fullPath += requestPath;	
+			return fullPath;
+		}
+		if (root.find_first_of('/') != 0)
+			serverPath += '/';
+		serverPath += root;
 	}
 
 	if (serverPath.find_last_of('/') != serverPath.size() - 1)
@@ -259,4 +273,9 @@ std::string ConfigResolved::getUploadStore() const
 	if (_location)
 		return _location->getUploadStore();
 	return "";
+}
+
+const std::string& ConfigResolved::getAbsolutePath() const
+{
+	return _server->getAbsolutePath();
 }

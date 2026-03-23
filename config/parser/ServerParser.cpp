@@ -87,6 +87,8 @@ void ConfigParser::parseListen(ServerConfig& server)
 void ConfigParser::parseServer()
 {
 	ServerConfig server;
+
+	server.setAbsolutePath(_absolutePath);
 	
 	if (_tokens[_currentToken] != "{")
 		throw ConfigException("Error: Expected '{' after server keyword.");

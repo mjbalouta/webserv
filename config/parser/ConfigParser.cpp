@@ -48,12 +48,33 @@ void ConfigParser::tokenize(std::string& content)
 }
 
 /**
+ * @brief Builds the absolute path of the config file and stores it in _absoluteConfigPath
+ * 
+ */
+void ConfigParser::buildAbsolutePath(const std::string& filename)
+{
+	char path[PATH_MAX];
+	if (realpath(filename.c_str(), path) == NULL)
+		throw FileException("Error: Config file not found.");
+
+	std::string fullPath(path);
+	size_t pos = fullPath.find_last_of('/');
+
+	if (pos != std::string::npos)
+		_absolutePath = fullPath.substr(0, pos);
+	else
+		_absolutePath = ".";
+}	
+
+/**
  * @brief Opens the config file, stores each line in _lines and then goes
  * through the container and checks if the first word is 'server'
  * 
  */
 void ConfigParser::parse(const std::string& filename)
 {
+	buildAbsolutePath(filename);
+
 	std::ifstream file(filename.c_str());
 	if (!file.is_open())
 		throw FileException("Error: Unable to open config file.");
