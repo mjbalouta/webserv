@@ -16,6 +16,7 @@ class ConfigResolved
 	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request) const;
 	const ServerConfig& getServerBlock() const;
 	std::vector<int> getPorts() const;
+	const std::string& getAbsolutePath() const;
 	std::string getLocationPath() const;
 	std::string getResolvedPath(const Request& request) const;
 	const std::string& getRoot() const;

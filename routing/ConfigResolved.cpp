@@ -91,7 +91,9 @@ std::string ConfigResolved::getAlias() const
  */
 std::string ConfigResolved::getResolvedPath(const Request& request) const
 {
+	std::string absolutePath = getAbsolutePath();
 	std::string alias = this->getAlias();
+	std::string root = this->getRoot();
 	std::string serverPath;
 	std::string requestPath = request.getPath(); //URI
 
@@ -99,14 +101,20 @@ std::string ConfigResolved::getResolvedPath(const Request& request) const
 	{
 		if (requestPath.find(this->getLocationPath()) == 0)
 	 		requestPath.erase(0, this->getLocationPath().size());
-		serverPath = alias;
+		if (alias[0] == '/')
+			serverPath = alias;
+		else
+			serverPath = absolutePath + alias;
+	}
+	else if (!root.empty())
+	{
+		if (root[0] == '/')
+			serverPath = root;
+		else
+			serverPath = absolutePath + root;
 	}
 	else
-	{
-		serverPath = this->getRoot();
-		if (serverPath.empty())
-			return requestPath;
-	}
+		serverPath = absolutePath;
 
 	if (serverPath.find_last_of('/') != serverPath.size() - 1)
 		serverPath += '/';
@@ -279,4 +287,9 @@ std::vector<int> ConfigResolved::getPorts() const
 const ServerConfig& ConfigResolved::getServerBlock() const
 {
 	return *_server;
+}
+
+const std::string& ConfigResolved::getAbsolutePath() const
+{
+	return _server->getAbsolutePath();
 }

@@ -13,6 +13,7 @@ class ConfigParser
 	std::vector<ServerConfig> _servers; //should it be a map container to store the port more directly?
 	std::vector<std::string> _tokens; //to store the lines of the config file
 	size_t _currentToken; //to store in which line i'm in
+	std::string _absolutePath;
 
 	void tokenize(std::string& content);
 	void parseServer();
@@ -35,6 +36,7 @@ class ConfigParser
 	template <typename T>
 	void parseAutoindex(T& object);
 	void checkIfTokenExists();
+	void buildAbsolutePath();
 
 	public:
 	ConfigParser();
