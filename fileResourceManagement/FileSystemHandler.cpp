@@ -171,5 +171,5 @@ bool FileSystemHandler::removeFile(const std::string& path)
 {
     if (path.empty())
         return false;
-    return (::unlink(path.c_str()) == 0);
+    return (::unlink(path.c_str()) == 0); // should see if this function is a valid one or the file should be removed with another method
 }
