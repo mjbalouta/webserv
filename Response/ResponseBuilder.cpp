@@ -166,8 +166,6 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 
 	if (request.getStatus() != 200)
 		return returnGenericErrorResponse(request.getStatus(), request, resolvedConfig);
-	
-	std::string uriPath = request.getPath();
 
 	if (!isMethodAllowed(request.getMethodStr(), resolvedConfig))
 		return returnGenericErrorResponse(405, request, resolvedConfig);
