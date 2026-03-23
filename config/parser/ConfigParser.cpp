@@ -1,7 +1,7 @@
 #include "ConfigParser.hpp"
 
 ConfigParser::ConfigParser()
-: _currentToken(0) 
+: _currentToken(0), _absolutePath("")
 {}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
@@ -48,12 +48,32 @@ void ConfigParser::tokenize(std::string& content)
 }
 
 /**
+ * @brief Builds the absolute path of the config file and stores it in _absolutePath
+ * 
+ */
+void ConfigParser::buildAbsolutePath()
+{
+	char* pwd = std::getenv("PWD");
+	if (!pwd || pwd[0] == '\0')
+		_absolutePath = "./";
+	else
+	{
+		std::string path = pwd;
+		if (path.find_last_of('/') != path.size() - 1)
+			path += '/';
+		_absolutePath = path;
+	}
+}	
+
+/**
  * @brief Opens the config file, stores each line in _lines and then goes
  * through the container and checks if the first word is 'server'
  * 
  */
 void ConfigParser::parse(const std::string& filename)
 {
+	buildAbsolutePath();
+
 	std::ifstream file(filename.c_str());
 	if (!file.is_open())
 		throw FileException("Error: Unable to open config file.");
