@@ -1,7 +1,7 @@
 #include "ConfigParser.hpp"
 
 ConfigParser::ConfigParser()
-: _currentToken(0) 
+: _currentToken(0), _absolutePath("")
 {}
 
 const std::vector<ServerConfig>& ConfigParser::getServers() const
