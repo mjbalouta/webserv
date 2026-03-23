@@ -51,19 +51,18 @@ void ConfigParser::tokenize(std::string& content)
  * @brief Builds the absolute path of the config file and stores it in _absolutePath
  * 
  */
-void ConfigParser::buildAbsolutePath(const std::string& filename)
+void ConfigParser::buildAbsolutePath()
 {
-	char path[PATH_MAX];
-	if (realpath(filename.c_str(), path) == NULL) //std::getenv??
-		throw FileException("Error: Config file not found.");
-
-	std::string fullPath(path);
-	size_t pos = fullPath.find_last_of('/');
-
-	if (pos != std::string::npos)
-		_absolutePath = fullPath.substr(0, pos);
+	char* pwd = std::getenv("PWD");
+	if (!pwd)
+		_absolutePath = "./";
 	else
-		_absolutePath = ".";
+	{
+		std::string path = pwd;
+		if (path.find_last_of('/') != path.size() - 1)
+			path += '/';
+		_absolutePath = path;
+	}
 }	
 
 /**
@@ -73,7 +72,7 @@ void ConfigParser::buildAbsolutePath(const std::string& filename)
  */
 void ConfigParser::parse(const std::string& filename)
 {
-	buildAbsolutePath(filename);
+	buildAbsolutePath();
 
 	std::ifstream file(filename.c_str());
 	if (!file.is_open())

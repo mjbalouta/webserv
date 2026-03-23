@@ -36,7 +36,7 @@ class ConfigParser
 	template <typename T>
 	void parseAutoindex(T& object);
 	void checkIfTokenExists();
-	void buildAbsolutePath(const std::string& filename);
+	void buildAbsolutePath();
 
 	public:
 	ConfigParser();
