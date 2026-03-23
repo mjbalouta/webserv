@@ -54,7 +54,7 @@ void ConfigParser::tokenize(std::string& content)
 void ConfigParser::buildAbsolutePath()
 {
 	char* pwd = std::getenv("PWD");
-	if (!pwd)
+	if (!pwd || pwd[0] == '\0')
 		_absolutePath = "./";
 	else
 	{
