@@ -1,6 +1,6 @@
 MAKE			= make
 
-NAME 			= webserver
+NAME 			= webserv
 
 _SUCCESS 		= $(GRN)SUCCESS$(D)
 
