@@ -1,5 +1,7 @@
 #include "ResponseBuilder.hpp"
 
+#include <cerrno>
+
 /**
  * @brief Formats a time value as an HTTP date string.
  * 
@@ -35,7 +37,6 @@ bool ResponseBuilder::startsWithLocationBoundary(const std::string &uriPath, con
 		return false;
 	if (uriPath.size() == locPath.size())
 		return true;
-	// Boundary: either location ends with '/', or next char in uri is '/'
 	if (locPath[locPath.size() - 1] == '/')
 		return true;
 	return (uriPath[locPath.size()] == '/');
@@ -177,11 +178,12 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		return buildRedirectResponse(request, resolvedConfig);
 	} // General idea of redirect response
 	// Resolve target path using the merged config (server root or location alias/root).
+
 	std::string fileSystemPath = resolvedConfig.getResolvedPath(request);
 	if (fileSystemPath.empty())
 		return returnGenericErrorResponse(404, request, resolvedConfig);
 
-	std::string base;
+ 	std::string base;
 	if (resolvedConfig.getAlias().empty())
 		base = resolvedConfig.getRoot();
 	else
@@ -205,9 +207,14 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		// With no base directory configured, conservative approach about traversal attempts.
 		if (request.getPath().find("..") != std::string::npos)
 			return returnGenericErrorResponse(403, request, resolvedConfig);
-	}
-
+	} 
+	
 	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
+
+	if (request.getMethodStr() == "POST")
+		return buildPostResponse(request, resolvedConfig);
+	if (request.getMethodStr() == "DELETE")
+		return buildDeleteResponse(request, fileSystemPath, resolvedConfig);
 
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
 	{
@@ -239,6 +246,110 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		return returnGenericErrorResponse(403, request, resolvedConfig);
 	else
 		return returnGenericErrorResponse(404, request, resolvedConfig);
+}
+
+std::string ResponseBuilder::buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig)
+{
+	std::string uploadStore = resolvedConfig.getUploadStore();
+	if (uploadStore.empty())
+		return returnGenericErrorResponse(501, request, resolvedConfig);
+
+	if (!fileSystemHandler.pathExists(uploadStore) || !fileSystemHandler.isDirectory(uploadStore))
+		return returnGenericErrorResponse(500, request, resolvedConfig);
+	if (!fileSystemHandler.isWritable(uploadStore))
+		return returnGenericErrorResponse(403, request, resolvedConfig);
+
+	std::string locationPath = resolvedConfig.getLocationPath();
+	std::string rest = request.getPath();
+	if (!locationPath.empty() && startsWithLocationBoundary(rest, locationPath))
+		rest.erase(0, locationPath.size());
+	if (!rest.empty() && rest[0] == '/')
+		rest.erase(0, 1);
+
+	if (rest.empty())
+		return returnGenericErrorResponse(400, request, resolvedConfig);
+	if (rest.find('/') != std::string::npos || rest.find("..") != std::string::npos)
+		return returnGenericErrorResponse(400, request, resolvedConfig);
+	if (!pathResolver.isPathSafe(rest, uploadStore))
+		return returnGenericErrorResponse(403, request, resolvedConfig);
+
+	std::string targetPath = joinPathSimple(uploadStore, rest);
+	targetPath = pathResolver.normalizePath(targetPath);
+	bool existed = fileSystemHandler.pathExists(targetPath);
+
+	if (!fileSystemHandler.writeFile(targetPath, request.getBody()))
+		return returnGenericErrorResponse(500, request, resolvedConfig);
+
+	if (existed)
+	{
+		_statusCode = 204;
+		_contentType = "text/plain";
+		_body.clear();
+		_contentLength = 0;
+	}
+	else
+	{
+		_statusCode = 201;
+		_contentType = "text/plain";
+		_body = "Created\n";
+		_contentLength = _body.size();
+		_location = request.getPath();
+	}
+
+	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	std::string response = _statusLine;
+	setStandardHeaders(response, _contentType);
+	if (_statusCode == 201 && !_location.empty())
+		response += "Location: " + _location + "\r\n";
+	response += "\r\n" + _body;
+	return response;
+}
+
+std::string ResponseBuilder::buildDeleteResponse(const Request& request, const std::string& fileSystemPath, const ConfigResolved& resolvedConfig)
+{
+	std::string targetPath = fileSystemPath;
+
+	std::string uploadStore = resolvedConfig.getUploadStore();
+	if (!uploadStore.empty())
+	{
+		std::string locationPath = resolvedConfig.getLocationPath();
+		std::string rest = request.getPath();
+		if (!locationPath.empty() && startsWithLocationBoundary(rest, locationPath))
+			rest.erase(0, locationPath.size());
+		if (!rest.empty() && rest[0] == '/')
+			rest.erase(0, 1);
+		if (rest.empty())
+			return returnGenericErrorResponse(400, request, resolvedConfig);
+		if (rest.find('/') != std::string::npos || rest.find("..") != std::string::npos)
+			return returnGenericErrorResponse(400, request, resolvedConfig);
+		if (!pathResolver.isPathSafe(rest, uploadStore))
+			return returnGenericErrorResponse(403, request, resolvedConfig);
+		targetPath = joinPathSimple(uploadStore, rest);
+		targetPath = pathResolver.normalizePath(targetPath);
+	}
+
+	if (!fileSystemHandler.pathExists(targetPath))
+		return returnGenericErrorResponse(404, request, resolvedConfig);
+	if (fileSystemHandler.isDirectory(targetPath))
+		return returnGenericErrorResponse(403, request, resolvedConfig);
+
+	errno = 0; // Check if using errno is not illegal in this context
+	if (!fileSystemHandler.removeFile(targetPath))
+	{
+		if (errno == EACCES || errno == EPERM)
+			return returnGenericErrorResponse(403, request, resolvedConfig);
+		return returnGenericErrorResponse(500, request, resolvedConfig);
+	}
+
+	_statusCode = 204;
+	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_contentType = "text/plain";
+	_body.clear();
+	_contentLength = 0;
+	std::string response = _statusLine;
+	setStandardHeaders(response, _contentType);
+	response += "\r\n";
+	return response;
 }
 
 /**
@@ -425,11 +536,6 @@ std::string ResponseBuilder::buildDirectoryListingResponse(const Request& reques
 	}
 
 	return returnGenericErrorResponse(403, request, resolvedConfig);
-}
-
-
-int ResponseBuilder::getStatusCode() {
-	return _statusCode;
 }
 
 std::string ResponseBuilder::getStatusCodeString() {

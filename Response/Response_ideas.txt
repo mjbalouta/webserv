@@ -1,8 +1,33 @@
 
+This is what nginx-style configs effectively do: relative paths are resolved relative to a known base (commonly the config file directory).
+
+Concretely:
+
+If the config says root www; or root ./www;
+You compute baseDir = dirname(configFilePath) (from av[1] in main.cpp)
+And resolve to baseDir + "/www" once during parsing/setup.
+After that, your routing logic (like ConfigResolved::getResolvedPath() in ConfigResolved.cpp) always deals with absolute paths.
+This keeps request-time code simple and safe, and it means the config “doesn’t need to have ./etc/etc” while still being portable.
+
+What not to do
+Don’t prepend getcwd() to values that are already absolute.
+Don’t use getcwd() as a substitute for config root/alias.
+Don’t base security checks on cwd; base them on the resolved root/alias and normalized paths.
+If you want, I can implement Option B minimally by:
+
+relaxing ConfigUtils.cpp to accept relative paths for root, alias, upload_store, and error pages, and
+resolving them relative to the config file directory during parsing (so everything becomes absolute before serving).
+
+
+// // //
+
 Important: CHECK METHODS AND RETURN RESPONSE DEPENDING ON METHODS
 Check Post - ver se o diretorio existe etc no config ( se ja existir modifica e da replace ou criar uma versao (2))
 Check delete - ver se o ficheiro existe e apagar
 utilizar absolute path para verificar as locations
+
+
+// // // 
 
 Core Components to Build:
 1. Status Line

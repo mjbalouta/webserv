@@ -55,6 +55,14 @@ bool FileSystemHandler::isReadable(const std::string& path){
     return false;
 }
 
+bool FileSystemHandler::isWritable(const std::string& path){
+    if (path.empty())
+        return false;
+    if (access(path.c_str(), W_OK) == 0)
+        return true;
+    return false;
+}
+
 
 /**
  * @brief Read the content of a file and return it as a string.
@@ -144,4 +152,24 @@ std::time_t FileSystemHandler::getLastMODTime(const std::string& path){
         return st.st_mtime;
     }
     return 0;
+}
+
+bool FileSystemHandler::writeFile(const std::string& path, const std::string& content)
+{
+    if (path.empty())
+        return false;
+
+    std::ofstream out(path.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!out)
+        return false;
+    if (!content.empty())
+        out.write(content.data(), static_cast<std::streamsize>(content.size()));
+    return static_cast<bool>(out);
+}
+
+bool FileSystemHandler::removeFile(const std::string& path)
+{
+    if (path.empty())
+        return false;
+    return (::unlink(path.c_str()) == 0);
 }

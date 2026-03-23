@@ -32,8 +32,8 @@ class ResponseBuilder{
 		int getStatusCode();
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
 
-		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 
 		std::string getStatusCodeString();
 		std::string getStatusLine();
@@ -60,9 +60,11 @@ class ResponseBuilder{
 		bool startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath);
 		std::string formatHttpDate(std::time_t t);
 
-		 std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
-		 std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
-		 std::string buildErrorResponse(int statusCode, const ConfigResolved& resolvedConfig);
+		std::string buildDeleteResponse(const Request& request, const std::string& fileSystemPath, const ConfigResolved& resolvedConfig);
+		std::string buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig);
+		std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
+		std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
+		std::string buildErrorResponse(int statusCode, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
 		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);		
