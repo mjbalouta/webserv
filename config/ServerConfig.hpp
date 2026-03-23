@@ -23,6 +23,7 @@ class ServerConfig
 	bool _autoIndex;
 	bool _autoIndexSet; //activated if autoindex exists in the config file
 	std::vector<std::string> _allowedMethods;
+	std::string _absolutePath;
 
 	public:
 	ServerConfig();
@@ -42,6 +43,7 @@ class ServerConfig
 	void setAutoIndexFlag(bool status);
 	void setRootFlag(bool status);
 	void addAllowedMethod(const std::string& allowedMethod);
+	void setAbsolutePath(const std::string& path);
 
 	int getFd() const;
 	const std::vector<int>& getPorts() const;
@@ -57,6 +59,7 @@ class ServerConfig
 	bool getAliasFlag() const;
 	bool getRootFlag() const;
 	const std::vector<std::string>& getAllowedMethods() const;
+	const std::string& getAbsolutePath() const;
 
 	void clearIndexes();
 	void clearServerNames();
