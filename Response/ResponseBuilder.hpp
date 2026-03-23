@@ -69,5 +69,5 @@ class ResponseBuilder{
 		void replaceTag(std::string &content, const std::string &tag, const std::string &value);
 		void insertServerInfo(const ConfigResolved& config);
 		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
-		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath);
+		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
 };

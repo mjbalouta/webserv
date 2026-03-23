@@ -373,8 +373,13 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
+		replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
 		insertServerInfo(config); //to replace the placeholder in index.html
-		insertLocationInfo(request, config); //to replace the placeholder in index.html
+		if (request.getMethod() == GET)
+			insertLocationInfo(request, config); //to replace the placeholder in index.html
+		if (request.getMethod() == POST)
+			insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
+
         _contentLength = _body.size();
     }
 	catch (const std::exception& e){

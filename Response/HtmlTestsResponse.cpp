@@ -30,7 +30,7 @@ void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, c
  * 
  * @param request 
  */
-void ResponseBuilder::insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath)
+void ResponseBuilder::insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block)
 {
 	std::string requestBlock;
 
@@ -61,9 +61,12 @@ void ResponseBuilder::insertRequestInfo(const Request& request, const std::strin
 	requestBlock += request.getHost();
 	requestBlock += ";\n";
 
-	requestBlock += "Searched Path: ";
-	requestBlock += userInput;
-	requestBlock += ";\n";
+	if (!userInput.empty())
+	{
+		requestBlock += "Searched Path: ";
+		requestBlock += userInput;
+		requestBlock += ";\n";
+	}
 
 	if (!locPath.empty())
 	{
@@ -78,7 +81,7 @@ void ResponseBuilder::insertRequestInfo(const Request& request, const std::strin
 	requestBlock += error.getReasonPhrase(getStatusCode());
 	requestBlock += ";\n";
 
-	replaceTag(_body, "{{REQUEST_DETAILS}}", requestBlock);
+	replaceTag(_body, block, requestBlock);
 }
 
 /**
@@ -98,7 +101,7 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	std::string userInput = request.getSpecificQuery("path");
 	if (userInput.empty())
 	{
-		replaceTag(_body, "{{REQUEST_DETAILS}}", "Waiting for a request...");
+		replaceTag(_body, "{{GET_REQUEST_DETAILS}}", "Waiting for a request...");
 		replaceTag(_body, "{{LOCATION_DETAILS}}", "Insert a location's path to search its info.");
 		return;
 	}
@@ -130,12 +133,12 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	if (!selectedLocation)
 	{
 		_statusCode = 404;
-		insertRequestInfo(request, userInput, "");
+		insertRequestInfo(request, userInput, "", "{{GET_REQUEST_DETAILS}}");
 		replaceTag(_body, "{{LOCATION_DETAILS}}", "That location block doesn't exist in the config file.");
 		return;
 	}
 
-	insertRequestInfo(request, userInput, selectedLocation->getPath());
+	insertRequestInfo(request, userInput, selectedLocation->getPath(), "{{GET_REQUEST_DETAILS}}");
 	std::string locationBlock;
 	//add path
 	locationBlock += "Path: ";
