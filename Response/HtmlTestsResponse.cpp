@@ -63,8 +63,26 @@ void ResponseBuilder::insertRequestInfo(const Request& request, const std::strin
 
 	if (!userInput.empty())
 	{
+		std::string inputCorrected;
+		size_t initialPos = 0;
+		size_t pos;
+		//just a loop to replace all the "%2F" in the userInput for a'/'
+		while (true)
+		{
+			pos = userInput.find("%2F", initialPos);
+			if (pos != std::string::npos)
+			{
+				inputCorrected += userInput.substr(initialPos, pos - initialPos);
+				inputCorrected += '/';
+				initialPos = pos + 3;
+			}
+			else
+				break;
+		}
+		inputCorrected += userInput.substr(initialPos);
+
 		requestBlock += "Searched Path: ";
-		requestBlock += userInput;
+		requestBlock += inputCorrected;
 		requestBlock += ";\n";
 	}
 
