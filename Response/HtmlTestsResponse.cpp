@@ -13,14 +13,9 @@ void ResponseBuilder::replaceTag(std::string &content, const std::string &tag, c
         return;
 
     size_t pos = 0;
-    // Find the first occurrence of the tag
     while ((pos = content.find(tag, pos)) != std::string::npos)
     {
-        // Replace the tag with the new value
         content.replace(pos, tag.length(), value);
-        
-        // Advance 'pos' by the length of the new value to avoid infinite loops
-        // (in case the value contains the tag itself)
         pos += value.length();
     }
 }
@@ -63,24 +58,14 @@ void ResponseBuilder::insertRequestInfo(const Request& request, const std::strin
 
 	if (!userInput.empty())
 	{
-		std::string inputCorrected;
-		size_t initialPos = 0;
-		size_t pos;
+		std::string inputCorrected = userInput;
+		size_t pos = 0;
 		//just a loop to replace all the "%2F" in the userInput for a'/'
-		while (true)
+		while ((pos = inputCorrected.find("%2F", pos)) != std::string::npos)
 		{
-			pos = userInput.find("%2F", initialPos);
-			if (pos != std::string::npos)
-			{
-				inputCorrected += userInput.substr(initialPos, pos - initialPos);
-				inputCorrected += '/';
-				initialPos = pos + 3;
-			}
-			else
-				break;
+			inputCorrected.replace(pos, 3, "/");
+			pos += 1;
 		}
-		inputCorrected += userInput.substr(initialPos);
-
 		requestBlock += "Searched Path: ";
 		requestBlock += inputCorrected;
 		requestBlock += ";\n";
