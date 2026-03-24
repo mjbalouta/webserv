@@ -32,11 +32,11 @@
 			Gallery</a>
 	</nav>
 
-	<main
-		class="mt-12 w-[95%] md:w-[90%] max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+	<main id="main-container"
+		class="transition-all duration-500 ease-in-out mb-6 mt-12 w-[95%] md:w-[90%] max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
 
 		<!-- OUR TEAM SECTION -->
-		<div class="flex justify-center space-x-6">
+		<div id="team" class="content-section flex justify-center space-x-6">
 			<a class="w-[30%]" href="https://github.com/DanielFonsecaa"><img
 					class="rounded-full grayscale brightness-90" src="/images/dda-fons.jpeg"></a>
 			<a class="w-[30%]" href="https://github.com/NukyYuki"><img class="rounded-full grayscale brightness-90"
@@ -46,80 +46,159 @@
 		</div>
 
 		<!-- SERVER INFO SECTION -->
-		<div>
+		<div id="server-info" class="content-section hidden">
 			<p class="text-[16px] mt-3 mb-2 text-[rgba(100,20,120,1)]">Network Configuration</p>
 			<ul class="mt-0 whitespace-pre-line text-gray-500">{{SERVER_DETAILS}}</ul>
 		</div>
 		<div></div>
-	</main>
 
-	<div class="w-full flex flex-wrap justify-center gap-6 px-4">
-		<!-- GET TEST SECTION -->
-		<div
-			class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
-			<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">GET Request Test:</h3>
-			<div class="flex justify-center">
-				<form class="mb-2 flex" action="/index.html" method="GET">
-					<input class="text-[rgba(100,20,120,1)] px-4 py-2 rounded-2xl" type="text" name="path"
-						placeholder="Enter a location path">
-					<button class="ml-3 text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
+		<div id="method-testing" class="hidden content-section w-full flex flex-wrap justify-center gap-6 px-4">
+			<!-- GET TEST SECTION -->
+			<div
+				class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">GET Request Test:</h3>
+				<div class="flex justify-center">
+					<form class="mb-2 flex" action="/index.html" method="GET">
+						<input class="text-[rgba(100,20,120,1)] px-4 py-2 rounded-2xl" type="text" name="path"
+							placeholder="Enter a location path">
+						<button class="ml-3 text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
                    transition-all duration-300" type="submit">Search Info</button>
-				</form>
+					</form>
+				</div>
+				<div class="">
+					<p class="text-[16px] mb-1 mt-8 text-[rgba(100,20,120,1)]">Request: </p>
+					<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">
+						{{GET_REQUEST_DETAILS}}</ul>
+				</div>
+				<div>
+					<p class="text-[16px] mb-1 mt-6 text-[rgba(100,20,120,1)]">Location's Info: </p>
+					<ul id="location-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">
+						{{LOCATION_DETAILS}}</ul>
+				</div>
 			</div>
-			<div class="">
-				<p class="text-[16px] mb-1 mt-8 text-[rgba(100,20,120,1)]">Request: </p>
-				<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">{{GET_REQUEST_DETAILS}}</ul>
-			</div>
-			<div>
-				<p class="text-[16px] mb-1 mt-6 text-[rgba(100,20,120,1)]">Location's Info: </p>
-				<ul id="location-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">{{LOCATION_DETAILS}}</ul>
+
+			<!-- POST TEST SECTION-->
+			<div
+				class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">POST Request Test:</h3>
+				<div class="flex justify-center">
+					<form class="space-x-4 mb-2 flex items-center" action="/upload" method="POST"
+						enctype="multipart/form-data" target="upload_target">
+						<input type="file" name="file" id="file-upload" class="hidden" required>
+
+						<div class="flex flex-col items-center">
+							<label for="file-upload" class="cursor-pointer self-start text-[rgba(100,20,120,1)] px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
+					   transition-all duration-300">Choose File</label>
+							<span id="file-name" class="mt-2 text-xs text-gray-500 italic">No file selected</span>
+						</div>
+
+						<div class="flex flex-col items-center">
+							<button type="submit" class="self-start text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
+					   transition-all duration-300">Upload File</button>
+							<span id="gallery-link"
+								class="mt-2 text-xs hover:text-[rgba(100,20,120,1)] text-gray-500 italic underline underline-offset-4"><a
+									href="#gallery" onclick="showSection('gallery')">See file gallery</a></span>
+						</div>
+					</form>
+					<iframe id="upload_target" class="hidden"></iframe>
+
+				</div>
+				<div class="">
+					<p class="text-[16px] mb-1 mt-8 text-[rgba(100,20,120,1)]">Request: </p>
+					<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">
+						{{POST_REQUEST_DETAILS}}</ul>
+				</div>
 			</div>
 		</div>
 
-		<!-- POST TEST SECTION-->
-		<div
-			class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
-			<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">POST Request Test:</h3>
-			<div class="flex justify-center">
-				<form class="space-x-4 mb-2 flex items-center" action="/upload" method="POST"
-					enctype="multipart/form-data">
-					<input type="file" name="file" id="file-upload" class="hidden" required>
+		<!-- GALLERY SECTION-->
+		<!-- STILL MISSING -->
 
-					<div class="flex flex-col items-center">
-						<label for="file-upload" class="self-start text-[rgba(100,20,120,1)] px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
-					   transition-all duration-300">
-							Choose File
-						</label>
-						<span id="file-name" class="mt-2 text-xs text-gray-500 italic">No file selected</span>
-					</div>
-
-					<button type="submit" class="self-start ml-3 text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
-                   transition-all duration-300">Upload File
-					</button>
-				</form>
-			</div>
-			<div class="">
-				<p class="text-[16px] mb-1 mt-8 text-[rgba(100,20,120,1)]">Request: </p>
-				<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">{{POST_REQUEST_DETAILS}}</ul>
-			</div>
-		</div>
-	</div>
+	</main>
 
 	<footer class="mb-8 text-gray-500">
 		<p>developed by
-			<a href="https://github.com/DanielFonsecaa" class="hover:text-[rgba(100,20,120,1)] transition-colors">@dda-fons</a>,
-			<a href="https://github.com/NukyYuki" class="hover:text-[rgba(100,20,120,1)] transition-colors">@mipinhei</a>,
-			<a href="https://github.com/mjbalouta" class="hover:text-[rgba(100,20,120,1)] transition-colors">@mjoao-fr</a>.
+			<a href="https://github.com/DanielFonsecaa"
+				class="hover:text-[rgba(100,20,120,1)] transition-colors">@dda-fons</a>,
+			<a href="https://github.com/NukyYuki"
+				class="hover:text-[rgba(100,20,120,1)] transition-colors">@mipinhei</a>,
+			<a href="https://github.com/mjbalouta"
+				class="hover:text-[rgba(100,20,120,1)] transition-colors">@mjoao-fr</a>.
 		</p>
 	</footer>
 
 	<script>
+		//to change the 'no file selected' into the file name uploaded
 		const fileInput = document.getElementById('file-upload');
 		const fileNameDisplay = document.getElementById('file-name');
 
 		fileInput.addEventListener('change', function () {
 			const fileName = this.files[0] ? this.files[0].name : "No file selected.";
 			fileNameDisplay.textContent = fileName;
+		});
+
+		//to handle the hiding of the different divs and only show one
+		document.querySelectorAll('a[href^="#"]').forEach(link => {
+			link.addEventListener('click', function (e) {
+				//to get the id from the href
+				const targetId = this.getAttribute('href');
+
+				//only run logic if it is an internal link starting with #
+				if (targetId.startsWith('#')) {
+					e.preventDefault();
+
+					const targetSection = document.querySelector(targetId);
+					const mainContainer = document.getElementById('main-container');
+
+					//start fade out
+					mainContainer.style.opacity = "0";
+					mainContainer.style.transform = "translateY(4px) scale(0.98)";
+
+					setTimeout(() => {
+						//hide all the sections
+						document.querySelectorAll('.content-section').forEach(section => {
+							section.classList.add('hidden'); //because we're using tailwind, otherwise flex wouldn't work properly
+						})
+
+						//show only the clicked one
+						if (targetSection) {
+							targetSection.classList.remove('hidden');
+
+							mainContainer.classList.remove(
+								'max-w-lg', 'max-w-3xl', 'max-w-6xl',
+								'backdrop-blur-md', 'rounded-2xl', 'p-8',
+								'shadow-[0_0_15px_rgba(100,20,120,0.8)]',
+								'bg-black-900/15'
+							);
+
+							if (targetId == '#method-testing') 
+								mainContainer.classList.add('max-w-6xl');
+							else
+							{
+								mainContainer.classList.add(
+									'backdrop-blur-md', 'rounded-2xl', 'p-8',
+									'shadow-[0_0_15px_rgba(100,20,120,0.8)]',
+									'bg-black-900/15'
+								);
+							}
+							if (targetId == "#server-info")
+								mainContainer.classList.add('max-w-lg');
+							else
+								mainContainer.classList.add('max-w-3xl');
+
+							//to update the url hash without reloading (allows using back button)
+							window.history.pushState(null, null, targetId);
+
+							requestAnimationFrame(() => {
+								setTimeout(() => {
+									mainContainer.style.opacity = "1";
+									mainContainer.style.transform = "translateY(0) scale(1)";
+								}, 100);
+							});
+						}
+					}, 300);
+				}
+			});
 		});
 	</script>
 </body>
