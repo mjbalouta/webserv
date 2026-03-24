@@ -58,9 +58,9 @@
 				class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
 				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">GET Request Test:</h3>
 				<div class="flex justify-center">
-					<form class="mb-2 flex" action="/index.html" method="GET">
-						<input class="text-[rgba(100,20,120,1)] px-4 py-2 rounded-2xl" type="text" name="path"
-							placeholder="Enter a location path">
+					<form id="get-method-form" class="mb-2 flex" action="/index.html" method="GET">
+						<input id="get-path-input" class="text-[rgba(100,20,120,1)] px-4 py-2 rounded-2xl" type="text"
+							name="path" placeholder="Enter a location path">
 						<button class="ml-3 text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
                    transition-all duration-300" type="submit">Search Info</button>
 					</form>
@@ -171,10 +171,9 @@
 								'bg-black-900/15'
 							);
 
-							if (targetId == '#method-testing') 
+							if (targetId == '#method-testing')
 								mainContainer.classList.add('max-w-6xl');
-							else
-							{
+							else {
 								mainContainer.classList.add(
 									'backdrop-blur-md', 'rounded-2xl', 'p-8',
 									'shadow-[0_0_15px_rgba(100,20,120,0.8)]',
@@ -199,6 +198,27 @@
 					}, 300);
 				}
 			});
+		});
+
+		//to prevent the button 'Search Info' from reloading the page
+		//check if the URL has a hash or query params
+		window.addEventListener('load', () => {
+			const hash = window.location.hash;
+			const urlParams = new URLSearchParams(window.location.search);
+
+			// if there is a search query (?path=...), force the view to Method Testing
+			if (urlParams.has('path')) 
+			{
+				const testingLink = document.querySelector('a[href="#method-testing"]');
+				if (testingLink) 
+					testingLink.click();
+			} 
+			else if (hash) 
+			{
+				// if there's just a hash (#gallery), go there
+				const link = document.querySelector(`a[href="${hash}"]`);
+				if (link) link.click();
+			}
 		});
 	</script>
 </body>
