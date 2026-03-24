@@ -249,6 +249,8 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 std::string ResponseBuilder::buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig)
 {
 	std::string uploadStore = resolvedConfig.getUploadStore();
+	if (!uploadStore.empty() && uploadStore[0] != '/')
+		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
 		return returnGenericErrorResponse(501, request, resolvedConfig);
 
@@ -308,6 +310,8 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 	std::string targetPath = fileSystemPath;
 
 	std::string uploadStore = resolvedConfig.getUploadStore();
+	if (!uploadStore.empty() && uploadStore[0] != '/')
+		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (!uploadStore.empty())
 	{
 		std::string locationPath = resolvedConfig.getLocationPath();
