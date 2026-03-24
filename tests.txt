@@ -6,10 +6,10 @@ They print response headers so you can compare status codes.
 
 Prereqs
 - Your config must point to a real filesystem path.
-  In local-test.conf you currently have:
-    root /www;
-    upload_store /www/uploads;
-  Make sure those directories exist on YOUR machine, or change them to an absolute path that exists.
+  Recommended for this repo (portable, no machine-specific absolute paths):
+    root www;
+    upload_store www/uploads;
+  This maps to the repo's ./www and ./www/uploads when you run from the project folder.
 
 Build
   make fclean && make
@@ -32,7 +32,7 @@ Expected: HTTP/1.1 200
 ------------------------------------------------------------
 2) GET an existing static file
 First create a file inside your configured root (example assumes you can write there):
-  echo "hello" > /www/test.txt
+  echo "hello" > www/test.txt
 Then request it:
 Expected: HTTP/1.1 200 and Content-Type based on extension
   curl -isS --max-time 2 http://localhost:8080/test.txt | sed -n '1,30p'
@@ -57,15 +57,15 @@ POST:
   curl -isS --max-time 2 -X POST --data 'Hello Webserv' http://localhost:8080/upload/hello.txt | sed -n '1,30p'
 
 Verify file exists on disk:
-  ls -la /www/uploads
+  ls -la www/uploads
   echo '--- content:'
-  cat /www/uploads/hello.txt
+  cat www/uploads/hello.txt
 
 ------------------------------------------------------------
 6) DELETE uploaded file (204)
 Expected: HTTP/1.1 204 and file removed.
   curl -isS --max-time 2 -X DELETE http://localhost:8080/upload/hello.txt | sed -n '1,30p'
-  ls -la /www/uploads
+  ls -la www/uploads
 
 Optional: delete non-existent file (expect either 404 or 204 depending on your implementation)
   curl -isS --max-time 2 -X DELETE http://localhost:8080/upload/nope.txt | sed -n '1,30p'
