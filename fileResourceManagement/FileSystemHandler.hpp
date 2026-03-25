@@ -14,4 +14,5 @@ class FileSystemHandler{
     std::time_t getLastMODTime(const std::string& path);
     bool writeFile(const std::string& path, const std::string& content);
     bool removeFile(const std::string& path);
+    bool removeDirectory(const std::string& path);
 };

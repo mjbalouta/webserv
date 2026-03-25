@@ -290,7 +290,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	else
 	{
 		_statusCode = 201;
-		_contentType = "text/plain";
+		_contentType = mimeTypeResolver.getTypeByExtension(targetPath);
 		_body = "Created\n";
 		_contentLength = _body.size();
 		_location = request.getPath();
@@ -332,15 +332,20 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 
 	if (!fileSystemHandler.pathExists(targetPath))
 		return returnGenericErrorResponse(404, request, resolvedConfig);
-	if (fileSystemHandler.isDirectory(targetPath))
-		return returnGenericErrorResponse(403, request, resolvedConfig);
+/* 	if (fileSystemHandler.isDirectory(targetPath))
+		return returnGenericErrorResponse(403, request, resolvedConfig); */
 
-	errno = 0; // Check if using errno is not illegal in this context
-	if (!fileSystemHandler.removeFile(targetPath))
+	if (fileSystemHandler.isDirectory(targetPath))
 	{
-		if (errno == EACCES || errno == EPERM)
+		if (!fileSystemHandler.removeDirectory(targetPath))
+		{
 			return returnGenericErrorResponse(403, request, resolvedConfig);
-		return returnGenericErrorResponse(500, request, resolvedConfig);
+		}
+	}
+	else
+	{
+		if (!fileSystemHandler.removeFile(targetPath))
+			return returnGenericErrorResponse(403, request, resolvedConfig);
 	}
 
 	_statusCode = 204;
