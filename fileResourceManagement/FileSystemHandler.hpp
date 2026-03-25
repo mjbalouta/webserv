@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Includes.hpp"
+#include "../Utils.hpp"
 
 class FileSystemHandler{
     public:
@@ -15,4 +16,6 @@ class FileSystemHandler{
     bool writeFile(const std::string& path, const std::string& content);
     bool removeFile(const std::string& path);
     bool removeDirectory(const std::string& path);
+    bool isMultipartFormData(const std::string& contentTypeHeader);
+    std::string extractMultipartBoundary(const std::string& contentTypeHeader);
 };

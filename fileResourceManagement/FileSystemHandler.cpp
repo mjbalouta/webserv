@@ -179,3 +179,28 @@ bool FileSystemHandler::removeDirectory(const std::string& path){
         return false;
     return (::rmdir(path.c_str()) == 0);
 }
+
+bool FileSystemHandler::isMultipartFormData(const std::string& contentTypeHeader){
+    std::string lowerContentType = toLower(contentTypeHeader);
+    return (lowerContentType.find("multipart/form-data") != std::string::npos);
+}
+
+std::string FileSystemHandler::extractMultipartBoundary(const std::string& contentTypeHeader){
+    size_t boundaryPos = contentTypeHeader.find("boundary=");
+    if (boundaryPos != std::string::npos)
+    {
+        std::string value = contentTypeHeader.substr(boundaryPos + 9);
+        // Trim at next parameter separator.
+        size_t semi = value.find(';');
+        if (semi != std::string::npos)
+            value = value.substr(0, semi);
+        // Trim surrounding whitespace.
+        value = trimSpaces(value);
+        // Strip optional quotes.
+        if (value.size() >= 2 && value[0] == '"' && value[value.size() - 1] == '"')
+            value = value.substr(1, value.size() - 2);
+        value = trimSpaces(value);
+        return value;
+    }
+    return "";
+}
