@@ -74,7 +74,9 @@ class ResponseBuilder{
 		MultipartData parseMultipartFormData(const std::string& body, const std::string& boundary);
 		std::string extractFilenameFromPartHeaders(const std::string& headers);
 		std::string sanitizeFilename(const std::string& filename);
+		std::string findFilenameFromHeaders(const std::map<std::string, std::string>& headers);
 		std::string findFilenameContent(const std::map<std::string, std::string>& headers);
+
 
 // 		Response builders for different scenarios
 		std::string buildDeleteResponse(const Request& request, const std::string& fileSystemPath, const ConfigResolved& resolvedConfig);

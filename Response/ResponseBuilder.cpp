@@ -108,6 +108,20 @@ std::string ResponseBuilder::sanitizeFilename(const std::string& filename){
 	return sanitized;
 }
 
+std::string ResponseBuilder::findFilenameFromHeaders(const std::map<std::string, std::string>& headers){
+	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
+	if (it != headers.end())
+		return it->first.substr(9); // Extract filename after "filename="
+	return "";
+}
+
+std::string ResponseBuilder::findFilenameContent(const std::map<std::string, std::string>& headers){
+	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
+	if (it != headers.end())
+		return it->second; // Extract filename after "filename="
+	return "";
+}
+
 /**
  * @brief Formats a time value as an HTTP date string.
  * 
@@ -125,14 +139,6 @@ std::string ResponseBuilder::formatHttpDate(std::time_t t)
 		return "";
 	return std::string(buf);
 }
-
-std::string findFilenameContent(const std::map<std::string, std::string>& headers){
-	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
-	if (it != headers.end())
-		return it->second;
-	return "";
-}
-
 
 /**
  * @brief Checks if the given URI path starts with the specified location path, ensuring that it matches a location boundary.
@@ -398,7 +404,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 		MultipartData multipart = parseMultipartFormData(request.getBody(), multipartBoundary);
 		if (multipart.boundary.empty() || multipart.parts.empty())
 			return returnGenericErrorResponse(400, request, resolvedConfig);
-		std::string filename = findFilenameContent(multipart.parts);
+		std::string filename = findFilenameFromHeaders(multipart.parts);
 		filename = sanitizeFilename(filename);
 		if (filename.empty() || filename.find("..") != std::string::npos)
 			return returnGenericErrorResponse(400, request, resolvedConfig);
@@ -406,7 +412,9 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 
 		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
-		bodyToWrite = multipart.parts.begin()->second;
+		bodyToWrite = findFilenameContent(multipart.parts);
+		if (bodyToWrite.empty())
+			bodyToWrite = multipart.parts.begin()->second;
 		_location = ensureTrailingSlash(locationPath.empty() ? uploadStore : locationPath) + filename;
 	}
 	else

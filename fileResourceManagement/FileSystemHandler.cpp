@@ -58,7 +58,7 @@ bool FileSystemHandler::isReadable(const std::string& path){
 bool FileSystemHandler::isWritable(const std::string& path){
     if (path.empty())
         return false;
-    if (access(path.c_str(), W_OK) == 0)
+    if (access(path.c_str(), W_OK | X_OK) == 0)
         return true;
     return false;
 }
