@@ -32,7 +32,7 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, c
 			data.parts.clear();
 			return data;
 		}
-		//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
+//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
 		std::string headers = body.substr(pos, headerEnd - pos);
 		pos = headerEnd + 4;
 
@@ -65,36 +65,64 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, c
 		}
 		pos = afterMarker + crlf.size();
 	}
-
 	return data;
 }
 
 std::string ResponseBuilder::extractFilenameFromPartHeaders(const std::string& headers){
-	std::string filename;
-	size_t contentDispositionPos = headers.find("content-disposition:");
-	if (contentDispositionPos == std::string::npos)
-		return filename; // No Content-Disposition header found
-	size_t filenamePos = headers.find("filename=", contentDispositionPos);
-	if (filenamePos == std::string::npos)
-		return filename; // No filename parameter found
-	filenamePos += 9; // Move past "filename="
-	if (filenamePos >= headers.size())
-		return filename; // Malformed filename parameter
-	if (headers[filenamePos] == '"')
+	// Part headers are HTTP-style headers: field-names are case-insensitive.
+	// Content-Disposition parameters are also commonly varied in case/whitespace by clients.
+	std::string lower = toLower(headers);
+
+	// Locate the Content-Disposition header line.
+	size_t cdPos = lower.find("content-disposition:");
+	if (cdPos == std::string::npos)
+		return "";
+
+	size_t lineEnd = headers.find("\r\n", cdPos);
+	if (lineEnd == std::string::npos)
+		lineEnd = headers.find('\n', cdPos);
+	if (lineEnd == std::string::npos)
+		lineEnd = headers.size();
+
+	std::string cdLine = headers.substr(cdPos, lineEnd - cdPos);
+	size_t colon = cdLine.find(':');
+	if (colon == std::string::npos)
+		return "";
+
+	std::string cdValue = cdLine.substr(colon + 1);
+	trimSpaces(cdValue);
+	if (cdValue.empty())
+		return "";
+
+	// Parse semicolon-separated parameters: form-data; name="..."; filename="..."
+	size_t pos = 0;
+	while (pos < cdValue.size())
 	{
-		size_t endQuotePos = headers.find('"', filenamePos + 1);
-		if (endQuotePos == std::string::npos)
-			return filename; // Malformed filename parameter
-		filename = headers.substr(filenamePos + 1, endQuotePos - filenamePos - 1);
+		size_t semi = cdValue.find(';', pos);
+		size_t end = (semi == std::string::npos) ? cdValue.size() : semi;
+		std::string segment = cdValue.substr(pos, end - pos);
+		trimSpaces(segment);
+		pos = (semi == std::string::npos) ? end : (semi + 1);
+
+		size_t eq = segment.find('=');
+		if (eq == std::string::npos)
+			continue;
+		std::string name = segment.substr(0, eq);
+		trimSpaces(name);
+		if (toLower(name) != "filename")
+			continue;
+
+		std::string value = segment.substr(eq + 1);
+		trimSpaces(value);
+		if (value.empty())
+			return "";
+		if (value.size() >= 2 && value[0] == '"' && value[value.size() - 1] == '"')
+			value = value.substr(1, value.size() - 2);
+		trimSpaces(value);
+		return value;
 	}
-	else
-	{
-		size_t endPos = headers.find(';', filenamePos);
-		if (endPos == std::string::npos)
-			endPos = headers.size();
-		filename = headers.substr(filenamePos, endPos - filenamePos);
-	}
-	return filename;
+
+	return "";
 }
 
 std::string ResponseBuilder::sanitizeFilename(const std::string& filename){
@@ -109,16 +137,25 @@ std::string ResponseBuilder::sanitizeFilename(const std::string& filename){
 }
 
 std::string ResponseBuilder::findFilenameFromHeaders(const std::map<std::string, std::string>& headers){
-	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
-	if (it != headers.end())
-		return it->first.substr(9); // Extract filename after "filename="
+	// MultipartData::parts is a map<rawHeaders, body>.
+	// Find the first part whose headers contain a filename parameter.
+	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
+	{
+		std::string filename = extractFilenameFromPartHeaders(it->first);
+		if (!filename.empty())
+			return filename;
+	}
 	return "";
 }
 
 std::string ResponseBuilder::findFilenameContent(const std::map<std::string, std::string>& headers){
-	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
-	if (it != headers.end())
-		return it->second; // Extract filename after "filename="
+	// Return the body corresponding to the part that has the filename parameter.
+	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
+	{
+		std::string filename = extractFilenameFromPartHeaders(it->first);
+		if (!filename.empty())
+			return it->second;
+	}
 	return "";
 }
 
@@ -327,12 +364,12 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	} 
 	
-	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
-
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
 		return buildDeleteResponse(request, fileSystemPath, resolvedConfig);
+	
+	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
 
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
 	{
@@ -368,6 +405,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 
 std::string ResponseBuilder::buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig)
 {
+	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
 	if (!uploadStore.empty() && uploadStore[0] != '/')
 		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
@@ -386,10 +424,12 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	if (!rest.empty() && rest[0] == '/')
 		rest.erase(0, 1);
 
+	std::string fileSystemPath = resolvedConfig.getResolvedPath(request);
 	std::string multipartBoundary;
 	std::string contentTypeHeader = request.getHeader("content-type");
 	std::string targetPath;
 	std::string bodyToWrite;
+	std::map<std::string, std::string> fileToWrite;
 	const bool isMultipart = (!contentTypeHeader.empty() && fileSystemHandler.isMultipartFormData(contentTypeHeader));
 
 	// - multipart/form-data is accepted only on POST /upload (no filename in URL)
@@ -404,18 +444,31 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 		MultipartData multipart = parseMultipartFormData(request.getBody(), multipartBoundary);
 		if (multipart.boundary.empty() || multipart.parts.empty())
 			return returnGenericErrorResponse(400, request, resolvedConfig);
-		std::string filename = findFilenameFromHeaders(multipart.parts);
-		filename = sanitizeFilename(filename);
-		if (filename.empty() || filename.find("..") != std::string::npos)
+		std::map<std::string, std::string>::const_iterator it = multipart.parts.begin();
+		while (it != multipart.parts.end())
+		{
+			std::string filename = extractFilenameFromPartHeaders(it->first);
+			if (filename.empty())
+			{
+				++it;
+				continue;
+			}
+			filename = sanitizeFilename(filename);
+			if (filename.empty() || filename.find("..") != std::string::npos)
+				return returnGenericErrorResponse(400, request, resolvedConfig);
+			if (!pathResolver.isPathSafe(filename, uploadStore))
+				return returnGenericErrorResponse(403, request, resolvedConfig);
+	
+			targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
+			bodyToWrite = it->second;
+/* 			if (bodyToWrite.empty())
+				bodyToWrite = multipart.parts.begin()->second; */
+			fileToWrite[targetPath] = bodyToWrite;
+//			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
+			++it;
+		}
+		if (fileToWrite.empty())
 			return returnGenericErrorResponse(400, request, resolvedConfig);
-		if (!pathResolver.isPathSafe(filename, uploadStore))
-			return returnGenericErrorResponse(403, request, resolvedConfig);
-
-		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
-		bodyToWrite = findFilenameContent(multipart.parts);
-		if (bodyToWrite.empty())
-			bodyToWrite = multipart.parts.begin()->second;
-		_location = ensureTrailingSlash(locationPath.empty() ? uploadStore : locationPath) + filename;
 	}
 	else
 	{
@@ -427,15 +480,37 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, rest));
 		bodyToWrite = request.getBody();
-		_location = request.getPath();
+		_location = resolvedConfig.getResolvedPath(request);
 	}
 
-	bool existed = fileSystemHandler.pathExists(targetPath);
+	bool createdAny = false;
+	bool existedAny = false;
+	bool existed = false;
 
-	if (!fileSystemHandler.writeFile(targetPath, bodyToWrite))
-		return returnGenericErrorResponse(500, request, resolvedConfig);
+	if (isMultipart)
+	{
+		for (std::map<std::string, std::string>::const_iterator it = fileToWrite.begin(); it != fileToWrite.end(); ++it)
+		{
+			bool existedThis = fileSystemHandler.pathExists(it->first);
+			existedAny = existedAny || existedThis;
+			if (!existedThis)
+				createdAny = true;
+			else if (!fileSystemHandler.isWritable(it->first))
+				return returnGenericErrorResponse(403, request, resolvedConfig);
 
-	if (existed)
+			if (!fileSystemHandler.writeFile(it->first, it->second))
+				return returnGenericErrorResponse(500, request, resolvedConfig);
+		}
+		existed = existedAny;
+	}
+	else
+	{
+		existed = fileSystemHandler.pathExists(targetPath);
+		if (!fileSystemHandler.writeFile(targetPath, bodyToWrite))
+			return returnGenericErrorResponse(500, request, resolvedConfig);
+	}
+
+	if (existed && !createdAny)
 	{
 		_statusCode = 204;
 		_contentType = "text/plain";
@@ -454,8 +529,9 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	std::string response = _statusLine;
 	setStandardHeaders(response, _contentType);
-	if (_statusCode == 201 && !_location.empty())
-		response += "Location: " + _location + "\r\n";
+	if (_statusCode == 201)
+		if (!_location.empty())
+			response += "Location: " + _location + "\r\n";
 	response += "\r\n" + _body;
 	return response;
 }

@@ -186,21 +186,48 @@ bool FileSystemHandler::isMultipartFormData(const std::string& contentTypeHeader
 }
 
 std::string FileSystemHandler::extractMultipartBoundary(const std::string& contentTypeHeader){
-    size_t boundaryPos = contentTypeHeader.find("boundary=");
-    if (boundaryPos != std::string::npos)
+    // RFC 2046 / RFC 7578: parameter names are case-insensitive and may include optional whitespace.
+    // We parse semicolon-separated parameters and match the "boundary" parameter name case-insensitively.
+    size_t pos = 0;
+    std::string segment, name, value;
+
+    while (pos < contentTypeHeader.size())
     {
-        std::string value = contentTypeHeader.substr(boundaryPos + 9);
-        // Trim at next parameter separator.
-        size_t semi = value.find(';');
-        if (semi != std::string::npos)
-            value = value.substr(0, semi);
-        // Trim surrounding whitespace.
+        size_t semi = contentTypeHeader.find(';', pos);
+        size_t end = (semi == std::string::npos) ? contentTypeHeader.size() : semi;
+
+        segment = contentTypeHeader.substr(pos, end - pos);
+        segment = trimSpaces(segment);
+        pos = (semi == std::string::npos) ? end : (semi + 1);
+
+        size_t eq = segment.find('=');
+        if (eq == std::string::npos)
+            continue;
+
+        name = segment.substr(0, eq);
+        name = trimSpaces(name);
+        if (toLower(name) != "boundary")
+            continue;
+
+        value = segment.substr(eq + 1);
         value = trimSpaces(value);
-        // Strip optional quotes.
+        if (value.empty())
+            return "";
+
+        // boundary may be a token or a quoted-string.
+        if (!value.empty() && value[0] == '"')
+        {
+            size_t close = value.find('"', 1);
+            if (close != std::string::npos)
+                value = value.substr(1, close - 1);
+            else
+                value = value.substr(1);
+        }
+
+        value = trimSpaces(value);
         if (value.size() >= 2 && value[0] == '"' && value[value.size() - 1] == '"')
             value = value.substr(1, value.size() - 2);
-        value = trimSpaces(value);
-        return value;
+        return trimSpaces(value);
     }
     return "";
 }
