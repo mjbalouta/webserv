@@ -32,7 +32,8 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, c
 			data.parts.clear();
 			return data;
 		}
-		std::string headers = toLower(body.substr(pos, headerEnd - pos));
+		//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
+		std::string headers = body.substr(pos, headerEnd - pos);
 		pos = headerEnd + 4;
 
 		size_t bodyEnd = body.find(delimiter, pos);
@@ -124,6 +125,14 @@ std::string ResponseBuilder::formatHttpDate(std::time_t t)
 		return "";
 	return std::string(buf);
 }
+
+std::string findFilenameContent(const std::map<std::string, std::string>& headers){
+	std::map<std::string, std::string>::const_iterator it = headers.find("filename=");
+	if (it != headers.end())
+		return it->second;
+	return "";
+}
+
 
 /**
  * @brief Checks if the given URI path starts with the specified location path, ensuring that it matches a location boundary.
@@ -389,7 +398,8 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 		MultipartData multipart = parseMultipartFormData(request.getBody(), multipartBoundary);
 		if (multipart.boundary.empty() || multipart.parts.empty())
 			return returnGenericErrorResponse(400, request, resolvedConfig);
-		std::string filename = sanitizeFilename(extractFilenameFromPartHeaders(multipart.parts.begin()->first));
+		std::string filename = findFilenameContent(multipart.parts);
+		filename = sanitizeFilename(filename);
 		if (filename.empty() || filename.find("..") != std::string::npos)
 			return returnGenericErrorResponse(400, request, resolvedConfig);
 		if (!pathResolver.isPathSafe(filename, uploadStore))
@@ -397,7 +407,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 
 		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
 		bodyToWrite = multipart.parts.begin()->second;
-		_location = ensureTrailingSlash(locationPath.empty() ? std::string("/upload") : locationPath) + filename;
+		_location = ensureTrailingSlash(locationPath.empty() ? uploadStore : locationPath) + filename;
 	}
 	else
 	{
@@ -427,7 +437,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	else
 	{
 		_statusCode = 201;
-		_contentType = mimeTypeResolver.getTypeByExtension(targetPath);
+		_contentType = "text/plain";
 		_body = "Created\n";
 		_contentLength = _body.size();
 		// _location already set above
@@ -469,8 +479,6 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 
 	if (!fileSystemHandler.pathExists(targetPath))
 		return returnGenericErrorResponse(404, request, resolvedConfig);
-/* 	if (fileSystemHandler.isDirectory(targetPath))
-		return returnGenericErrorResponse(403, request, resolvedConfig); */
 
 	if (fileSystemHandler.isDirectory(targetPath))
 	{
