@@ -359,3 +359,39 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
     	replaceTag(_body, "{{SERVER_DETAILS}}", serverBlock);
     }
 }
+
+/**
+ * @brief Replaces {{GALLERY_FILES}} with a list of current files inside the upload_store folder
+ * 
+ */
+void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
+{
+	const std::string& uploadDir = config.getUploadStore();
+
+	std::string galleryList;
+
+	//attempts to open a directory stream to the folder defined in upload_store
+	DIR* dir = opendir(uploadDir.c_str());
+	if (dir)
+	{
+		struct dirent *ent;
+		while ((ent = readdir(dir)) != NULL)
+		{
+			std::string name = ent->d_name;
+			//ignore hidden files and parent directory references
+			if (name != "." && name != "..")
+			{
+				galleryList += "<div class='flex justify-between items-center'>";
+				galleryList += "<span class='text-gray-400 font-mono'>" + name + "</span>";
+				galleryList += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
+								shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
+								transition-all duration-300 type='submit'>&#10006</button></div>";
+			}
+		}
+		closedir(dir);
+	}
+	if (galleryList.empty())
+		galleryList = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
+	
+	replaceTag(_body, "{{GALLERY_FILES}}", galleryList);
+}

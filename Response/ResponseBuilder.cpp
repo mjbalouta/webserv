@@ -379,6 +379,7 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 			insertLocationInfo(request, config); //to replace the placeholder in index.html
 		if (request.getMethod() == POST)
 			insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
+		listGalleryFiles(config);
 
         _contentLength = _body.size();
     }
