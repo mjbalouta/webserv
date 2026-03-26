@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Includes.hpp"
+#include "../Utils.hpp"
 #include "../config/ServerConfig.hpp"
 #include "../config/LocationConfig.hpp"
 #include "../ServerManager/Request.hpp"
@@ -9,6 +10,11 @@
 #include "../fileResourceManagement/MimeTypeResolver.hpp"
 #include "../fileResourceManagement/ErrorPageGenerator.hpp"
 #include "../routing/ConfigResolved.hpp"
+
+typedef struct MultipartData {
+	std::string boundary;
+	std::map<std::string, std::string> parts; // pair<headers, body>
+} MultipartData;
 
 class ResponseBuilder{
 	public:
@@ -29,12 +35,14 @@ class ResponseBuilder{
 		FileSystemHandler fileSystemHandler;
 		MimeTypeResolver mimeTypeResolver;
 
-		int getStatusCode();
+//		status code determination
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
 
-		 std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-		 std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+// 		Error response helpers
+		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 
+// 		Helper functions for response building
 		std::string getStatusCodeString();
 		std::string getStatusLine();
 		std::string getContentType();
@@ -45,13 +53,15 @@ class ResponseBuilder{
 		std::string getDateString();
 		std::string getLastModifiedString();
 
-		void setStatusLine(int statusCode);
+//		Setters for building response
+/* 		void setStatusLine(int statusCode);
 		void setContentType(const std::string& filePath);
 		void setContentLength(size_t contentLength);
 		void setDate(std::time_t date);
 		void setLastModified(std::time_t lastModified);
-		void setBody(const std::string& body);
+		void setBody(const std::string& body); */
 
+// 		Helper functions for response building
 		bool isMethodAllowed(const std::string &method, const ConfigResolved &resolvedConfig);
 		std::string buildAutoIndexBody(const std::string &uriPath, const std::string &dirFsPath, FileSystemHandler &fs);
 		std::string joinPathSimple(const std::string &a, const std::string &b);
@@ -60,9 +70,19 @@ class ResponseBuilder{
 		bool startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath);
 		std::string formatHttpDate(std::time_t t);
 
-		 std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
-		 std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
-		 std::string buildErrorResponse(int statusCode, const ConfigResolved& resolvedConfig);
+//		Multipart form data parsing
+		MultipartData parseMultipartFormData(const std::string& body, const std::string& boundary);
+		std::string extractFilenameFromPartHeaders(const std::string& headers);
+		std::string sanitizeFilename(const std::string& filename);
+		std::string findFilenameFromHeaders(const std::map<std::string, std::string>& headers);
+		std::string findFilenameContent(const std::map<std::string, std::string>& headers);
+
+
+// 		Response builders for different scenarios
+		std::string buildDeleteResponse(const Request& request, const std::string& fileSystemPath, const ConfigResolved& resolvedConfig);
+		std::string buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig);
+		std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
+		std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
 		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);		
