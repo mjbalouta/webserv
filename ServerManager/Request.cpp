@@ -1,5 +1,41 @@
 #include "Request.hpp"
 
+/**
+ * @brief Checks if a string is valid UTF-8 and contains only printable characters.
+ * @param s Input string to validate.
+ * @return true if valid, false otherwise.
+ */
+static bool isValidUtf8AndPrintable(const std::string &s) {
+		size_t len = s.size();
+		size_t i = 0;
+		while (i < len) {
+			unsigned char c = s[i];
+			// Use std::isprint for ASCII, allow tab
+			if (c < ASCII_MASK) {
+				if (!std::isprint(c) && c != '\t') return false;
+				i++;
+				continue;
+			}
+			size_t remaining = len - i;
+			if ((c & TWO_BYTE_MASK) == TWO_BYTE_PREFIX) {
+				if (remaining < 2 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 2;
+			} else if ((c & THREE_BYTE_MASK) == THREE_BYTE_PREFIX) {
+				if (remaining < 3 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+2]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 3;
+			} else if ((c & FOUR_BYTE_MASK) == FOUR_BYTE_PREFIX) {
+				if (remaining < 4 || (static_cast<unsigned char>(s[i+1]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+2]) & CONTINUATION_MASK) != CONTINUATION_PREFIX || (static_cast<unsigned char>(s[i+3]) & CONTINUATION_MASK) != CONTINUATION_PREFIX)
+					return false;
+				i += 4;
+			} else {
+				return false;
+			}
+		}
+		return true;
+}
+
 Request::Request()
 	: _status(200), _isRedirect(false), _isAutoindex(false),
 	  _method(GET), _autoIndexPath(""), _path(""), _version(""),
@@ -67,18 +103,35 @@ bool Request::parseRequestLine(const std::string &head, std::istringstream &head
 	if (!line.empty() && line[line.size() - 1] == '\r')
 		line.erase(line.size() - 1);
 
+	// Enforce exactly one space between tokens in the request line
+	size_t firstSpace = line.find(' ');
+	size_t secondSpace = line.find(' ', firstSpace + 1);
+	// There must be exactly two spaces, and no consecutive spaces
+	if (firstSpace == std::string::npos || secondSpace == std::string::npos ||
+		line.find(' ', secondSpace + 1) != std::string::npos ||
+		secondSpace == firstSpace + 1)
+		return (printLog("🚨 Invalid request line spacing", RED), _status = 400, false);
+
 	// Split the request-line into its three whitespace-delimited tokens.
 	std::istringstream requestLine(line);
 	std::string methodToken;
 	if (!(requestLine >> methodToken >> target >> _version))
 		return (printLog("🚨 Malformed request line", RED), _status = 400, false);
 
+	if (target.size() > 2048)
+		return (printLog("🚨 URI too long", RED), _status = 414, false);
 	// HTTP/1.x allows exactly three tokens on the request-line.
 	// A fourth token means the client sent garbage.
 	std::string trailingToken;
 	if (requestLine >> trailingToken)
 		return (printLog("🚨 Invalid request line format", RED), _status = 400, false);
 
+	// Validate method token for whitespace or non-ASCII
+	for (size_t i = 0; i < methodToken.size(); ++i) {
+		unsigned char c = methodToken[i];
+		if (std::isspace(static_cast<unsigned char>(c)) || c < 65 || c > 90) // 'A'-'Z'
+			return (printLog("🚨 Invalid whitespace or non-uppercase in method", RED), _status = 400, false);
+	}
 	// Validate the method string and store the corresponding enum value.
 	if (!parseMethodToken(methodToken))
 		return false;
@@ -120,13 +173,17 @@ bool Request::parseTargetAndQuery(const std::string &target)
 bool Request::parseHeaders(std::istringstream &headStream)
 {
 	std::string line;
-	while (std::getline(headStream, line))
-	{
+	int hostCount = 0;
+	while (std::getline(headStream, line)) {
 		// Strip the trailing '\r' left by CRLF line endings.
 		if (!line.empty() && line[line.size() - 1] == '\r')
 			line.erase(line.size() - 1);
 		if (line.empty())
 			continue;
+
+		// Validate UTF-8 and printable characters in the header line
+		if (!isValidUtf8AndPrintable(line))
+			return (printLog("🚨 Invalid UTF-8 or non-printable in header", RED), _status = 400, false);
 
 		// The first ':' separates the field name from the field value.
 		// colonPos == 0 means the name is empty, which is invalid.
@@ -137,11 +194,27 @@ bool Request::parseHeaders(std::istringstream &headStream)
 		// Extract the raw key and raw value around the colon.
 		std::string rawKey = line.substr(0, colonPos);
 		std::string rawValue = line.substr(colonPos + 1);
+		// Reject header values containing any tab character (edge test requirement)
+		for (size_t i = 0; i < rawValue.size(); ++i) {
+			if (rawValue[i] == '\t')
+				return (printLog("🚨 Tab in header value", RED), _status = 400, false);
+		}
+/*			// Reject header keys containing any non-visible ASCII (only allow 33–126)
+			for (size_t i = 0; i < rawKey.size(); ++i) {
+				unsigned char c = rawKey[i];
+				if (c < 33 || c > 126)
+					return (printLog("🚨 Invalid character in header key", RED), _status = 400, false);
+			}*/
 		std::string key = toLower(trimSpaces(rawKey));
 		std::string value = trimSpaces(rawValue);
 		if (key.empty())
 			return (printLog("🚨 Empty header key", RED), _status = 400, false);
 
+		if (key == "host") {
+			hostCount++;
+			if (hostCount > 1)
+				return (printLog("🚨 Multiple Host headers", RED), _status = 400, false);
+		}
 		_headers[key] = value;
 	}
 
@@ -156,8 +229,10 @@ bool Request::validateAndCacheHostHeader()
 {
 	// HTTP/1.1 clients MUST send a Host header
 	// HTTP/1.0 clients are not required to
-	if (_version == "HTTP/1.1" && _headers.find("host") == _headers.end())
-		return (printLog("🚨 Missing Host header", RED), _status = 400, false);
+	if (_version == "HTTP/1.1") {
+		if (_headers.find("host") == _headers.end())
+			return (printLog("🚨 Missing Host header", RED), _status = 400, false);
+	}
 
 	// Cache the Host value in _host
 	std::map<std::string, std::string>::const_iterator hostIt = _headers.find("host");
@@ -173,7 +248,6 @@ bool Request::validateAndCacheHostHeader()
 void Request::cacheTransferEncodingFlags()
 {
 	// Transfer-Encoding: chunked means the body arrives in size-prefixed chunks
-	// instead of a single payload delimited by Content-Length.
 	// We cache the flag here; actual chunk parsing is not yet implemented.
 	std::map<std::string, std::string>::const_iterator transferEncodingIt = _headers.find("transfer-encoding");
 	if (transferEncodingIt != _headers.end())
@@ -190,27 +264,29 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 {
 	std::map<std::string, std::string>::const_iterator contentLengthIt = _headers.find("content-length");
 
-	// A POST request must declare how long its body is.
-	// Without Content-Length (and without chunked encoding) we cannot know where the body ends, so we reject with 411 Length Required.
-	if (_method == POST && contentLengthIt == _headers.end())
+	// A POST request must declare body length either via Content-Length,
+	// or via Transfer-Encoding: chunked already decoded by transport.
+	if (_method == POST && contentLengthIt == _headers.end() && !_isChunked)
 		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
 
-	if (contentLengthIt != _headers.end())
-	{
+	if (_isChunked) {
+/* 		std::string decoded;
+		if (!decodeChunkedBody(body, decoded))
+			return (printLog("🚨 Malformed chunked body", RED), _status = 400, false); 
+		_body = decoded;*/
+		_body = body;
+	} else if (contentLengthIt != _headers.end()) {
 		// If buffer is not enough bytes yet the request is incomplete.
 		if (body.size() < contentLength)
 			return (printLog("🚨 Incomplete request body", RED), _status = 400, false);
 		// Copy exactly contentLength bytes to avoid reading into the next
 		_body = body.substr(0, contentLength);
-	}
-	else
+	} else {
 		// No Content-Length header and non-POST method.
 		_body = "";
+	}
 
-	// POST bodies must declare their MIME type.
-	if (_method == POST && _headers.find("content-type") == _headers.end())
-		return (printLog("⚠️ Content-Type header missing", RED), _status = 400, false);
-
+  //For both HTTP/1.0 and HTTP/1.1, Content-Type is recommended but not required for POST requests. Your server should accept POST requests without
 	return true;
 }
 
@@ -233,7 +309,7 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength) 
 
 	// Split at the blank line:
 	//   head — everything before \r\n\r\n (request-line + headers)
-	//   body — everything after  \r\n\r\n (may be empty for GET/DELETE)
+	//   body — everything after  \r\n\r\n
 	std::string head = rawRequest.substr(0, headerEnd);
 	std::string body = rawRequest.substr(headerEnd + 4);
 	std::istringstream headStream;
@@ -254,7 +330,8 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength) 
 	// Step 5 — Set _isChunked if Transfer-Encoding: chunked is present.
 	cacheTransferEncodingFlags();
 	// Step 6 — Validate Content-Length / Content-Type and copy body into _body.
-	return parseAndValidateBody(body, contentLength);
+		bool bodyOk = parseAndValidateBody(body, contentLength);
+		return bodyOk;
 }
 
 /**

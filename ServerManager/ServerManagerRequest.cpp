@@ -3,56 +3,6 @@
 #include "../Response/ResponseBuilder.hpp"
 
 /**
- * @brief Maps status code to reason phrase for fallback/plain responses.
- */
-static std::string getReasonPhrase(int statusCode)
-{
-	switch (statusCode)
-	{
-		case 200: return "OK";
-		case 400: return "Bad Request";
-		case 431: return "Request Header Fields Too Large";
-		case 403: return "Forbidden";
-		case 404: return "Not Found";
-		case 405: return "Method Not Allowed";
-		case 411: return "Length Required";
-		case 413: return "Payload Too Large";
-		case 500: return "Internal Server Error";
-		case 501: return "Not Implemented";
-		case 505: return "HTTP Version Not Supported";
-		default: return "Error";
-	}
-}
-
-/**
- * @brief Builds a minimal HTTP response when no specialized responder is used.
- * @param statusCode HTTP status code.
- * @param keepAlive Whether to keep connection open.
- * @param explicitBody Optional response body override.
- * @param version HTTP version.
- * @return Serialized HTTP response text.
- */
-static std::string buildDefaultResponse(int status, bool keepAlive, const std::string &body, const std::string &version)
-{
-	//Person 3 ownership: replace this fallback with the final Response engine serializer.
-	// If no explicit body was prepared by higher-level logic, use a tiny
-	// fallback body derived from the status text so the client still gets
-	// a valid human-readable response.
-	std::string responseBody = body;
-	if (responseBody.empty())
-		responseBody = getReasonPhrase(status) + "\n";
-	std::ostringstream oss;
-	oss << version << " " << status << " " << getReasonPhrase(status) << "\r\n";
-	oss << "Content-Type: text/plain\r\n";
-	oss << "Content-Length: " << responseBody.size() << "\r\n";
-	oss << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
-	oss << "\r\n";
-	oss << responseBody;
-	return oss.str();
-}
-
-
-/**
  * @brief Advances one client state-machine step based on current state.
  * @param client Client session.
  * @param server Owning server configuration (used for body-size and future routing hooks).
@@ -87,7 +37,7 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 				modClientEpoll(client, EPOLLOUT);
 			break;
 		case WRITING:
-			sendClientResponse(client);
+			sendClientResponse(client, server);
 			break;
 		case IDLE:
 		default:
@@ -108,9 +58,32 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 	size_t requestSize = std::string::npos;
 	// Find end of headers for the current request frame.
 	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+	// Header size limit (RFC 6585, 431): 8KB is common, adjust as needed
+	const size_t MAX_HEADER_SIZE = 8192;
 	if (headerEnd != std::string::npos)
 	{
 		size_t headerSize = headerEnd + 4;
+		if (headerSize > MAX_HEADER_SIZE) {
+			client.writeBuffer.clear();
+			client.path = "";
+			client.method = NONE;
+			client.status = 431;
+			printLog("🚨 Oversized headers: 431 Request Header Fields Too Large", RED);
+			client.keepAlive = false;
+			client.state = WRITING;
+			client.readBuffer.clear();
+			client.contentLength = 0;
+			client.version = "HTTP/1.1";
+			// Use ResponseBuilder for error response
+			Request errorRequest;
+			errorRequest.setStatus(431);
+			errorRequest.setVersion(client.version);
+			ConfigResolved config(errorRequest, server);
+			ResponseBuilder rb;
+			client.writeBuffer = rb.returnGenericErrorResponse(431, errorRequest, config);
+			modClientEpoll(client, EPOLLOUT); // Ensure response is sent
+			return;
+		}
 		// Guard bounds before computing total request bytes.
 		if (headerSize <= client.readBuffer.size()
 			&& client.contentLength <= client.readBuffer.size() - headerSize)
@@ -130,26 +103,29 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 
 	client.request = Request();
 	Request &request = client.request;
-	if (!request.parseRequest(requestBuffer, client.contentLength))
-	{
-		client.writeBuffer.clear();
-		client.path = "";
-		client.method = NONE;
-		client.status = request.getStatus();
-		printLog("⚠️ Malformed HTTP request handled", YEL);
-		client.keepAlive = false;
-		client.state = WRITING;
-		remainingBuffer.clear();
-	}
-	else
-	{
-		// Person 2 hook: receive parsed Request + current ServerConfig and decide
-		// routing/config result (best location, method validation, effective path, status).
-		// For now processClientRequest() copies the parsed metadata into transport fields.
-		processClientRequest(client, request, server);
-		if (!client.keepAlive)
-			remainingBuffer.clear();
-	}
+			if (!request.parseRequest(requestBuffer, client.contentLength))
+			{
+				client.writeBuffer.clear();
+				client.path = "";
+				client.method = NONE;
+				client.status = request.getStatus();
+				printLog("⚠️ Malformed HTTP request handled", YEL);
+				client.keepAlive = false;
+				client.state = WRITING;
+				remainingBuffer.clear();
+				// Use ResponseBuilder for error response
+				ConfigResolved config(request, server);
+				ResponseBuilder rb;
+				client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
+			} else
+			{
+				// Person 2 hook: receive parsed Request + current ServerConfig and decide
+				// routing/config result (best location, method validation, effective path, status).
+				// For now processClientRequest() copies the parsed metadata into transport fields.
+				processClientRequest(client, request, server);
+				if (!client.keepAlive)
+					remainingBuffer.clear();
+			}
 
 	// Keep only leftover bytes that belong to future requests.
 	client.readBuffer = remainingBuffer;
@@ -200,7 +176,7 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
  * @brief Sends response bytes and handles keep-alive reset/close decisions.
  * @param client Client session.
  */
-void ServerManager::sendClientResponse(ClientSession &client)
+void ServerManager::sendClientResponse(ClientSession &client, ServerConfig &server)
 {
 	if (client.fd < 0)
 	{
@@ -208,10 +184,15 @@ void ServerManager::sendClientResponse(ClientSession &client)
 		return;
 	}
 
-	if (client.writeBuffer.empty())
-		// Person 3 hook: build Response object + headers/body here, then
-		// serialize to HTTP text (status line, Content-Length, Connection).
-		client.writeBuffer = buildDefaultResponse(client.status, client.keepAlive, client.responseStr, client.version);
+	if (client.writeBuffer.empty()) {
+		// Use ResponseBuilder for error responses if writeBuffer is empty
+		Request errorRequest;
+		errorRequest.setStatus(client.status);
+		errorRequest.setVersion(client.version);
+		ConfigResolved config(errorRequest, server);
+		ResponseBuilder rb;
+		client.writeBuffer = rb.returnGenericErrorResponse(client.status, errorRequest, config);
+	}
 
 	// send() starts at writeBuffer + totalSent so partially sent responses can resume.
 	ssize_t sentBytes = send(client.fd, client.writeBuffer.c_str() + client.totalSent,

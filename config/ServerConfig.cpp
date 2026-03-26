@@ -1,7 +1,7 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-: _fd(-1), _portDefined(false), _root("./www"), _rootDefined(false), _host("0.0.0.0")
+: _fd(-1), _portDefined(false), _root("www"), _rootDefined(false), _host("0.0.0.0")
 , _maxBodySize(1048576), _maxBodySizeFlag(false), _autoIndex(false), _autoIndexSet(false)
 , _absolutePath("")
 {

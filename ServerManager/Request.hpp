@@ -13,10 +13,14 @@ class Request {
 	public :
 		Request();
 		~Request();
-
+		
 		bool parseRequest(const std::string &rawRequest, size_t knownContentLength);
 		void parseQueryString(const std::string &query, std::map<std::string, std::string> &queryParams);
-
+		
+		// setter
+		void setVersion(const std::string &version) { _version = version; }
+		void setStatus(const int &status) { _status = status; }
+		
 		//getters
 		int getStatus() const { return _status; };
 		Method getMethod() const { return _method; };

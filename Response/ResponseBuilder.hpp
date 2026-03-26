@@ -19,6 +19,8 @@ typedef struct MultipartData {
 class ResponseBuilder{
 	public:
 		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive);
+		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -37,10 +39,6 @@ class ResponseBuilder{
 
 //		status code determination
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
-
-// 		Error response helpers
-		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 
 // 		Helper functions for response building
 		std::string getStatusCodeString();
