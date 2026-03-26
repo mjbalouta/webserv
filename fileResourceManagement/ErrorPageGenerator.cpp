@@ -83,7 +83,12 @@ std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const Config
     std::map<int, std::string>::const_iterator pageIt = errorPages.find(statusCode);
     if (pageIt != errorPages.end())
     {
-        std::string filePath = config.getRoot() + "/" + pageIt->second; // Assumindo que a root não tem uma barra no final
+		std::string filePath;
+		std::string root = config.getRoot();
+		if (!root.empty() && root[0] == '/')
+			filePath = root + pageIt->second;
+		else
+			filePath = config.getAbsolutePath() + root + pageIt->second;
 		std::ifstream file(filePath.c_str());
         if (file.is_open()){
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
