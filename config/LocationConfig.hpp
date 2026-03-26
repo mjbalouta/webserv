@@ -21,7 +21,7 @@ class LocationConfig
 	std::string _returnMessage; //for return attribute
 	unsigned long _maxBodySize; //if it is set to 0, use server size
 	bool _maxBodySizeFlag;
-	std::map<std::string, std::string> _cgi; //CGI??
+	std::map<std::string, std::string> _cgi;
 	std::map<int, std::string> _errorPages; //custom HTML pages for HTTP errors
 	std::string _uploadStore; //path to store the upload files
 

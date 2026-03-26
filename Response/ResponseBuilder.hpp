@@ -88,5 +88,5 @@ class ResponseBuilder{
 		void insertServerInfo(const ConfigResolved& config);
 		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
 		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
-		void listGalleryFiles(const ConfigResolved& config);
+		std::string listGalleryFiles(const ConfigResolved& config);
 };

@@ -371,26 +371,10 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
  * @brief Replaces {{GALLERY_FILES}} with a list of current files inside the upload_store folder
  * 
  */
-void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
+std::string ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
+	std::string body;
 	std::string uploadDir = config.getUploadStore();
-
-	// if (!uploadDir.empty() && uploadDir[uploadDir.size() - 1] == '/')
-	// 	uploadDir.erase(uploadDir.size() - 1);
-
-	// if (!uploadDir.empty() && uploadDir[0] == '/')
-	// {
-    // 	std::string root = config.getRoot();
-    //     if (!root.empty())
-    //         uploadDir = root + uploadDir;
-    // }
-
-	// std::cout << "Path: " << uploadDir << std::endl << std::flush;
-	// std::cout << config.getUploadStore();
-
-	std::string galleryList;
-
-	//attempts to open a directory stream to the folder defined in upload_store
 	DIR* dir = opendir(uploadDir.c_str());
 	if (dir)
 	{
@@ -401,19 +385,24 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 			//ignore hidden files and parent directory references
 			if (name != "." && name != "..")
 			{
-				galleryList += "<li class='flex justify-between items-center'>";
-				galleryList += "<span class='text-gray-400 font-mono'>" + name + "</span>";
-				galleryList += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
+				body += "<li class='flex justify-between items-center'>";
+				body += "<span class='text-gray-400 font-mono'>" + name + "</span>";
+				body += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
 								shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
 								transition-all duration-300 type='submit'>&#10006</button></li>";
 			}
 		}
 		closedir(dir);
 	}
-	else
-		std::cerr << "Failed to open directory: " << uploadDir << std::endl;
-	if (galleryList.empty())
-		galleryList = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
 	
-	replaceTag(_body, "{{GALLERY_FILES}}", galleryList);
+	std::stringstream ss;
+    ss << body.size();
+
+    std::string response = "HTTP/1.1 200 OK\r\n";
+    response += "Content-Type: text/html\r\n";
+    response += "Content-Length: " + ss.str() + "\r\n";
+    response += "Connection: keep-alive\r\n\r\n";
+    response += body;
+
+    return response;
 }

@@ -364,6 +364,9 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	} 
 	
+	if (request.getPath() == "/api/gallery" && request.getMethodStr() == "GET")
+		return listGalleryFiles(resolvedConfig);
+
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
@@ -720,15 +723,16 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-		// replaceTag(_body, "{{UPLOAD_PATH}}", request.getPath());
-		replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
-		insertServerInfo(config); //to replace the placeholder in index.html
+		if (_contentType == "text/html")
+		{
+			replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
+			insertServerInfo(config); //to replace the placeholder in index.html
+		}
 		if (request.getMethod() == GET)
 			insertLocationInfo(request, config); //to replace the placeholder in index.html
 		if (request.getMethod() == POST)
 			insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
-		listGalleryFiles(config);
-
+		// listGalleryFiles(config);
         _contentLength = _body.size();
     }
 	catch (const std::exception& e){

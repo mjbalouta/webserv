@@ -78,7 +78,8 @@
 			</div>
 
 			<!-- POST TEST SECTION-->
-			<div class="flex flex-col items-center justify-center w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+			<div
+				class="w-full md:w-[48%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
 				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">POST Request Test:</h3>
 				<div class="flex justify-center">
 					<form id="upload-form" class="space-x-4 mb-2 flex items-center" enctype="multipart/form-data">
@@ -95,24 +96,23 @@
 					   transition-all duration-300">Upload File</button>
 							<span id="gallery-link"
 								class="mt-2 text-xs hover:text-[rgba(100,20,120,1)] text-gray-500 italic underline underline-offset-4"><a
-									href="#gallery" onclick="showSection('gallery')">See file gallery</a></span>
+									href="#gallery">See file gallery</a></span>
 						</div>
 					</form>
-					<iframe id="upload_target" class="hidden"></iframe>
+					<!-- <iframe id="upload_target" class="hidden"></iframe> -->
 
-				<!-- </div>
+				</div>
 				<div class="">
 					<p class="text-[16px] mb-1 mt-8 text-[rgba(100,20,120,1)]">Request: </p>
 					<ul id="request-details" class="text-[16px] whitespace-pre-line break-words text-gray-500">
 						{{POST_REQUEST_DETAILS}}</ul>
-				</div> -->
+				</div>
 			</div>
 		</div>
 
 		<!-- GALLERY SECTION-->
 		<div id="gallery" class="hidden content-section w-full">
 			<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase text-center">Uploaded Files</h3>
-			<ul class="space-y-2">{{GALLERY_FILES}}</ul>
 		</div>
 
 	</main>
