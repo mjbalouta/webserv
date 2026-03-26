@@ -121,17 +121,36 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 			client.state = WRITING;
 			return;
 		}
+		// Reject any trailing non-whitespace garbage after the hex number.
+		std::string leftovers;
+		if (iss >> leftovers)
+		{
+			client.status = 400;
+			client.keepAlive = false;
+			client.state = WRITING;
+			return;
+		}
 
 		cursor = lineEnd + 2; // Move cursor past chunk size line.
 
 		if (chunkSize == 0)
 		{
-			// Last chunk: look for trailer terminator.
-			size_t trailerEnd = body.find("\r\n", cursor);
-			if (trailerEnd == std::string::npos)
-				return; // Wait for complete trailers.
+			// Last chunk: trailers are terminated by an empty line (CRLF).
+			// If there are no trailer headers, the next bytes are immediately "\r\n".
+			if (cursor + 2 > body.size())
+				return; // Wait for complete trailer terminator.
 
-			size_t consumedBodyBytes = trailerEnd + 2;
+			size_t consumedBodyBytes = 0;
+			if (body.compare(cursor, 2, "\r\n") == 0)
+				consumedBodyBytes = cursor + 2;
+			else
+			{
+				// One or more trailer header lines: consume through the final CRLFCRLF.
+				size_t trailerTerminator = body.find("\r\n\r\n", cursor);
+				if (trailerTerminator == std::string::npos)
+					return; // Wait for complete trailers/terminator.
+				consumedBodyBytes = trailerTerminator + 4;
+			}
 			std::string remaining = body.substr(consumedBodyBytes); // Any pipelined requests after chunked body.
 			std::string headersPart = client.readBuffer.substr(0, bodyStart); // Preserve headers.
 			client.contentLength = decodedBody.size(); // Set decoded body size.

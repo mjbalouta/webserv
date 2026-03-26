@@ -317,8 +317,6 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	_location.clear();
 	_keepAlive = false;
 
-	// Transport/connection policy is decided by the server loop; ResponseBuilder
-	// just reflects it in the Connection header.
 	_keepAlive = keepAlive;
 
 	if (request.getStatus() != 200)
@@ -331,8 +329,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (resolvedConfig.getReturnStatusCode())	
 	{
 		return buildRedirectResponse(request, resolvedConfig);
-	} // General idea of redirect response
-	// Resolve target path using the merged config (server root or location alias/root).
+	}
 
 	std::string fileSystemPath = resolvedConfig.getResolvedPath(request);
 	if (fileSystemPath.empty())
@@ -355,7 +352,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		if (!rel.empty() && rel[0] == '/')
 			rel.erase(0, 1);
 		if (!pathResolver.isPathSafe(rel, base))
-			return returnGenericErrorResponse(403, request, resolvedConfig);
+			return returnGenericErrorResponse(400, request, resolvedConfig);
 	}
 	else
 	{
@@ -369,6 +366,8 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (request.getMethodStr() == "DELETE")
 		return buildDeleteResponse(request, fileSystemPath, resolvedConfig);
 	
+	if (fileSystemPath.find("//") != std::string::npos)
+		return returnGenericErrorResponse(400, request, resolvedConfig);
 	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
 
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
@@ -392,6 +391,23 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return response;
 		}
 
+		// If a directory is requested, try configured index files first.
+		const std::vector<std::string> &indexes = resolvedConfig.getIndexes();
+		for (size_t i = 0; i < indexes.size(); ++i)
+		{
+			if (indexes[i].empty())
+				continue;
+			std::string indexFsPath = joinPathSimple(fileSystemPath, indexes[i]);
+			indexFsPath = pathResolver.normalizePath(indexFsPath);
+			if (fileSystemHandler.pathExists(indexFsPath)
+				&& fileSystemHandler.isReadable(indexFsPath)
+				&& !fileSystemHandler.isDirectory(indexFsPath))
+				return buildFileResponse(request, indexFsPath, resolvedConfig);
+		}
+
+		// No index: fall back to autoindex listing when enabled.
+		if (!resolvedConfig.getAutoIndex())
+			return returnGenericErrorResponse(403, request, resolvedConfig);
 		std::string uriWithSlash = ensureTrailingSlash(request.getPath());
 		return buildDirectoryListingResponse(request, uriWithSlash, fileSystemPath, resolvedConfig);
 	}
