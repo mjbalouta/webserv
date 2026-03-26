@@ -374,6 +374,8 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
 void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
 	const std::string& uploadDir = config.getUploadStore();
+	std::cout << "Path: " << uploadDir << std::endl << std::flush;
+	std::cout << config.getUploadStore();
 
 	std::string galleryList;
 
@@ -388,11 +390,11 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 			//ignore hidden files and parent directory references
 			if (name != "." && name != "..")
 			{
-				galleryList += "<div class='flex justify-between items-center'>";
+				galleryList += "<li class='flex justify-between items-center'>";
 				galleryList += "<span class='text-gray-400 font-mono'>" + name + "</span>";
 				galleryList += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
 								shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
-								transition-all duration-300 type='submit'>&#10006</button></div>";
+								transition-all duration-300 type='submit'>&#10006</button></li>";
 			}
 		}
 		closedir(dir);

@@ -140,11 +140,13 @@ if (uploadForm) {
 }
 
 /* HANDLE GALLERY */
+
+const CURRENT_UPLOAD_PATH = "{{UPLOAD_PATH}}";
 	
 // Function to refresh the gallery content
 async function refreshGallery() {
     try {
-        const response = await fetch('/index.html'); // Fetch the page
+        const response = await fetch(CURRENT_UPLOAD_PATH); // Fetch the page
         const text = await response.text();
         
         // Parse the text to find the gallery content
@@ -197,3 +199,4 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+

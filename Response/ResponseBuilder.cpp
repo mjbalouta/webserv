@@ -495,8 +495,8 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			existedAny = existedAny || existedThis;
 			if (!existedThis)
 				createdAny = true;
-			else if (!fileSystemHandler.isWritable(it->first))
-				return returnGenericErrorResponse(403, request, resolvedConfig);
+			// else if (!fileSystemHandler.isWritable(it->first))
+			// 	return returnGenericErrorResponse(403, request, resolvedConfig);
 
 			if (!fileSystemHandler.writeFile(it->first, it->second))
 				return returnGenericErrorResponse(500, request, resolvedConfig);
@@ -720,6 +720,7 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
+		// replaceTag(_body, "{{UPLOAD_PATH}}", request.getPath());
 		replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
 		insertServerInfo(config); //to replace the placeholder in index.html
 		if (request.getMethod() == GET)
