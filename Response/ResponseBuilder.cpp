@@ -361,6 +361,12 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	} 
 	
+/* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
+		return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
+	std::string executor;
+	if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
+		return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig);
+
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
@@ -419,14 +425,96 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		return returnGenericErrorResponse(404, request, resolvedConfig);
 }
 
+bool ResponseBuilder::isCgiRequest(const Request& request, const ConfigResolved& resolvedConfig, std::string& outScriptPath, std::string& outExecutor)
+{
+	if (resolvedConfig.getCgi().empty())
+		return false;
+	size_t pos = outScriptPath.find_last_of('.');
+	if (pos == std::string::npos)
+		return false;
+	std::string cgiExtension = outScriptPath.substr(pos);
+	if (cgiExtension.empty())
+		return false;
+	std::map<std::string, std::string> cgiMap = resolvedConfig.getCgi();
+	if (cgiMap.empty())
+		return false;
+	std::map<std::string, std::string>::const_iterator it = cgiMap.find(cgiExtension);
+	if (it == cgiMap.end())
+		return false;
+	outExecutor = it->second;
+	return true;
+}
+
+std::string ResponseBuilder::requestHeadtoCGIEnv(const std::string& header){
+	std::string result = "HTTP_" + header;
+	std::replace(result.begin(), result.end(), '-', '_');
+	std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+	return result;
+}
+
+std::map<std::string, std::string> ResponseBuilder::buildCGIEnv(const Request& request, const ConfigResolved& resolvedConfig, const std::string& scriptPath)
+{
+	std::map<std::string, std::string> env;
+	// Initialize CGI environment variables
+	env["GATEWAY_INTERFACE"] = "CGI/1.1";
+	env["SERVER_SOFTWARE"] = "webserv/1.0";
+	env["SERVER_PORT"] = resolvedConfig.getPort();
+	env["SCRIPT_NAME"] = request.getPath();
+	env["SCRIPT_FILENAME"] = scriptPath;
+	env["SERVER_PROTOCOL"] = request.getVersion();
+	env["REQUEST_METHOD"] = request.getMethodStr();
+	if (request.getMethodStr() == "POST" && !request.getBody().empty())
+	{
+		env["CONTENT_LENGTH"] = request.getHeader("content-length");
+		env["CONTENT_TYPE"] = request.getHeader("content-type");
+	}
+	
+	for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin(); it != request.getHeaders().end(); ++it)
+	{
+		std::string envName = requestHeadtoCGIEnv(it->first);
+		env[envName] = it->second;
+	}
+	
+	std::string query_string;
+	for (std::map<std::string, std::string>::const_iterator it = request.getQueryParams().begin(); it != request.getQueryParams().end(); ++it)
+		query_string += it->first + "=" + it->second + "&";
+	if (!query_string.empty())
+		query_string.erase(query_string.size() - 1);
+	env["QUERY_STRING"] = query_string;
+
+	return env;
+}
+
+std::string ResponseBuilder::buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig)
+{
+	std::string cgiExtension = scriptPath.substr(scriptPath.find_last_of('.'));
+	std::map<std::string, std::string> cgiMap = resolvedConfig.getCgi();
+/* 	if (cgiMap.end() == cgiMap.find(cgiExtension))
+		return returnGenericErrorResponse(500, request, resolvedConfig); */
+	CGIEnv = buildCGIEnv(request, resolvedConfig, scriptPath);
+	return "";
+}
+
 std::string ResponseBuilder::buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig)
 {
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
-	if (!uploadStore.empty() && uploadStore[0] != '/')
-		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
+//	if (!uploadStore.empty() && uploadStore[0] != '/')
+//		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
-		return returnGenericErrorResponse(501, request, resolvedConfig);
+	{
+		// No upload_store configured for this location: accept POST but do nothing.
+		// (Request parsing already validated Content-Length/chunking and applied body-size limits.)
+		_statusCode = 200;
+		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_contentType = "text/plain";
+		_body.clear();
+		_contentLength = 0;
+		std::string response = _statusLine;
+		setStandardHeaders(response, _contentType);
+		response += "\r\n";
+		return response;
+	}
 
 	if (!fileSystemHandler.pathExists(uploadStore) || !fileSystemHandler.isDirectory(uploadStore))
 		return returnGenericErrorResponse(500, request, resolvedConfig);
@@ -496,7 +584,8 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, rest));
 		bodyToWrite = request.getBody();
-		_location = resolvedConfig.getResolvedPath(request);
+		// Location header should be a URL path, not a filesystem path.
+		_location = request.getPath();
 	}
 
 	bool createdAny = false;
@@ -526,7 +615,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 
-	if (existed && !createdAny)
+	if (!isMultipart && existed && !createdAny)
 	{
 		_statusCode = 204;
 		_contentType = "text/plain";
@@ -731,14 +820,20 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	_statusCode = 200;
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = mimeTypeResolver.getTypeByExtension(filePath);
-	_contentLength = fileSystemHandler.getFileSize(filePath);
+	size_t fileSize = fileSystemHandler.getFileSize(filePath);
+	_contentLength = fileSize;
 	_lastModified = fileSystemHandler.getLastMODTime(filePath);
-	try{
-		_body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-	}
-	catch (const std::exception& e){
-		(void)e;
-		return returnGenericErrorResponse(500, request, config);
+	_body.clear();
+	if (request.getMethodStr() != "HEAD")
+	{
+		try{
+			// client_max_body_size is a request-body limit; it should not cap GET responses.
+			_body = fileSystemHandler.readFile(filePath, fileSize);
+		}
+		catch (const std::exception& e){
+			(void)e;
+			return returnGenericErrorResponse(500, request, config);
+		}
 	}
 	std::string response = _statusLine;
 	setStandardHeaders(response, _contentType);

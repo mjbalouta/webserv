@@ -10,6 +10,7 @@
 #include "../fileResourceManagement/MimeTypeResolver.hpp"
 #include "../fileResourceManagement/ErrorPageGenerator.hpp"
 #include "../routing/ConfigResolved.hpp"
+#include <algorithm>
 
 typedef struct MultipartData {
 	std::string boundary;
@@ -21,6 +22,7 @@ class ResponseBuilder{
 		std::string returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive);
 		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
 		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
+	
 	private:
 		int _statusCode;
 		std::string _statusLine;
@@ -36,6 +38,8 @@ class ResponseBuilder{
 		PathResolver pathResolver;
 		FileSystemHandler fileSystemHandler;
 		MimeTypeResolver mimeTypeResolver;
+
+		std::map<std::string, std::string> CGIEnv;
 
 //		status code determination
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
@@ -67,6 +71,7 @@ class ResponseBuilder{
 		std::string ensureLeadingSlash(const std::string &p);
 		bool startsWithLocationBoundary(const std::string &uriPath, const std::string &locPath);
 		std::string formatHttpDate(std::time_t t);
+		bool isCgiRequest(const Request&, const ConfigResolved&, std::string& outScriptPath, std::string& outExecutor);
 
 //		Multipart form data parsing
 		MultipartData parseMultipartFormData(const std::string& body, const std::string& boundary);
@@ -82,6 +87,8 @@ class ResponseBuilder{
 		std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
 		std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
-		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);		
+		std::string buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig);
+		std::map<std::string, std::string> buildCGIEnv(const Request& request, const ConfigResolved& resolvedConfig, const std::string& scriptPath);
+		std::string requestHeadtoCGIEnv(const std::string& header);
 };
