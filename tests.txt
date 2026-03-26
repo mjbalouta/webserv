@@ -1,0 +1,87 @@
+Webserv quick manual tests (curl)
+Date: 23 Mar 2026
+
+These are black-box tests to confirm GET/POST/DELETE, method restrictions, and max-body handling.
+They print response headers so you can compare status codes.
+
+Prereqs
+- Your config must point to a real filesystem path.
+  Recommended for this repo (portable, no machine-specific absolute paths):
+    root www;
+    upload_store www/uploads;
+  This maps to the repo's ./www and ./www/uploads when you run from the project folder.
+
+Build
+  make fclean && make
+
+Run the server (in terminal A)
+  ./webserv local-test.conf
+
+In another terminal (terminal B), run the tests below.
+
+------------------------------------------------------------
+0) Sanity: is it listening?
+Expected: connect succeeds; you get an HTTP response.
+  curl -sv --max-time 2 http://localhost:8080/ -o /dev/null 2>&1 | sed -n '1,25p'
+
+------------------------------------------------------------
+1) GET / (autoindex)
+Expected: HTTP/1.1 200
+  curl -isS --max-time 2 http://localhost:8080/ | sed -n '1,20p'
+
+------------------------------------------------------------
+2) GET an existing static file
+First create a file inside your configured root (example assumes you can write there):
+  echo "hello" > www/test.txt
+Then request it:
+Expected: HTTP/1.1 200 and Content-Type based on extension
+  curl -isS --max-time 2 http://localhost:8080/test.txt | sed -n '1,30p'
+
+------------------------------------------------------------
+3) GET a missing file (404)
+Expected: HTTP/1.1 404 (and your custom 404 page if configured)
+  curl -isS --max-time 2 http://localhost:8080/does-not-exist | sed -n '1,30p'
+
+------------------------------------------------------------
+4) Method not allowed (405)
+Your config allows only GET in location /.
+Expected: HTTP/1.1 405
+  curl -isS --max-time 2 -X POST --data 'x' http://localhost:8080/ | sed -n '1,25p'
+
+------------------------------------------------------------
+5) POST upload (201) into /upload
+Your config allows POST + DELETE in location /upload.
+Expected: HTTP/1.1 201 and the file appears in upload_store.
+
+POST:
+  curl -isS --max-time 2 -X POST --data 'Hello Webserv' http://localhost:8080/upload/hello.txt | sed -n '1,30p'
+
+Verify file exists on disk:
+  ls -la www/uploads
+  echo '--- content:'
+  cat www/uploads/hello.txt
+
+------------------------------------------------------------
+6) DELETE uploaded file (204)
+Expected: HTTP/1.1 204 and file removed.
+  curl -isS --max-time 2 -X DELETE http://localhost:8080/upload/hello.txt | sed -n '1,30p'
+  ls -la www/uploads
+
+Optional: delete non-existent file (expect either 404 or 204 depending on your implementation)
+  curl -isS --max-time 2 -X DELETE http://localhost:8080/upload/nope.txt | sed -n '1,30p'
+
+------------------------------------------------------------
+7) Payload Too Large (413)
+Your config sets: client_max_body_size 1M
+Expected: HTTP/1.1 413 and Connection: close (common behavior).
+
+2MB POST:
+  head -c 2000000 /dev/zero | curl -isS --max-time 5 -X POST --data-binary @- http://localhost:8080/upload/big.bin | sed -n '1,40p'
+
+------------------------------------------------------------
+8) Keep-alive / stability smoke
+Expected: server still answers after error paths.
+  curl -isS --max-time 2 http://localhost:8080/ | sed -n '1,15p'
+
+Done
+- Stop the server with Ctrl+C in terminal A.
