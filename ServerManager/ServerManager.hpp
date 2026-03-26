@@ -67,7 +67,7 @@ class ServerManager {
 		void closeClientSocket(ClientSession &client);
 		void closeIdleClients(time_t now);
 		void decodeChunked(ClientSession &client, size_t maxUploadSize);
-		bool parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly);
+		int parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly);
 
 	public :
 		ServerManager(char **argv);

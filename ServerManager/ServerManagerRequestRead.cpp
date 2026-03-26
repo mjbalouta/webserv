@@ -221,7 +221,15 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	bool hasTransferEncoding = false;
 	bool isChunkedOnly = false;
-	if (!parseTransferEncodingHeader(headersLower, hasTransferEncoding, isChunkedOnly))
+	int teResult = parseTransferEncodingHeader(headersLower, hasTransferEncoding, isChunkedOnly);
+	if (teResult == 1) // Malformed
+	{
+		client.status = 400;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
+	if (teResult == 2) // Unsupported
 	{
 		client.status = 501;
 		client.keepAlive = false;

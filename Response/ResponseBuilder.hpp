@@ -40,10 +40,6 @@ class ResponseBuilder{
 //		status code determination
 		int determineStatusCode(const std::string& request, const ConfigResolved& resolvedConfig);
 
-// 		Error response helpers
-		std::string returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-		std::string returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& resolvedConfig);
-
 // 		Helper functions for response building
 		std::string getStatusCodeString();
 		std::string getStatusLine();

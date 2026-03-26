@@ -17,7 +17,10 @@ static bool decodeChunkedBody(const std::string &rawBody, std::string &decoded) 
 		std::string sizeLine = rawBody.substr(pos, lineEnd - pos);
 		// Parse chunk size (hex)
 		size_t chunkSize = 0;
-		std::istringstream iss(sizeLine);
+		// ignore chunk extensions
+		size_t semi = sizeLine.find(';');
+		std::string sizeStr = sizeLine.substr(0, semi);
+		std::istringstream iss(sizeStr);
 		iss >> std::hex >> chunkSize;
 		if (iss.fail())
 			return false;

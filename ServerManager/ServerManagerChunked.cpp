@@ -5,9 +5,9 @@
  * @param headersLower Lowercased header lines (without request line).
  * @param hasTransferEncoding Output flag indicating presence of Transfer-Encoding header.
  * @param isChunkedOnly Output flag indicating only supported TE values are present.
- * @return true when header syntax is acceptable, false on malformed/unsupported TE.
+ * @return the error code.
  */
-bool ServerManager::parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly)
+int ServerManager::parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly)
 {
 	hasTransferEncoding = false;
 	isChunkedOnly = false;
@@ -27,14 +27,14 @@ bool ServerManager::parseTransferEncodingHeader(const std::string &headersLower,
 		{
 			// if has more then 1 transfer-encoding, reject
 			if (hasTransferEncoding)
-				return 0;
+				return 1; //Malformed: multiple TE
 			hasTransferEncoding = true;
 
 			// get the value part after "transfer-encoding:"
 			std::string value = headersLower.substr(lineStart + headerName.size(), lineEnd - (lineStart + headerName.size()));
 			value = trimSpaces(value);
 			if (value.empty())
-				return 0;
+				return 1; //Malformed, empty value
 
 			// parse comma-separated tokens in the value
 			bool seenChunked = false;
@@ -48,13 +48,13 @@ bool ServerManager::parseTransferEncodingHeader(const std::string &headersLower,
 				std::string token = value.substr(tokenStart, tokenEnd - tokenStart);
 				token = trimSpaces(token);
 				if (token.empty())
-					return 0;
+					return 1; //Malformed, empty token
 				// only chunked,reject any other value
 				if (token != "chunked")
-					return 0;
+					return 2; //Unsuported TE
 				// reject if has more then 1 chunked
 				if (seenChunked)
-					return 0;
+					return 1; //Malformed, duplicated
 				seenChunked = true;
 
 				// if has no more commas, break
@@ -65,7 +65,7 @@ bool ServerManager::parseTransferEncodingHeader(const std::string &headersLower,
 
 			// if no chunk, reject
 			if (!seenChunked)
-				return 0;
+				return 1; //Malformed, its not  chunked
 			isChunkedOnly = true;
 		}
 
@@ -77,7 +77,7 @@ bool ServerManager::parseTransferEncodingHeader(const std::string &headersLower,
 	}
 
 	// is valid
-	return 1;
+	return 0;
 }
 
 void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
@@ -113,7 +113,15 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		}
 
 		size_t chunkSize = 0;
-		// Parse chunk size as hexadecimal.
+		std::istringstream iss(sizeLine);
+		iss >> std::hex >> chunkSize;
+		if (iss.fail()) {
+			client.status = 400;
+			client.keepAlive = false;
+			client.state = WRITING;
+			return;
+		}
+		/* // Parse chunk size as hexadecimal.
 		for (size_t i = 0; i < sizeLine.size(); ++i)
 		{
 			unsigned char ch = static_cast<unsigned char>(sizeLine[i]);
@@ -141,18 +149,18 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 				return;
 			}
 			chunkSize = chunkSize * 16 + static_cast<size_t>(value);
-		}
+		} */
 
 		cursor = lineEnd + 2; // Move cursor past chunk size line.
 
 		if (chunkSize == 0)
 		{
 			// Last chunk: look for trailer terminator.
-			size_t trailerEnd = body.find("\r\n\r\n", cursor);
+			size_t trailerEnd = body.find("\r\n", cursor);
 			if (trailerEnd == std::string::npos)
 				return; // Wait for complete trailers.
 
-			size_t consumedBodyBytes = trailerEnd + 4;
+			size_t consumedBodyBytes = trailerEnd + 2;
 			std::string remaining = body.substr(consumedBodyBytes); // Any pipelined requests after chunked body.
 			std::string headersPart = client.readBuffer.substr(0, bodyStart); // Preserve headers.
 			client.contentLength = decodedBody.size(); // Set decoded body size.
