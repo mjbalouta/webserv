@@ -144,6 +144,10 @@ void ConfigParser::parseRoot(T& object)
 		throw ConfigException("Error: There must be a valid path after 'root' keyword.");
 
 	ConfigUtils::validatePath(rootPath);
+
+	// Resolve relative paths using the server's absolute path (CWD)
+	if (rootPath[0] != '/')
+		rootPath = _absolutePath + rootPath;
 	object.setRoot(rootPath);
 	object.setRootFlag(true);
 

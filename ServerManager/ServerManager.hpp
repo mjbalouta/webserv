@@ -5,7 +5,6 @@
 #include "../Utils.hpp"
 #include "../config/parser/ConfigParser.hpp"
 #include "../Includes.hpp"
-#include "../Response/ResponseBuilder.hpp"
 
 class ServerConfig;
 
@@ -50,24 +49,25 @@ class ServerManager {
 		std::map<int, int> _listenerFdToServer;
 		std::map<int, int> _clientFdToServer;
 
-		void parseConfigServers();
-		void setupListeningSockets();
 		int buildListeningSocket(const ServerConfig &server, int port, const std::string &serverInfo);
+		bool acceptClientConnection(int fd, int serverIndex);
+		void setupListeningSockets();
 		void addListenerToEpoll(int fd, int serverIndex);
 		void addClientToEpoll(ClientSession &client);
 		void modClientEpoll(const ClientSession &client, uint32_t events);
-		bool acceptClientConnection(int fd, int serverIndex);
-		void cleanupSockets();
-		void closeClient(int serverIndex, int fd);
-		void cleanupClients();
-		void closeClientSocket(ClientSession &client);
 		void handleClientRequest(ClientSession &client, ServerConfig &server);
 		void readClientRequest(ClientSession &client, size_t maxUploadSize);
 		void parseClientRequest(ClientSession &client, ServerConfig &server);
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
-		void sendClientResponse(ClientSession &client);
-		void closeIdleClients(time_t now);
+		void sendClientResponse(ClientSession &client, ServerConfig &server);
 		void handleReadyEvent(const epoll_event &event);
+		void cleanupSockets();
+		void cleanupClients();
+		void closeClient(int serverIndex, int fd);
+		void closeClientSocket(ClientSession &client);
+		void closeIdleClients(time_t now);
+		void decodeChunked(ClientSession &client, size_t maxUploadSize);
+		int parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly);
 
 	public :
 		ServerManager(char **argv);
