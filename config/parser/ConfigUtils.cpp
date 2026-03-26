@@ -90,9 +90,13 @@ void ConfigUtils::validateURL(std::string& url)
  */
 void ConfigUtils::validatePath(std::string& token)
 {
+<<<<<<< HEAD
 	if (token[0] != '/' && token[0] != '.')
+=======
+/* 	if (token[0] != '/')
+>>>>>>> dev
 		throw ConfigException("Error: Invalid path format: " + token);
-
+ */
 	if (token.find("..") != std::string::npos)
 		throw ConfigException("Error: Invalid path format: " + token);
 	

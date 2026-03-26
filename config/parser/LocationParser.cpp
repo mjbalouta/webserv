@@ -52,6 +52,11 @@ void ConfigParser::parseUploadStore(LocationConfig& location)
 		throw ConfigException("Error: Missing definitions after 'upload_store' keyword.");
 
 	ConfigUtils::checkIfDirectory(_tokens[_currentToken]);
+	std::string storePath = _tokens[_currentToken];
+	if (storePath[0] != '/')
+		storePath = _absolutePath + storePath;
+	location.setUploadStore(storePath);
+
 	//FALAR COM ELES E VERIFICAR AQUI SE DEVO SER EU A VERIFICAR SE O DIRETORIO EXISTE E
 	//SE TEM PERMISSAO DE EXECUCAO PARA A CRIACAO DE PASTAS
 	location.setUploadStore(_tokens[_currentToken]);
@@ -180,6 +185,9 @@ void ConfigParser::parseAlias(LocationConfig& location)
 		throw ConfigException("Error: Missing definition after 'alias' keyword.");
 
 	ConfigUtils::validatePath(token);
+	if (token[0] != '/')
+		token = _absolutePath + token;
+
 	location.setAlias(token);
 	location.setAliasFlag(true);
 

@@ -2,37 +2,35 @@
 
 static const size_t MAX_HEADER_SIZE = 8192;
 
-// /**
-//  * @brief Checks if a given header line contains a specific token.
-//  */
-// static bool hasHeaderToken(const std::string &headersLower, const std::string &headerName, const std::string &token)
-// {
-// 	// Scan one header line at a time so matches are anchored to real line starts.
-// 	for (size_t lineStart = 0; lineStart < headersLower.size(); )
-// 	{
-// 		// Find the end of the current header line.
-// 		size_t lineEnd = headersLower.find("\r\n", lineStart);
-// 		if (lineEnd == std::string::npos)
-// 			// Last line in the buffer may not have trailing CRLF.
-// 			lineEnd = headersLower.size();
+/**
+ * @brief Checks if a given header line contains a specific token.
+ */
+static bool hasHeaderToken(const std::string &headersLower, const std::string &headerName, const std::string &token)
+{
+	// Scan one header line at a time so matches are anchored to real line starts.
+	for (size_t lineStart = 0; lineStart < headersLower.size(); )
+	{
+		// Find the end of the current header line.
+		size_t lineEnd = headersLower.find("\r\n", lineStart);
+		if (lineEnd == std::string::npos)
+			// Last line in the buffer may not have trailing CRLF.
+			lineEnd = headersLower.size(); // Accept only exact header-name match at the beginning of this line.
+		// This prevents spoofing via request target text or other header values.
+		if (lineEnd > lineStart
+			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
+		{
+			// Search token only inside the matched header line.
+			return headersLower.substr(lineStart, lineEnd - lineStart).find(token) != std::string::npos;
+		}
 
-// 		// Accept only exact header-name match at the beginning of this line.
-// 		// This prevents spoofing via request target text or other header values.
-// 		if (lineEnd > lineStart
-// 			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
-// 		{
-// 			// Search token only inside the matched header line.
-// 			return headersLower.substr(lineStart, lineEnd - lineStart).find(token) != std::string::npos;
-// 		}
-
-// 		if (lineEnd == headersLower.size())
-// 			// Reached the last line.
-// 			break;
-// 		// Move to the next line (skip "\r\n").
-// 		lineStart = lineEnd + 2;
-// 	}
-// 	return false;
-// }
+		if (lineEnd == headersLower.size())
+			// Reached the last line.
+			break;
+		// Move to the next line (skip "\r\n").
+		lineStart = lineEnd + 2;
+	}
+	return 0;
+}
 
 /**
  * @brief Parses `Content-Length` from normalized headers when present.
@@ -73,7 +71,7 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 				// Second Content-Length header found: reject request.
 				// Multiple Content-Length lines are ambiguous and can enable
 				// request-smuggling desync between intermediaries and origin server.
-				return false;
+				return 0;
 			}
 		}
 
@@ -98,7 +96,7 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 
 	// Empty value after trimming is invalid (e.g. "content-length:   ").
 	if (end <= start)
-		return false;
+		return 0;
 
 	// Isolate the raw Content-Length token to parse.
 	std::string valueStr = headersLower.substr(start, end - start);
@@ -111,15 +109,15 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
 	catch (const std::exception &)
 	{
 		// Convert parsing exceptions into this function's bool error contract.
-		return false;
+		return 0;
 	}
 
 	if (value < 0)
-		return false;
+		return 0;
 
 	// Ensure the parsed value can fit in size_t before casting.
 	if (static_cast<unsigned long>(value) > std::numeric_limits<size_t>::max())
-		return false;
+		return 0;
 
 	// Store validated Content-Length.
 	outContentLength = static_cast<size_t>(value);
@@ -210,7 +208,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	// Build a lowercase view of the *header lines only* (exclude request line)
 	// so token scans cannot be spoofed via method/path/version text.
 	size_t requestLineEnd = client.readBuffer.find("\r\n");
-	if (requestLineEnd == std::string::npos || requestLineEnd >= headerEnd)
+	if (requestLineEnd == std::string::npos || requestLineEnd > headerEnd)
 	{
 		printLog("🚨 Malformed request line or headers", RED);
 		client.status = 400;
@@ -221,47 +219,57 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	size_t headerStart = requestLineEnd + 2;
 	std::string headersLower = toLower(client.readBuffer.substr(headerStart, headerEnd - headerStart));
 
-	// Transfer-Encoding support is not implemented.
-	// chunked, gzip, deflate is rejected with 501.
-	//
-	// When chunked decoding is done
-	//
-	//   if (hasHeaderToken(headersLower, "transfer-encoding:", "chunked"))
-	//   {
-	//       /* decode the chunked body into client.readBuffer */
-	//       client.state = PROCESSING;
-	//       return;
-	//   }
-	//   /* reject every OTHER TE value */
-	//   if (headersLower.find("transfer-encoding:") != std::string::npos)
-	//   {
-	//       client.status = 501;
-	//       client.keepAlive = false;
-	//       client.state = WRITING;
-	//       return;
-	//   }
-	// ALGUMA COISA ASSIM
-	if (headersLower.find("transfer-encoding:") != std::string::npos)
+	bool hasTransferEncoding = false;
+	bool isChunkedOnly = false;
+	int teResult = parseTransferEncodingHeader(headersLower, hasTransferEncoding, isChunkedOnly);
+	if (teResult == 1) // Malformed
+	{
+		client.status = 400;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
+	if (teResult == 2) // Unsupported
 	{
 		client.status = 501;
 		client.keepAlive = false;
 		client.state = WRITING;
 		return;
 	}
-	//WHEN CHUNKED IS FIXED CHANGE TO COMMENT PART
-
-	if (client.contentLength == 0)
+	//if has transfer encoding and content-length, refuse, safe way. client made bad request or smt
+	if (hasTransferEncoding && headersLower.find("content-length:") != std::string::npos)
 	{
-		// Parse Content-Length once from headers and validate numeric format.
-		if (!parseContentLengthValue(headersLower, client.contentLength))
-		{
-			printLog("🚨 Invalid Content-Length", RED);
-			client.status = 400;
-			client.keepAlive = false;
-			client.state = WRITING;
-			return;
-		}
+		client.status = 400;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
 	}
+	//if is only chunked then decode 
+	if (hasTransferEncoding && isChunkedOnly)
+	{
+		decodeChunked(client, maxUploadSize);
+		return;
+	}
+
+	bool hasContentEncoding = headersLower.find("content-encoding:") != std::string::npos;
+	bool hasIdentityEncoding = hasHeaderToken(headersLower, "content-encoding:", "identity");
+	if (hasContentEncoding && !hasIdentityEncoding)
+	{
+		client.status = 415;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
+
+			// Always parse Content-Length from headers after receiving them.
+			if (!parseContentLengthValue(headersLower, client.contentLength))
+			{
+				printLog("🚨 Invalid Content-Length", RED);
+				client.status = 400;
+				client.keepAlive = false;
+				client.state = WRITING;
+				return;
+			}
 
 	// If declared body is larger than configured upload limit, fail early.
 	if (client.contentLength > maxUploadSize)
