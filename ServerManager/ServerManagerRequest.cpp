@@ -103,30 +103,29 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 
 	client.request = Request();
 	Request &request = client.request;
-	if (!request.parseRequest(requestBuffer, client.contentLength))
-	{
-		client.writeBuffer.clear();
-		client.path = "";
-		client.method = NONE;
-		client.status = request.getStatus();
-		printLog("⚠️ Malformed HTTP request handled", YEL);
-		client.keepAlive = false;
-		client.state = WRITING;
-		remainingBuffer.clear();
-		// Use ResponseBuilder for error response
-		ConfigResolved config(request, server);
-		ResponseBuilder rb;
-		client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
-	}
-	else
-	{
-		// Person 2 hook: receive parsed Request + current ServerConfig and decide
-		// routing/config result (best location, method validation, effective path, status).
-		// For now processClientRequest() copies the parsed metadata into transport fields.
-		processClientRequest(client, request, server);
-		if (!client.keepAlive)
-			remainingBuffer.clear();
-	}
+			if (!request.parseRequest(requestBuffer, client.contentLength))
+			{
+				client.writeBuffer.clear();
+				client.path = "";
+				client.method = NONE;
+				client.status = request.getStatus();
+				printLog("⚠️ Malformed HTTP request handled", YEL);
+				client.keepAlive = false;
+				client.state = WRITING;
+				remainingBuffer.clear();
+				// Use ResponseBuilder for error response
+				ConfigResolved config(request, server);
+				ResponseBuilder rb;
+				client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
+			} else
+			{
+				// Person 2 hook: receive parsed Request + current ServerConfig and decide
+				// routing/config result (best location, method validation, effective path, status).
+				// For now processClientRequest() copies the parsed metadata into transport fields.
+				processClientRequest(client, request, server);
+				if (!client.keepAlive)
+					remainingBuffer.clear();
+			}
 
 	// Keep only leftover bytes that belong to future requests.
 	client.readBuffer = remainingBuffer;

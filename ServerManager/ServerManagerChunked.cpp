@@ -121,35 +121,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 			client.state = WRITING;
 			return;
 		}
-		/* // Parse chunk size as hexadecimal.
-		for (size_t i = 0; i < sizeLine.size(); ++i)
-		{
-			unsigned char ch = static_cast<unsigned char>(sizeLine[i]);
-			int value;
-			if (ch >= '0' && ch <= '9')
-				value = ch - '0';
-			else if (ch >= 'a' && ch <= 'f')
-				value = 10 + (ch - 'a');
-			else if (ch >= 'A' && ch <= 'F')
-				value = 10 + (ch - 'A');
-			else
-			{
-				client.status = 400; // Invalid hex digit.
-				client.keepAlive = false;
-				client.state = WRITING;
-				return;
-			}
-
-			// Prevent overflow.
-			if (chunkSize > (std::numeric_limits<size_t>::max() - static_cast<size_t>(value)) / 16)
-			{
-				client.status = 400;
-				client.keepAlive = false;
-				client.state = WRITING;
-				return;
-			}
-			chunkSize = chunkSize * 16 + static_cast<size_t>(value);
-		} */
 
 		cursor = lineEnd + 2; // Move cursor past chunk size line.
 

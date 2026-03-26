@@ -1,49 +1,6 @@
 #include "Request.hpp"
 
 /**
- * @brief Decodes a chunked Transfer-Encoding body according to RFC 7230 Section 3.3.1.
- * @param rawBody The raw chunked body string.
- * @param decoded Output string for the decoded body.
- * @return true if decoding succeeds, false if malformed.
- */
-static bool decodeChunkedBody(const std::string &rawBody, std::string &decoded) {
-	decoded.clear();
-	size_t pos = 0;
-	while (pos < rawBody.size()) {
-		// Find chunk size line
-		size_t lineEnd = rawBody.find("\r\n", pos);
-		if (lineEnd == std::string::npos)
-			return false;
-		std::string sizeLine = rawBody.substr(pos, lineEnd - pos);
-		// Parse chunk size (hex)
-		size_t chunkSize = 0;
-		// ignore chunk extensions
-		size_t semi = sizeLine.find(';');
-		std::string sizeStr = sizeLine.substr(0, semi);
-		std::istringstream iss(sizeStr);
-		iss >> std::hex >> chunkSize;
-		if (iss.fail())
-			return false;
-		pos = lineEnd + 2;
-		if (chunkSize == 0) {
-			// End of chunks; next should be CRLF
-			// Optionally, handle trailers here
-			return true;
-		}
-		// Ensure enough bytes for chunk
-		if (pos + chunkSize > rawBody.size())
-			return false;
-		decoded.append(rawBody.substr(pos, chunkSize));
-		pos += chunkSize;
-		// Expect CRLF after chunk
-		if (rawBody.substr(pos, 2) != "\r\n")
-			return false;
-		pos += 2;
-	}
-	return false;
-}
-
-/**
  * @brief Checks if a string is valid UTF-8 and contains only printable characters.
  * @param s Input string to validate.
  * @return true if valid, false otherwise.
@@ -313,10 +270,11 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
 
 	if (_isChunked) {
-		std::string decoded;
+/* 		std::string decoded;
 		if (!decodeChunkedBody(body, decoded))
-			return (printLog("🚨 Malformed chunked body", RED), _status = 400, false);
-		_body = decoded;
+			return (printLog("🚨 Malformed chunked body", RED), _status = 400, false); 
+		_body = decoded;*/
+		_body = body;
 	} else if (contentLengthIt != _headers.end()) {
 		// If buffer is not enough bytes yet the request is incomplete.
 		if (body.size() < contentLength)
@@ -328,10 +286,7 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 		_body = "";
 	}
 
-/*	// POST bodies must declare their MIME type.
-	if (_method == POST && _headers.find("content-type") == _headers.end())
-		return (printLog("⚠️ Content-Type header missing", RED), _status = 400, false);
-*/  //For both HTTP/1.0 and HTTP/1.1, Content-Type is recommended but not required for POST requests. Your server should accept POST requests without
+  //For both HTTP/1.0 and HTTP/1.1, Content-Type is recommended but not required for POST requests. Your server should accept POST requests without
 	return true;
 }
 
@@ -375,7 +330,8 @@ bool Request::parseRequest(const std::string &rawRequest, size_t contentLength) 
 	// Step 5 — Set _isChunked if Transfer-Encoding: chunked is present.
 	cacheTransferEncodingFlags();
 	// Step 6 — Validate Content-Length / Content-Type and copy body into _body.
-	return parseAndValidateBody(body, contentLength);
+		bool bodyOk = parseAndValidateBody(body, contentLength);
+		return bodyOk;
 }
 
 /**

@@ -261,15 +261,15 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-	       // Always parse Content-Length from headers after receiving them.
-	       if (!parseContentLengthValue(headersLower, client.contentLength))
-	       {
-		       printLog("🚨 Invalid Content-Length", RED);
-		       client.status = 400;
-		       client.keepAlive = false;
-		       client.state = WRITING;
-		       return;
-	       }
+			// Always parse Content-Length from headers after receiving them.
+			if (!parseContentLengthValue(headersLower, client.contentLength))
+			{
+				printLog("🚨 Invalid Content-Length", RED);
+				client.status = 400;
+				client.keepAlive = false;
+				client.state = WRITING;
+				return;
+			}
 
 	// If declared body is larger than configured upload limit, fail early.
 	if (client.contentLength > maxUploadSize)
