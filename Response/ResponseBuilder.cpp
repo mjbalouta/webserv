@@ -407,8 +407,8 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 {
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
-	if (!uploadStore.empty() && uploadStore[0] != '/')
-		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
+	// if (!uploadStore.empty() && uploadStore[0] != '/')
+	// 	uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
 		return returnGenericErrorResponse(501, request, resolvedConfig);
 
