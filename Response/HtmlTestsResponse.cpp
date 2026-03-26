@@ -373,9 +373,20 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
  */
 void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
-	const std::string& uploadDir = config.getUploadStore();
-	std::cout << "Path: " << uploadDir << std::endl << std::flush;
-	std::cout << config.getUploadStore();
+	std::string uploadDir = config.getUploadStore();
+
+	// if (!uploadDir.empty() && uploadDir[uploadDir.size() - 1] == '/')
+	// 	uploadDir.erase(uploadDir.size() - 1);
+
+	// if (!uploadDir.empty() && uploadDir[0] == '/')
+	// {
+    // 	std::string root = config.getRoot();
+    //     if (!root.empty())
+    //         uploadDir = root + uploadDir;
+    // }
+
+	// std::cout << "Path: " << uploadDir << std::endl << std::flush;
+	// std::cout << config.getUploadStore();
 
 	std::string galleryList;
 
@@ -399,6 +410,8 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 		}
 		closedir(dir);
 	}
+	else
+		std::cerr << "Failed to open directory: " << uploadDir << std::endl;
 	if (galleryList.empty())
 		galleryList = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
 	

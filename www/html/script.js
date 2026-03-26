@@ -92,61 +92,71 @@ window.addEventListener('load', () => {
 	}
 });
 
-//to handle the button 'upload file'
-const uploadForm = document.getElementById('post-upload-form');
-
-if (uploadForm) {
-    uploadForm.addEventListener('submit', function (e) {
-        e.preventDefault(); // This is the magic part: no redirect to /upload
-
-        const formData = new FormData(this);
-        const requestDetailsContainer = document.querySelector('#method-testing ul#request-details');
-
-        // Optional: Visual feedback that the request is firing
-        requestDetailsContainer.style.opacity = "0.5";
-
-        fetch('/upload', {
+// Handle file upload
+document.getElementById('upload-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('file-upload');
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    try {
+        const response = await fetch('/upload', {
             method: 'POST',
             body: formData
-        })
-        .then(response => response.text()) // Get the full HTML page back from C++
-        .then(html => {
-            // Create a temporary DOM to parse the incoming HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // 1. Find the new content that C++ replaced in the 'POST_REQUEST_DETAILS' block
-            const newRequestContent = doc.querySelector('#method-testing ul#request-details').innerHTML;
-
-            // 2. Inject it into our current page without reloading
-            requestDetailsContainer.innerHTML = newRequestContent;
-            requestDetailsContainer.style.opacity = "1";
-
-            // 3. Refresh the gallery list in the background
-            if (typeof refreshGallery === "function") {
-                refreshGallery();
-            }
-
-            // 4. Reset the "No file selected" text
-            uploadForm.reset();
-            document.getElementById('file-name').textContent = "No file selected";
-        })
-        .catch(err => {
-            console.error("Upload failed:", err);
-            requestDetailsContainer.innerHTML = "<li>Error: Server connection lost.</li>";
-            requestDetailsContainer.style.opacity = "1";
         });
-    });
+        
+        if (response.ok) {
+            console.log('File uploaded successfully');
+            // Reset form
+            fileInput.value = '';
+            document.getElementById('file-name').textContent = 'No file selected';
+            
+            // Refresh gallery
+            loadGallery();
+            
+            // Navigate to gallery section
+            showSection('gallery');
+        } else {
+            console.error('Upload failed:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+    }
+});
+
+// Load gallery files
+async function loadGallery() {
+    try {
+        const response = await fetch('/upload');
+        const html = await response.text();
+        document.getElementById('gallery').innerHTML = html;
+    } catch (error) {
+        console.error('Gallery load error:', error);
+    }
 }
 
-/* HANDLE GALLERY */
+// Show/hide sections
+function showSection(sectionId) {
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.add('hidden');
+    });
+    document.getElementById(sectionId).classList.remove('hidden');
+    document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
+}
 
-const CURRENT_UPLOAD_PATH = "{{UPLOAD_PATH}}";
+// Track file selection
+document.getElementById('file-upload').addEventListener('change', function() {
+    document.getElementById('file-name').textContent = 
+        this.files.length > 0 ? this.files[0].name : 'No file selected';
+});
+
+/* HANDLE GALLERY */
 	
 // Function to refresh the gallery content
 async function refreshGallery() {
     try {
-        const response = await fetch(CURRENT_UPLOAD_PATH); // Fetch the page
+        const response = await fetch('/upload'); // Fetch the page
         const text = await response.text();
         
         // Parse the text to find the gallery content
