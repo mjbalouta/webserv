@@ -79,9 +79,16 @@ void ResponseBuilder::insertRequestInfo(const Request& request, const std::strin
 	}
 
 	requestBlock += "Result: ";
-	requestBlock += itostr(getStatusCode());
-	requestBlock += " ";
-	requestBlock += error.getReasonPhrase(getStatusCode());
+	std::string statusLine = getStatusCodeString();
+	size_t pos = statusLine.find_first_of(' ');
+	size_t newline = statusLine.find('\n');
+	if (newline == (std::string::npos - 1))
+		statusLine.erase(newline);
+	std::string result = statusLine.substr(pos + 1);
+	if ((method == 0 && atoi(result.c_str()) == 200) || (method == 1 && atoi(result.c_str()) == 201))
+		requestBlock += result + " OK";
+	else
+		requestBlock += result + " KO";
 	requestBlock += ";\n";
 
 	replaceTag(_body, block, requestBlock);
