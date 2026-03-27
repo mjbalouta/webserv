@@ -404,9 +404,10 @@ const std::string& Request::getCgiInterpreter() const
 }
 
 /**
- * @brief Checks if the Request is a CGI one
+ * @brief Parses request path, checks if it is safe (if it's not it sets the correct status for it)
+ * and checks if it is a CGI request or not
  * 
- * @param request 
+ * @param routing 
  * @return true 
  * @return false 
  */
@@ -416,7 +417,6 @@ bool Request::isCgi(const ConfigResolved& routing)
 	// const std::string& requestPath = getPath();
 	_cgiFullPath = routing.getResolvedPath(*this);
 	
-
 	//checking if extension exists in the config file
 	size_t dotPos = _cgiFullPath.find_last_of('.');
 	if (dotPos == std::string::npos || dotPos == _cgiFullPath.size() - 1)
@@ -432,7 +432,7 @@ bool Request::isCgi(const ConfigResolved& routing)
 	FileSystemHandler fs;
 	PathResolver p;
 
-	if (!p.isPathSafe(_cgiFullPath, routing.getRoot()))
+	if (!p.isPathSafe(getPath(), routing.getRoot()))
 	{
 		setStatus(403);
 		return false;
