@@ -269,7 +269,22 @@ std::string ConfigResolved::getUploadStore() const
 	return "";
 }
 
+/**
+ * @brief Returns server absolute path
+ * 
+ * @return const std::string& 
+ */
 const std::string& ConfigResolved::getAbsolutePath() const
 {
 	return _server->getAbsolutePath();
+}
+
+/**
+ * @brief Returns server ports
+ * 
+ * @return const std::vector<int>& 
+ */
+const std::vector<int>& ConfigResolved::getPorts() const
+{
+	return _server->getPorts();
 }
