@@ -432,10 +432,21 @@ bool Request::isCgi(const ConfigResolved& routing)
 	FileSystemHandler fs;
 	PathResolver p;
 
-	if (!p.isPathSafe(getPath(), routing.getRoot()))
+	if (routing.getAlias().empty())
 	{
-		setStatus(403);
-		return false;
+		if (!p.isPathSafe(getPath(), routing.getRoot()))
+		{
+			setStatus(403);
+			return false;
+		}
+	}
+	else
+	{
+		if (!p.isPathSafe(getPath(), routing.getAlias()))
+		{
+			setStatus(403);
+			return false;
+		}
 	}
 	if (!fs.pathExists(_cgiFullPath))
 	{
