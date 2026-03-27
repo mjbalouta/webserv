@@ -154,6 +154,21 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 
 std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
+	ResponseBuilder builder;
+	ErrorPageGenerator error;
+
+	if (rawOutput.find("HTTP/") == 0)
+		return rawOutput; // Script already included a status line and headers
+	
+	std::stringstream split(rawOutput);
+    std::string temp;
+    std::vector<std::string> array;
+
+	while (getline(split, temp, "\r\n\r\n"))
+		array.push_back(temp);
+	
+	std::string statusLine = httpVersion + " " + "200" + " " + error.getReasonPhrase(200) + "\r\n";
+	std::string contentType = "text/plain";
 /* 	size_t sep = rawOutput.find("\r\n\r\n");
 	std::string crlf = "\r\n";
 	size_t sepLen = 4;

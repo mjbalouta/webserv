@@ -4,6 +4,7 @@
 #include "../Includes.hpp"
 #include "../Utils.hpp"
 #include "Request.hpp"
+#include "../Response/ResponseBuilder.hpp"
 
 /**
  * @brief Holds the pipe fds and process info for one active CGI child.
