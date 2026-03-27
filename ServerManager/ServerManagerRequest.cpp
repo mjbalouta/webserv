@@ -159,8 +159,30 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	//CGI
 	if (routing.isCgi())
 	{
-		routing.getCgi(); //map first .py second Interpreter. 
-		startCgi(client, routing.getCgiScriptPath(), routing.getCgiInterpreter(), server);
+		std::string scriptPath = server.getRoot() + request.getPath(); //MAYBE this works ??????? request.getPath() →  "/cgi-bin/script.py" execve can't use this. "/www/cgi-bin/script.py"
+		std::string extension;
+		size_t dotPos = scriptPath.find_last_of('.');
+		if (dotPos != std::string::npos)
+			extension = scriptPath.substr(dotPos);
+
+		std::string interpreter;
+		std::map<std::string, std::string> cgiMap = routing.getCgi();
+		std::map<std::string, std::string>::const_iterator it = cgiMap.find(extension);
+		if (it != cgiMap.end()){
+			interpreter = it->second;
+			startCgi(client, scriptPath, interpreter, server);
+		}
+		else {
+			// Handle error: interpreter not found
+			client.status = 501;
+			client.keepAlive = false;
+			client.state = WRITING;
+			ResponseBuilder rb;
+			ConfigResolved config(request, server);
+			client.writeBuffer = rb.returnGenericErrorResponse(501, request, config);
+			client.totalSent = 0;
+			modClientEpoll(client, EPOLLOUT);
+		}
 		return;
 	}
 	//NORMAL
@@ -168,14 +190,6 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
 	client.totalSent = 0;
 	client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
-/* 	// Placeholder response source until the real resource engine exists.
-	if (request.isAutoIndex())
-		// Person 3 hook: replace this placeholder body source with final
-		// resource engine output (file content/error page/rendered directory).
-		client.responseStr = request.getAutoIndexPath();
-	else
-		client.responseStr.clear();
-	// Parsing + request processing is done; next step is writing a response. */
 	client.state = WRITING;
 }
 
