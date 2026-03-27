@@ -1,9 +1,8 @@
 #pragma once
 #include "../Includes.hpp"
 #include "../Utils.hpp"
-#include "../fileResourceManagement/FileSystemHandler.hpp"
-#include "../routing/ConfigResolved.hpp"
-#include "../fileResourceManagement/PathResolver.hpp"
+
+class ConfigResolved;
 
 enum Method {
 	GET,
