@@ -1,73 +1,174 @@
 #include "CGIHandler.hpp"
-/* 
-bool CGIHandler::isCgiRequest(const Request& request, const ConfigResolved& resolvedConfig, std::string& outScriptPath, std::string& outExecutor)
+#include "../fileResourceManagement/ErrorPageGenerator.hpp"
+
+/**
+ * @brief Builds the envp array passed to execve().
+ *
+ * envStrings owns the heap storage for each "KEY=VALUE" string.
+ * envp holds raw char* pointers into those strings plus a NULL terminator.
+ * Both vectors must stay alive until after execve() is called in the child.
+ */
+void CgiHandler::buildEnv(const Request &request,
+						  const std::string &scriptPath,
+						  const ServerConfig &server,
+						  std::vector<std::string> &envStrings,
+						  std::vector<char *> &envp)
 {
-	if (resolvedConfig.getCgi().empty())
-		return false;
-	size_t pos = outScriptPath.find_last_of('.');
-	if (pos == std::string::npos)
-		return false;
-	std::string cgiExtension = outScriptPath.substr(pos);
-	if (cgiExtension.empty())
-		return false;
-	std::map<std::string, std::string> cgiMap = resolvedConfig.getCgi();
-	if (cgiMap.empty())
-		return false;
-	std::map<std::string, std::string>::const_iterator it = cgiMap.find(cgiExtension);
-	if (it == cgiMap.end())
-		return false;
-	outExecutor = it->second;
-	return true;
+	envStrings.clear();
+	envp.clear();
+
+	envStrings.push_back("REQUEST_METHOD=" + request.getMethodStr());
+	envStrings.push_back("QUERY_STRING=" + request.getQueryString());
+	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
+	envStrings.push_back("PATH_INFO=" + request.getPath());
+	envStrings.push_back("PATH_TRANSLATED=" + scriptPath);
+	envStrings.push_back("SERVER_PROTOCOL=" + request.getVersion());
+	envStrings.push_back("SERVER_NAME=" + server.getHost());
+	envStrings.push_back("SERVER_PORT=" + itostr(server.getPorts()[0]));
+	envStrings.push_back("HTTP_HOST=" + request.getHost());
+
+	// REDIRECT_STATUS is required by PHP-CGI; harmless for Python/shell
+	envStrings.push_back("REDIRECT_STATUS=200");
+
+	// POST-specific variables — safe to add for all methods; empty string is fine
+	envStrings.push_back("CONTENT_TYPE=" + request.getHeader("content-type"));
+	envStrings.push_back("CONTENT_LENGTH=" + request.getHeader("content-length"));
+
+	// Build the NULL-terminated char* array for execve()
+	for (size_t i = 0; i < envStrings.size(); ++i)
+		envp.push_back(const_cast<char *>(envStrings[i].c_str()));
+	envp.push_back(NULL);
 }
 
-
-std::map<std::string, std::string> CGIHandler::buildCGIEnv(const Request& request, const ConfigResolved& resolvedConfig, const std::string& scriptPath)
+/**
+ * @brief Creates pipes, forks, and execs the CGI script.
+ *
+ * Pipe layout:
+ *   inPipe[0]  → child  STDIN   (child reads POST body)
+ *   inPipe[1]  → parent writes  (parent feeds POST body)
+ *   outPipe[0] → parent reads   (parent captures CGI output)
+ *   outPipe[1] → child  STDOUT  (child writes response)
+ *
+ * All four ends are set non-blocking before fork() so that if the parent
+ * inherits any of them after execve failure, they will not block.
+ *
+ * In the child:
+ *   dup2 wires inPipe[0] → STDIN and outPipe[1] → STDOUT,
+ *   then ALL original pipe fds are closed before execve.
+ *   On execve failure _exit(1) is used — NOT exit() — to avoid
+ *   flushing parent stdio buffers which would corrupt state.
+ *
+ * In the parent:
+ *   inPipe[0] and outPipe[1] are closed immediately (child's ends).
+ *   The caller receives readFd=outPipe[0] and writeFd=inPipe[1].
+ */
+CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPath, const std::string &interpreter, const ServerConfig &server)
 {
-	std::map<std::string, std::string> env;
-	// Initialize CGI environment variables
-	env["GATEWAY_INTERFACE"] = "CGI/1.1";
-	env["SERVER_SOFTWARE"] = "webserv/1.0";
-	env["SERVER_PORT"] = resolvedConfig.getPort();
-	env["SCRIPT_NAME"] = request.getPath();
-	env["SCRIPT_FILENAME"] = scriptPath;
-	env["SERVER_PROTOCOL"] = request.getVersion();
-	env["REQUEST_METHOD"] = request.getMethodStr();
-	if (request.getMethodStr() == "POST" && !request.getBody().empty())
+	int inPipe[2];
+	int outPipe[2];
+
+	if (pipe(inPipe) < 0)
+		throw std::runtime_error("pipe() failed for CGI stdin");
+	if (pipe(outPipe) < 0)
 	{
-		env["CONTENT_LENGTH"] = request.getHeader("content-length");
-		env["CONTENT_TYPE"] = request.getHeader("content-type");
+		close(inPipe[0]);
+		close(inPipe[1]);
+		throw std::runtime_error("pipe() failed for CGI stdout");
 	}
-	
-	for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin(); it != request.getHeaders().end(); ++it)
+
+	// Set all four ends non-blocking before fork so the parent never blocks
+	// on pipe I/O in the epoll loop, and the child inherits safe fds too.
+	try {
+		setNonBlockingFd(inPipe[0]);
+		setNonBlockingFd(inPipe[1]);
+		setNonBlockingFd(outPipe[0]);
+		setNonBlockingFd(outPipe[1]);
+	} catch (...) {
+		close(inPipe[0]);
+		close(inPipe[1]);
+		close(outPipe[0]);
+		close(outPipe[1]);
+		throw;
+	}
+
+	// Build env before fork so memory is ready in the parent's address space.
+	// After fork the child gets a copy; execve replaces the process image.
+	std::vector<std::string> envStrings;
+	std::vector<char *> envp;
+	buildEnv(request, scriptPath, server, envStrings, envp);
+
+	// Build args: { interpreter, scriptPath, NULL }
+	// The interpreter is argv[0]; the script path is argv[1].
+	char *args[3];
+	args[0] = const_cast<char *>(interpreter.c_str());
+	args[1] = const_cast<char *>(scriptPath.c_str());
+	args[2] = NULL;
+
+	pid_t pid = fork();
+	if (pid < 0)
 	{
-		std::string envName = requestHeadtoCGIEnv(it->first);
-		env[envName] = it->second;
+		close(inPipe[0]);
+		close(inPipe[1]);
+		close(outPipe[0]);
+		close(outPipe[1]);
+		throw std::runtime_error("fork() failed for CGI");
 	}
-	
-	std::string query_string;
-	for (std::map<std::string, std::string>::const_iterator it = request.getQueryParams().begin(); it != request.getQueryParams().end(); ++it)
-		query_string += it->first + "=" + it->second + "&";
-	if (!query_string.empty())
-		query_string.erase(query_string.size() - 1);
-	env["QUERY_STRING"] = query_string;
 
-	return env;
+	// - Child process
+	if (pid == 0)
+	{
+		// Wire inPipe read-end to STDIN so the script reads POST body from it
+		if (dup2(inPipe[0], STDIN_FILENO) < 0)
+			_exit(1); //USE KILL INSTEAD (exit is forbidden)
+		// Wire outPipe write-end to STDOUT so print()/echo go into our pipe
+		if (dup2(outPipe[1], STDOUT_FILENO) < 0)
+			_exit(1); //USE KILL INSTEAD (exit is forbidden)
+
+		close(inPipe[0]);
+		close(inPipe[1]);
+		close(outPipe[0]);
+		close(outPipe[1]);
+
+		execve(interpreter.c_str(), args, envp.data());
+		_exit(1); //USE KILL INSTEAD (exit is forbidden)
+	}
+
+	// - Parent process 
+	close(inPipe[0]);   // child reads from this
+	close(outPipe[1]);  // child writes to this
+
+	CgiProcess cgi;
+	cgi.pid = pid;
+	cgi.writeFd = inPipe[1];   // parent write here
+	cgi.readFd = outPipe[0];  // parent read output here
+	cgi.startTime = time(NULL);
+
+	return cgi;
 }
 
-std::string CGIHandler::requestHeadtoCGIEnv(const std::string& header){
-	std::string result = "HTTP_" + header;
-	std::replace(result.begin(), result.end(), '-', '_');
-	std::transform(result.begin(), result.end(), result.begin(), ::toupper);
-	return result;
-}
-
-
-std::string CGIHandler::buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig)
+std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
-	std::string cgiExtension = scriptPath.substr(scriptPath.find_last_of('.'));
-	std::map<std::string, std::string> cgiMap = resolvedConfig.getCgi();
-/* 	if (cgiMap.end() == cgiMap.find(cgiExtension))
-		return returnGenericErrorResponse(500, request, resolvedConfig); */
-	CGIEnv = buildCGIEnv(request, resolvedConfig, scriptPath);
-	return "";
-} */
+/* 	size_t sep = rawOutput.find("\r\n\r\n");
+	std::string crlf = "\r\n";
+	size_t sepLen = 4;
+
+	if (sep == std::string::npos)
+	{
+		// Fall back to bare \n\n — many Python/shell scripts use this
+		sep = rawOutput.find("\n\n");
+		crlf = "\n";
+		sepLen = 2;
+	}
+
+	std::string cgiHeaderBlock;
+	std::string body;
+
+	// No header separator found — treat entire output as body
+	if (sep == std::string::npos)
+		body = rawOutput;
+	else
+	{
+		cgiHeaderBlock = rawOutput.substr(0, sep);
+		body = rawOutput.substr(sep + sepLen);
+	} */
+}

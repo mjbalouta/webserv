@@ -156,11 +156,18 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 		client.keepAlive = (clientHeader == "keep-alive");
 	else
 		client.keepAlive = (clientHeader != "close");
-
+	//CGI
+	if (routing.isCgi())
+	{
+		routing.getCgi(); //map first .py second Interpreter. 
+		startCgi(client, routing.getCgiScriptPath(), routing.getCgiInterpreter(), server);
+		return;
+	}
+	//NORMAL
 	ResponseBuilder rb;
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
-    client.totalSent = 0;
-    client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
+	client.totalSent = 0;
+	client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
 /* 	// Placeholder response source until the real resource engine exists.
 	if (request.isAutoIndex())
 		// Person 3 hook: replace this placeholder body source with final

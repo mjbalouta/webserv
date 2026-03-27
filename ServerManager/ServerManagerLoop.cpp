@@ -1,4 +1,5 @@
 #include "ServerManager.hpp"
+#include "../ResponseBuilder.hpp"
 
 /**
  * @brief Closes connections that exceeded keep-alive timeout.
@@ -22,6 +23,24 @@ void ServerManager::closeIdleClients(time_t now)
 				printLog("⏳ Closing idle connection: " + itostr(fd), BYEL);
 				closeClient(static_cast<int>(serverIndex), fd);
 			}
+			// CGI timeout: if a child process has been running > CGI_TIMEOUT seconds, kill it
+			if (client.cgi.pid > 0 && difftime(now, client.cgi.startTime) > CGI_TIMEOUT)
+			{
+				printLog("⏳ CGI timeout pid=" + itostr(client.cgi.pid) + " fd=" + itostr(fd), BYEL);
+				cleanupCgi(client);
+				client.status = 504;
+				client.keepAlive = false;
+				// Build a 504 error response and switch to writing
+				Request errorReq;
+				errorReq.setStatus(504);
+				errorReq.setVersion(client.version);
+				ConfigResolved config(errorReq, _servers[serverIndex]);
+				ResponseBuilder rb;
+				client.writeBuffer = rb.returnGenericErrorResponse(504, errorReq, config);
+				client.totalSent = 0;
+				client.state = WRITING;
+				modClientEpoll(client, EPOLLOUT);
+			}
 		}
 	}
 }
@@ -35,6 +54,30 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 	// epoll tells us which fd became ready through event.data.fd.
 	int fd = event.data.fd;
 
+	//CGIII
+	// Check if this fd is a CGI read pipe (pipe_out[0])
+	std::map<int, int>::iterator cgiReadIt = _cgiReadFdToClient.find(fd);
+	if (cgiReadIt != _cgiReadFdToClient.end())
+	{
+		int clientFd = cgiReadIt->second;
+		std::map<int, int>::iterator ownerIt = _cgiClientToServer.find(clientFd);
+		int serverIndex = (ownerIt != _cgiClientToServer.end()) ? ownerIt->second : -1;
+		handleCgiRead(clientFd, serverIndex);
+		return;
+	}
+
+	// Check if this fd is a CGI write pipe (pipe_in[1])
+	std::map<int, int>::iterator cgiWriteIt = _cgiWriteFdToClient.find(fd);
+	if (cgiWriteIt != _cgiWriteFdToClient.end())
+	{
+		int clientFd = cgiWriteIt->second;
+		std::map<int, int>::iterator ownerIt = _cgiClientToServer.find(clientFd);
+		int serverIndex = (ownerIt != _cgiClientToServer.end()) ? ownerIt->second : -1;
+		handleCgiWrite(clientFd, serverIndex);
+		return;
+	}
+
+	//NORMAL
 	// First check whether this fd is one of the listening sockets.
 	// If yes, the event means at least one new incoming connection is waiting.
 	std::map<int, int>::iterator listenerIt = _listenerFdToServer.find(fd);
