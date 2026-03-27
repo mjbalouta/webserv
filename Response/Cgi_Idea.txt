@@ -197,3 +197,114 @@ If fork/pipe fails: 500
 If CGI times out: 504 (or 500 if you prefer)
 If CGI output is malformed (no header/body delimiter when needed): 500
 If CGI exits non-zero: you can still serve its stdout if it produced valid output; otherwise 500
+
+Detection and implementation
+
+1) Where CGI should be detected
+Because your ResponseBuilder::returnResponse() must currently return a complete HTTP response string, the “epoll-friendly CGI” approach can’t live inside ResponseBuilder (it would need to return later).
+
+So for the correct design, detect CGI in ServerManager::processClientRequest() (in ServerManagerRequest.cpp), before calling ResponseBuilder.
+
+You already have the inputs there:
+
+ConfigResolved routing(request, server);
+routing.getCgi() → map<ext, executor>
+routing.getResolvedPath(request) → filesystem path to the target
+Decision logic:
+
+compute scriptFsPath = routing.getResolvedPath(request)
+extract extension (e.g. .py)
+if extension exists in routing.getCgi(), this is CGI.
+This keeps “static vs CGI vs upload” as a transport-level decision (good), and leaves ResponseBuilder to only do what it’s good at: building HTTP strings.
+
+2) Where CGI should be executed (and how it fits your state machine)
+Your server flow today is:
+
+READING → PROCESSING → (build client.writeBuffer) → WRITING → send → back to READING
+
+For epoll-friendly CGI, you introduce a CGI sub-flow that happens between PROCESSING and WRITING:
+
+In processClientRequest():
+
+if not CGI: current behavior (call ResponseBuilder, set client.writeBuffer, set WRITING)
+if CGI:
+spawn the CGI child + pipes
+store CGI runtime state on the ClientSession
+switch epoll interest to the CGI pipe fds (and possibly keep client socket in a “waiting” mode)
+do not set client.writeBuffer yet
+In the epoll loop (handleReadyEvent() in ServerManagerLoop.cpp):
+
+right now you only route events to “listener socket” or “client socket”
+CGI introduces new fds (pipe fds), so you need a way to map “pipe fd event” → “which client session owns it”
+conceptually: add a map like pipeFd -> (clientFd, pipeType) so you can dispatch events
+When CGI is done (stdout closed + child exited):
+
+you now have cgiRawOutput (string)
+call a pure response builder that converts it into HTTP: client.writeBuffer = ResponseBuilder::buildCgiHttpResponse(...)
+then switch the client socket to EPOLLOUT and set client.state = WRITING
+This keeps CGI execution fully outside ResponseBuilder and avoids blocking the epoll loop.
+
+3) The separation you want (“execution” vs “response”)
+Think in two layers:
+
+A) CGI execution layer (ServerManager-owned)
+Responsibilities:
+
+fork/exec
+nonblocking write of request body to CGI stdin
+nonblocking read of CGI stdout into a buffer
+waitpid(WNOHANG) + timeout + cleanup
+This belongs in ServerManager (new ServerManagerCgi.cpp is a clean place), and is driven by epoll readiness.
+
+What you store per client (conceptually extend ClientSession in ServerManager.hpp):
+
+bool isCgi
+pid_t cgiPid
+int cgiStdinFd (parent write end)
+int cgiStdoutFd (parent read end)
+std::string cgiOut
+size_t cgiBodyWritten
+time_t cgiStart
+maybe bool cgiStdoutClosed, bool cgiExited
+Also important cleanup rules:
+
+if client disconnects early: close pipes + kill child (or at least reap it)
+if CGI times out: kill child, build 504 (or 500) response
+B) CGI output → HTTP response (ResponseBuilder-owned)
+Responsibilities:
+
+parse CGI stdout
+decide status code (default 200; respect Status: header; optionally accept full HTTP/1.x response)
+ensure final headers are correct for your server (Date, Connection, Content-Length unless you intentionally do chunked responses, etc.)
+This belongs in ResponseBuilder.cpp as a function that takes:
+
+Request (for version, HEAD semantics, keep-alive)
+ConfigResolved (for error pages or max body size decisions)
+cgiRawOutput (string)
+keepAlive (bool)
+Key policy that prevents “problems”:
+
+CGI can suggest headers, but your server is the final authority on:
+Connection
+whether you keep-alive or close
+adding Content-Length if CGI didn’t provide it
+For HEAD, you must suppress the body regardless of CGI output.
+4) CGI env: one thing you’ll likely need to add to Request
+CGI wants a raw QUERY_STRING=....
+
+Your Request currently parses query params into a map, but does not keep the raw query string token. Reconstructing it from a map loses ordering/duplicates/encoding.
+
+So conceptually:
+
+store _queryString (raw, without ?) inside Request
+expose getQueryString()
+Everything else you need is already accessible (getMethodStr(), getPath(), getHeader(), getBody()).
+
+5) Where each piece goes (concrete file guidance)
+Detection + branching: ServerManagerRequest.cpp in processClientRequest()
+CGI process management helpers: new ServerManager/ServerManagerCgi.cpp (+ declarations in ServerManager.hpp)
+Epoll dispatch for CGI pipe fds: ServerManagerLoop.cpp in handleReadyEvent() (or a helper it calls)
+CGI output parsing to HTTP: ResponseBuilder.cpp (new helper like buildCgiHttpResponse(...))
+If you want the quick/blocking version first, that’s the only case where detection+execution can live in ResponseBuilder—but it will block your entire event loop while the script runs.
+
+If you tell me which route you want (blocking “get it working” vs epoll-friendly), I can outline the exact per-client states and epoll registration strategy you’ll need with your current event.data.fd setup (since you’re not using event.data.ptr).
