@@ -33,4 +33,6 @@ class ConfigResolved
 	const std::map<std::string, std::string>& getCgi() const;
 	std::string getUploadStore() const;
 	const std::vector<int>& getPorts() const;
+	bool isCgi() { return true; };
+
 };

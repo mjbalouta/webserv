@@ -29,6 +29,7 @@
 #include <signal.h>     // signal, sigaction, SIGINT, SIGPIPE
 #include <errno.h>      // errno, EINTR
 
+#include <sys/wait.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h> // inet_addr
 #include <fcntl.h>     // fcntl
@@ -36,6 +37,7 @@
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
 #define KEEP_ALIVE_TIMEOUT 15
+#define CGI_TIMEOUT 10
 
 //UTF-8 byte masks and prefixes
 #define ASCII_MASK 0x80
