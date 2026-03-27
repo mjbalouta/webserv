@@ -152,17 +152,15 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	return cgi;
 }
 
-std::string CgiHandler::buildResponse(const std::string &rawOutput,
-                                       const std::string &httpVersion,
-                                       bool keepAlive)
+std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
-    // Mockup: just return the raw output as the body in a minimal HTTP response
-    std::ostringstream response;
-    response << httpVersion << " 200 OK\r\n";
-    response << "Content-Type: text/plain\r\n";
-    response << "Content-Length: " << rawOutput.size() << "\r\n";
-    response << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
-    response << "\r\n";
-    response << rawOutput;
-    return response.str();
+	// Mockup: just return the raw output as the body in a minimal HTTP response
+	std::ostringstream response;
+	response << httpVersion << " 200 OK\r\n";
+	response << "Content-Type: text/plain\r\n";
+	response << "Content-Length: " << rawOutput.size() << "\r\n";
+	response << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
+	response << "\r\n";
+	response << rawOutput;
+	return response.str();
 }
