@@ -18,8 +18,14 @@ void CgiHandler::buildEnv(const Request &request,
 	envp.clear();
 
 	envStrings.push_back("REQUEST_METHOD=" + request.getMethodStr());
-	envStrings.push_back("QUERY_STRING=" + request.getQueryString());
-	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
+	std::string queryString;
+	const std::map<std::string, std::string> &params = request.getQueryParams();
+	for (std::map<std::string, std::string>::const_iterator it = params.begin(); it != params.end(); ++it) {
+		if (!queryString.empty())
+			queryString += "&";
+		queryString += it->first + "=" + it->second;
+	}
+	envStrings.push_back("QUERY_STRING=" + queryString);	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
 	envStrings.push_back("PATH_INFO=" + request.getPath());
 	envStrings.push_back("PATH_TRANSLATED=" + scriptPath);
 	envStrings.push_back("SERVER_PROTOCOL=" + request.getVersion());
