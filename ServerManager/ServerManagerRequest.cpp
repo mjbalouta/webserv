@@ -158,7 +158,11 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 		client.keepAlive = (clientHeader != "close");
 	//CGI
 	if (request.isCgi(routing))
+	{
 		startCgi(client, request.getCgiFullPath(), request.getCgiInterpreter(), server);
+		return;
+	}
+
 	// else {
 	// 	// Handle error: interpreter not found
 	// 	client.status = 501;

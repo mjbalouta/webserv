@@ -439,6 +439,6 @@ bool Request::isCgi(const ConfigResolved& routing)
 		return false;
 
 	_cgiInterpreter = it->second;
-
+	
 	return true;
 }
