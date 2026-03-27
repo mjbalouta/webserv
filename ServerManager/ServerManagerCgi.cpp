@@ -37,6 +37,7 @@ void ServerManager::startCgi(ClientSession &client,
 			// POST: register write-end so epoll tells us when we can push body
 			_cgiWriteFdToClient[client.cgi.writeFd] = client.fd;
 
+			struct epoll_event ev;
 			memset(&ev, 0, sizeof(ev));
 			ev.events = EPOLLOUT;
 			ev.data.fd = client.cgi.writeFd;

@@ -1,5 +1,5 @@
 #include "ServerManager.hpp"
-#include "../ResponseBuilder.hpp"
+#include "../Response/ResponseBuilder.hpp"
 
 /**
  * @brief Closes connections that exceeded keep-alive timeout.

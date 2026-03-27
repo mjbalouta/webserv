@@ -1,9 +1,7 @@
-#pragma once
-
 #include "../config/ServerConfig.hpp"
 #include "../Includes.hpp"
 #include "../Utils.hpp"
-#include "Request.hpp"
+#include "../ServerManager/Request.hpp"
 
 /**
  * @brief Holds the pipe fds and process info for one active CGI child.

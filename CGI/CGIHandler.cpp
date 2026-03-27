@@ -152,29 +152,17 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	return cgi;
 }
 
-std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
+std::string CgiHandler::buildResponse(const std::string &rawOutput,
+                                       const std::string &httpVersion,
+                                       bool keepAlive)
 {
-/* 	size_t sep = rawOutput.find("\r\n\r\n");
-	std::string crlf = "\r\n";
-	size_t sepLen = 4;
-
-	if (sep == std::string::npos)
-	{
-		// Fall back to bare \n\n — many Python/shell scripts use this
-		sep = rawOutput.find("\n\n");
-		crlf = "\n";
-		sepLen = 2;
-	}
-
-	std::string cgiHeaderBlock;
-	std::string body;
-
-	// No header separator found — treat entire output as body
-	if (sep == std::string::npos)
-		body = rawOutput;
-	else
-	{
-		cgiHeaderBlock = rawOutput.substr(0, sep);
-		body = rawOutput.substr(sep + sepLen);
-	} */
+    // Mockup: just return the raw output as the body in a minimal HTTP response
+    std::ostringstream response;
+    response << httpVersion << " 200 OK\r\n";
+    response << "Content-Type: text/plain\r\n";
+    response << "Content-Length: " << rawOutput.size() << "\r\n";
+    response << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
+    response << "\r\n";
+    response << rawOutput;
+    return response.str();
 }
