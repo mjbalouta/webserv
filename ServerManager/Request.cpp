@@ -412,7 +412,7 @@ const std::string& Request::getCgiInterpreter() const
  */
 bool Request::isCgi(const ConfigResolved& routing)
 {
-	const std::string& requestPath = getPath();
+	// const std::string& requestPath = getPath();
 	_cgiFullPath = routing.getResolvedPath(*this);
 
 	FileSystemHandler fs;
@@ -439,6 +439,6 @@ bool Request::isCgi(const ConfigResolved& routing)
 		return false;
 
 	_cgiInterpreter = it->second;
-	
+
 	return true;
 }

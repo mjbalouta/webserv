@@ -51,8 +51,6 @@ class Request {
 		bool validateAndCacheHostHeader();
 		void cacheTransferEncodingFlags();
 		bool parseAndValidateBody(const std::string &body, size_t contentLength);
-		std::string _cgiFullPath;
-		std::string _cgiInterpreter;
 
 		int _status;
 		bool _isRedirect;
@@ -66,4 +64,6 @@ class Request {
 		std::map<std::string, std::string> _queryParams;
 		std::map<std::string, std::string> _headers;
 		std::string _body;
+		std::string _cgiFullPath;
+		std::string _cgiInterpreter;
 };

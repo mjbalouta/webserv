@@ -2,7 +2,8 @@
 
 #include "../config/LocationConfig.hpp"
 #include "../config/ServerConfig.hpp"
-#include "../ServerManager/Request.hpp"
+
+class Request;
 
 class ConfigResolved
 {
