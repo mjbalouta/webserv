@@ -392,3 +392,53 @@ std::string Request::getMethodStr() const{
 			return "NONE";
 	}
 }
+
+const std::string& Request::getCgiFullPath() const
+{
+	return _cgiFullPath;
+}
+
+const std::string& Request::getCgiInterpreter() const
+{
+	return _cgiInterpreter;
+}
+
+/**
+ * @brief Checks if the Request is a CGI one
+ * 
+ * @param request 
+ * @return true 
+ * @return false 
+ */
+bool Request::isCgi(const ConfigResolved& routing)
+{
+	const std::string& requestPath = getPath();
+	_cgiFullPath = routing.getResolvedPath(*this);
+
+	FileSystemHandler fs;
+
+	if (!fs.pathExists(_cgiFullPath))
+	{
+		setStatus(404);
+		return false;
+	}
+	if (!fs.isReadable(_cgiFullPath) || fs.isDirectory(_cgiFullPath))
+	{
+		setStatus(403);
+		return false;
+	}
+	
+	//checking if extension exists in the config file
+	size_t dotPos = _cgiFullPath.find_last_of('.');
+	if (dotPos == std::string::npos || dotPos == _cgiFullPath.size() - 1)
+		return false;
+	std::string requestExtension = _cgiFullPath.substr(dotPos);
+	const std::map<std::string, std::string>& cgiMap = routing.getCgi();
+	std::map<std::string, std::string>::const_iterator it = cgiMap.find(requestExtension);
+	if (it == cgiMap.end())
+		return false;
+
+	_cgiInterpreter = it->second;
+	
+	return true;
+}

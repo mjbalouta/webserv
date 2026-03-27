@@ -9,6 +9,8 @@ INC_PATH		= .
 BUILD_PATH		= .build
 
 FILES			= main.cpp \
+				  CGI/CGIHandler.cpp \
+				  CGI/CGIHandler.hpp \
 				  config/parser/ConfigParser.cpp \
 				  config/parser/ConfigUtils.cpp \
 				  config/parser/LocationParser.cpp \
@@ -18,6 +20,7 @@ FILES			= main.cpp \
 				  Utils.cpp \
 				  ServerManager/Request.cpp \
 				  ServerManager/ServerManager.cpp \
+				  ServerManager/ServerManagerCgi.cpp \
 				  ServerManager/ServerManagerChunked.cpp \
 				  ServerManager/ServerManagerClient.cpp \
 				  ServerManager/ServerManagerLoop.cpp \

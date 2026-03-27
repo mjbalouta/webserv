@@ -311,39 +311,3 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 			client.state = PROCESSING;
 	}
 }
-
-/**
- * @brief Checks if the Request is a CGI one
- * 
- * @param request 
- * @return true 
- * @return false 
- */
-bool Request::isCGI(const ConfigResolved& routing)
-{
-	const std::string& requestPath = getPath();
-
-	FileSystemHandler fs;
-
-	if (!fs.pathExists(requestPath))
-	{
-		setStatus(404);
-		return false;
-	}
-	if (!fs.isReadable(requestPath) || fs.isDirectory(requestPath))
-	{
-		setStatus(403);
-		return false;
-	}
-	
-	//checking if extension exists in the config file
-	size_t dotPos = requestPath.find_last_of('.');
-	if (dotPos == std::string::npos || dotPos == requestPath.size() - 1)
-		return false;
-	std::string requestExtension = requestPath.substr(dotPos);
-	const std::map<std::string, std::string>& cgiMap = routing.getCgi();
-	std::map<std::string, std::string>::const_iterator it = cgiMap.find(requestExtension);
-	if (it == cgiMap.end())
-		return false;
-	return true;
-}

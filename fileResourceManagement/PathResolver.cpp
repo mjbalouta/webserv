@@ -23,7 +23,7 @@ std::string PathResolver::normalizePath(const std::string& path){
     for (; it != array.end(); ++it) {
         if (*it == "" || *it == ".")
             continue;
-        else if (*it == "..") {
+        else if (*it == ".." || *it == "%2e%2e" || *it == "%2e%2e%2f" || *it == "%2e%2e%5c") {
             if (!normalizedPath.empty())
             {
                 size_t lastSlash = normalizedPath.find_last_of('/');

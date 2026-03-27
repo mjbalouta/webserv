@@ -92,12 +92,18 @@ void ConfigParser::parseCGI(LocationConfig& location)
 	if (_tokens[_currentToken] == ";")
 		throw ConfigException("Error: Missing path for the executor: " + _tokens[_currentToken - 1]);
 
-	ConfigUtils::validatePath(_tokens[_currentToken]);
 	std::string extensionPath = _tokens[_currentToken];
+<<<<<<< HEAD
 	if (extensionPath[0] != '/')
 		extensionPath = _absolutePath + extensionPath;
 
 	ConfigUtils::CheckInterpreter(extensionPath);
+=======
+	ConfigUtils::validatePath(extensionPath);
+	if (extensionPath[0] != '/')
+		extensionPath = _absolutePath + extensionPath;
+
+>>>>>>> dev
 	ConfigUtils::checksIfAlreadyExists(extensionPath, location);
 	location.addCGI(extension, extensionPath);
 

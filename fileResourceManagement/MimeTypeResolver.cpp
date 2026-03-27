@@ -42,7 +42,6 @@ std::string MimeTypeResolver::getTypeByExtension(const std::string& filename){
             return "application/octet-stream";
     std::string extension = filename.substr(dot);
 
-    std::cout << "Extension: " << extension << std::endl;
     for (size_t i = 0; i < extension.size(); ++i)
         extension[i] = std::tolower(extension[i]);
 

@@ -18,8 +18,19 @@ void CgiHandler::buildEnv(const Request &request,
 	envp.clear();
 
 	envStrings.push_back("REQUEST_METHOD=" + request.getMethodStr());
+<<<<<<< HEAD
 	envStrings.push_back("QUERY_STRING=" + request.getQueryString());
 	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
+=======
+	std::string queryString;
+	const std::map<std::string, std::string> &params = request.getQueryParams();
+	for (std::map<std::string, std::string>::const_iterator it = params.begin(); it != params.end(); ++it) {
+		if (!queryString.empty())
+			queryString += "&";
+		queryString += it->first + "=" + it->second;
+	}
+	envStrings.push_back("QUERY_STRING=" + queryString);	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
+>>>>>>> dev
 	envStrings.push_back("PATH_INFO=" + request.getPath());
 	envStrings.push_back("PATH_TRANSLATED=" + scriptPath);
 	envStrings.push_back("SERVER_PROTOCOL=" + request.getVersion());
@@ -64,9 +75,6 @@ void CgiHandler::buildEnv(const Request &request,
  */
 CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPath, const std::string &interpreter, const ServerConfig &server)
 {
-	//VALIDAÇÃO/PARSE DO SCRIPT
-	
-
 	int inPipe[2];
 	int outPipe[2];
 
@@ -151,6 +159,7 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 
 std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
+<<<<<<< HEAD
 /* 	size_t sep = rawOutput.find("\r\n\r\n");
 	std::string crlf = "\r\n";
 	size_t sepLen = 4;
@@ -174,4 +183,15 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		cgiHeaderBlock = rawOutput.substr(0, sep);
 		body = rawOutput.substr(sep + sepLen);
 	} */
+=======
+	// Mockup: just return the raw output as the body in a minimal HTTP response
+	std::ostringstream response;
+	response << httpVersion << " 200 OK\r\n";
+	response << "Content-Type: text/plain\r\n";
+	response << "Content-Length: " << rawOutput.size() << "\r\n";
+	response << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
+	response << "\r\n";
+	response << rawOutput;
+	return response.str();
+>>>>>>> dev
 }

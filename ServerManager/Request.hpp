@@ -38,7 +38,9 @@ class Request {
 		const std::map<std::string, std::string> &getQueryParams() const { return _queryParams; };
 		const std::map<std::string, std::string> &getHeaders() const { return _headers; };
 		std::string getHeader(const std::string &keyHeader) const;
-		bool isCGI(const ConfigResolved& routing);
+		bool isCgi(const ConfigResolved& routing);
+		const std::string& getCgiFullPath() const;
+		const std::string& getCgiInterpreter() const;
 
 	private:
 		void resetStateForParsing();
@@ -49,6 +51,8 @@ class Request {
 		bool validateAndCacheHostHeader();
 		void cacheTransferEncodingFlags();
 		bool parseAndValidateBody(const std::string &body, size_t contentLength);
+		std::string _cgiFullPath;
+		std::string _cgiInterpreter;
 
 		int _status;
 		bool _isRedirect;

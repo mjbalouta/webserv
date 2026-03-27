@@ -156,23 +156,30 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 		client.keepAlive = (clientHeader == "keep-alive");
 	else
 		client.keepAlive = (clientHeader != "close");
-
-	
-
+	//CGI
+	if (request.isCgi(routing))
+		startCgi(client, request.getCgiFullPath(), request.getCgiInterpreter(), server);
+	// else {
+	// 	// Handle error: interpreter not found
+	// 	client.status = 501;
+	// 	client.keepAlive = false;
+	// 	client.state = WRITING;
+	// 	ResponseBuilder rb;
+	// 	ConfigResolved config(request, server);
+	// 	client.writeBuffer = rb.returnGenericErrorResponse(501, request, config);
+	// 	client.totalSent = 0;
+	// 	modClientEpoll(client, EPOLLOUT);
+	// }
+	// return;
+	// }
+	//NORMAL
 	ResponseBuilder rb;
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
-    client.totalSent = 0;
-    client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
-/* 	// Placeholder response source until the real resource engine exists.
-	if (request.isAutoIndex())
-		// Person 3 hook: replace this placeholder body source with final
-		// resource engine output (file content/error page/rendered directory).
-		client.responseStr = request.getAutoIndexPath();
-	else
-		client.responseStr.clear();
-	// Parsing + request processing is done; next step is writing a response. */
+	client.totalSent = 0;
+	client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
 	client.state = WRITING;
 }
+
 
 /**
  * @brief Sends response bytes and handles keep-alive reset/close decisions.
