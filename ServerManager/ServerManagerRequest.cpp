@@ -157,6 +157,8 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	else
 		client.keepAlive = (clientHeader != "close");
 
+	
+
 	ResponseBuilder rb;
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
     client.totalSent = 0;

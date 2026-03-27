@@ -293,3 +293,15 @@ void ConfigUtils::validateIP(std::string& token, std::string& errorMessage)
 			throw ConfigException(errorMessage);
 	}
 }
+
+void ConfigUtils::CheckInterpreter(const std::string& extensionPath)
+{
+	FileSystemHandler fs;
+
+	if (!fs.pathExists(extensionPath))
+		throw ConfigException("Error: CGI Interpreter doesn't exist.");
+	if (fs.isDirectory(extensionPath))
+		throw ConfigException("Error: CGI Interpreter is a directory.");
+	if (access(extensionPath.c_str(), X_OK) != 0)
+		throw ConfigException("Error: Impossible to execute CGI Interpreter.");
+}

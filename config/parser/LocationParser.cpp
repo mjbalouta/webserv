@@ -94,8 +94,11 @@ void ConfigParser::parseCGI(LocationConfig& location)
 
 	ConfigUtils::validatePath(_tokens[_currentToken]);
 	std::string extensionPath = _tokens[_currentToken];
+	if (extensionPath[0] != '/')
+		extensionPath = _absolutePath + extensionPath;
 
-	ConfigUtils::checksIfAlreadyExists(_tokens[_currentToken], location);
+	ConfigUtils::CheckInterpreter(extensionPath);
+	ConfigUtils::checksIfAlreadyExists(extensionPath, location);
 	location.addCGI(extension, extensionPath);
 
 	++_currentToken;

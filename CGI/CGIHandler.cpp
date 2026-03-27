@@ -64,6 +64,9 @@ void CgiHandler::buildEnv(const Request &request,
  */
 CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPath, const std::string &interpreter, const ServerConfig &server)
 {
+	//VALIDAÇÃO/PARSE DO SCRIPT
+	
+
 	int inPipe[2];
 	int outPipe[2];
 

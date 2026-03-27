@@ -1,6 +1,8 @@
 #pragma once
 #include "../Includes.hpp"
 #include "../Utils.hpp"
+#include "../fileResourceManagement/FileSystemHandler.hpp"
+#include "../routing/ConfigResolved.hpp"
 
 enum Method {
 	GET,
@@ -36,6 +38,7 @@ class Request {
 		const std::map<std::string, std::string> &getQueryParams() const { return _queryParams; };
 		const std::map<std::string, std::string> &getHeaders() const { return _headers; };
 		std::string getHeader(const std::string &keyHeader) const;
+		bool isCGI(const ConfigResolved& routing);
 
 	private:
 		void resetStateForParsing();
