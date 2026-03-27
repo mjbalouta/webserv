@@ -298,9 +298,9 @@ void ConfigUtils::CheckInterpreter(const std::string& extensionPath)
 	FileSystemHandler fs;
 
 	if (!fs.pathExists(extensionPath))
-		throw ConfigException("Error: CGI Interpreter doesn't exist.");
+		throw ConfigException("Error: CGI Interpreter doesn't exist: " + extensionPath);
 	if (fs.isDirectory(extensionPath))
-		throw ConfigException("Error: CGI Interpreter is a directory.");
+		throw ConfigException("Error: CGI Interpreter is a directory: " + extensionPath);
 	if (access(extensionPath.c_str(), X_OK) != 0)
-		throw ConfigException("Error: Impossible to execute CGI Interpreter.");
+		throw ConfigException("Error: Impossible to execute CGI Interpreter: " + extensionPath);
 }

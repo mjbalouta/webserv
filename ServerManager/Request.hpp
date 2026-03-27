@@ -3,6 +3,7 @@
 #include "../Utils.hpp"
 #include "../fileResourceManagement/FileSystemHandler.hpp"
 #include "../routing/ConfigResolved.hpp"
+#include "../fileResourceManagement/PathResolver.hpp"
 
 enum Method {
 	GET,

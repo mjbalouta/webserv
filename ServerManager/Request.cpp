@@ -412,22 +412,11 @@ const std::string& Request::getCgiInterpreter() const
  */
 bool Request::isCgi(const ConfigResolved& routing)
 {
+
 	// const std::string& requestPath = getPath();
 	_cgiFullPath = routing.getResolvedPath(*this);
-
-	FileSystemHandler fs;
-
-	if (!fs.pathExists(_cgiFullPath))
-	{
-		setStatus(404);
-		return false;
-	}
-	if (!fs.isReadable(_cgiFullPath) || fs.isDirectory(_cgiFullPath))
-	{
-		setStatus(403);
-		return false;
-	}
 	
+
 	//checking if extension exists in the config file
 	size_t dotPos = _cgiFullPath.find_last_of('.');
 	if (dotPos == std::string::npos || dotPos == _cgiFullPath.size() - 1)
@@ -439,6 +428,25 @@ bool Request::isCgi(const ConfigResolved& routing)
 		return false;
 
 	_cgiInterpreter = it->second;
-	
+
+	FileSystemHandler fs;
+	PathResolver p;
+
+	if (!p.isPathSafe(_cgiFullPath, routing.getRoot()))
+	{
+		setStatus(403);
+		return false;
+	}
+	if (!fs.pathExists(_cgiFullPath))
+	{
+		setStatus(404);
+		return false;
+	}
+	if (!fs.isReadable(_cgiFullPath) || fs.isDirectory(_cgiFullPath))
+	{
+		setStatus(403);
+		return false;
+	}
+		
 	return true;
 }
