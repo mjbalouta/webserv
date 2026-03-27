@@ -32,4 +32,5 @@ class ConfigResolved
 	std::string getReturnMessage() const;
 	const std::map<std::string, std::string>& getCgi() const;
 	std::string getUploadStore() const;
+	const std::vector<int>& getPorts() const;
 };
