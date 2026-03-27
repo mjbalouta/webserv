@@ -1,0 +1,199 @@
+Here’s a practical guide to implement CGI in your current architecture (epoll + ServerManager state machine + ResponseBuilder returning a full HTTP response string). I’ll describe both a “quick but blocking” approach and the “correct epoll-friendly” approach, and where each piece fits in your files.
+
+1) Decide where CGI is detected
+You already have what you need in routing/config:
+
+ConfigResolved::getCgi() returns map<ext, executorPath> (from cgi_pass).
+ConfigResolved::getResolvedPath(request) gives you the filesystem path of the requested resource.
+So your CGI decision is basically:
+
+Compute scriptPath = resolvedConfig.getResolvedPath(request)
+Extract extension (e.g. .py, .php)
+If extension exists in resolvedConfig.getCgi(), treat as CGI request.
+Where to do this check:
+
+Best place: right in ResponseBuilder.cpp inside returnResponse() after method/return-directive checks, and before the normal static-file/directory serving.
+This keeps “routing” in one place: ResponseBuilder decides whether it’s static vs CGI vs upload.
+You’ll want a helper like:
+
+bool isCgiRequest(const Request&, const ConfigResolved&, std::string& outScriptPath, std::string& outExecutor)
+2) Define the CGI execution contract in your code
+Think of CGI as: you run a program, feed it the request body on stdin, read its stdout, then turn that into an HTTP response.
+
+Minimal required pieces:
+
+argv: executor + scriptPath (common pattern: ["/usr/bin/python3", "/abs/path/to/script.py"])
+envp: CGI variables + HTTP_* headers
+stdin: request body (already decoded if chunked in your Request)
+stdout: CGI output
+Output format you should accept:
+
+Typical CGI output is headers + blank line + body, like:
+Content-Type: text/html\r\n
+Status: 200 OK\r\n (optional)
+\r\n
+<html>...
+Some CGIs output a full HTTP status line; you can support it, but you don’t have to if your testers don’t require it. Safest is: if it starts with HTTP/, treat it as already a full response.
+3) Build the CGI environment (envp) using your Request
+Create env vars from Request + server info:
+
+Required / common CGI vars:
+
+REQUEST_METHOD=GET|POST|DELETE
+SERVER_PROTOCOL=HTTP/1.1
+QUERY_STRING=... (everything after ?, no leading ?)
+CONTENT_LENGTH=... (only if body exists / header provided)
+CONTENT_TYPE=... (from request header if present)
+SCRIPT_FILENAME=/abs/path/to/script
+SCRIPT_NAME=/cgi-bin/hello.py (the URL path; often just request path without query)
+PATH_INFO= (optional; if you support /cgi-bin/script.py/extra/stuff)
+GATEWAY_INTERFACE=CGI/1.1
+SERVER_NAME= (can use Host header or configured server name)
+SERVER_PORT= (port from your bound server)
+REMOTE_ADDR= (client IP if you track it)
+And map request headers to HTTP_*:
+
+For each header name: value, add: HTTP_<NAME> where:
+uppercase
+- becomes _
+e.g. User-Agent → HTTP_USER_AGENT
+Usually you do not also include HTTP_CONTENT_TYPE / HTTP_CONTENT_LENGTH if you already set CONTENT_TYPE / CONTENT_LENGTH, but including both typically doesn’t break most CGIs.
+Implementation tips (C++98):
+
+Build std::vector<std::string> envStrings; then later build std::vector<char*> envp; pointing to envStrings[i].c_str() after envStrings is fully built.
+Same for argv.
+4) Wire CGI into your server loop: two approaches
+
+Approach A (quick, simplest): blocking CGI inside ResponseBuilder
+You implement ResponseBuilder::buildCgiResponse() that:
+
+fork()
+execve() in child
+parent write() full request body to child stdin
+parent read() all stdout into a string (blocking)
+waitpid() (blocking)
+parse CGI output → build final response string → return it
+Pros:
+
+Minimal refactor
+Easy to get working
+Cons:
+
+It blocks your whole epoll loop while CGI runs (one slow script stalls all clients)
+Might fail under heavy “siege” style tests
+If you only want “get it working first”, do this.
+
+Approach B (recommended with your epoll design): asynchronous CGI managed by ServerManager
+This fits your architecture better.
+
+High-level state machine:
+
+Request fully parsed → decide CGI
+Spawn CGI child and create pipes
+Register CGI stdout pipe fd in epoll
+While CGI running:
+write request body to CGI stdin (possibly in chunks; nonblocking)
+read CGI stdout when EPOLLIN fires
+When CGI stdout closes and child exits:
+parse output
+build _responseBuffer
+switch client state to WRITING (your normal send path)
+Where this logic should live:
+
+Not in ResponseBuilder (it expects to return a string immediately).
+Put process + pipe management into ServerManager, likely alongside:
+ServerManagerRequest.cpp
+ServerManagerLoop.cpp
+and/or a new ServerManagerCgi.cpp if you prefer, but keep it minimal.
+Minimal refactor suggestion:
+
+Add to your per-client struct/class:
+bool isCgi;
+pid_t cgiPid;
+int cgiStdinFd; (parent side write-end)
+int cgiStdoutFd; (parent side read-end)
+buffers:
+std::string cgiOut;
+size_t cgiBodyWritten;
+time_t cgiStart; for timeout
+Event handling:
+
+On “request ready to process”:
+
+if CGI: call startCgi(client, request, resolvedConfig)
+else: current flow (ResponseBuilder builds static/upload response)
+In epoll loop:
+
+If event on cgiStdoutFd: read append to cgiOut
+If event on cgiStdinFd and not all body written: write next chunk; close fd when done
+Detect child exit via:
+periodic waitpid(pid, &status, WNOHANG) in loop, OR
+signalfd/SIGCHLD integration (more complex; WNOHANG polling is acceptable for 42)
+When CGI finished and stdout closed:
+
+call a pure function in ResponseBuilder like:
+std::string buildCgiHttpResponse(const Request&, const ConfigResolved&, const std::string& cgiRawOutput, bool keepAlive)
+store that as the client’s response and switch to WRITING.
+Timeout:
+
+If runtime exceeds N seconds: kill child, return 504 Gateway Timeout (or 500 if you want simpler).
+5) Pipe + fork/exec details (core mechanics)
+You need two pipes:
+
+inPipe: parent writes → child reads as stdin
+outPipe: child writes stdout → parent reads
+Pseudo-steps:
+
+pipe(inPipe), pipe(outPipe)
+pid = fork()
+Child:
+dup2(inPipe[0], STDIN_FILENO)
+dup2(outPipe[1], STDOUT_FILENO)
+optionally dup2(outPipe[1], STDERR_FILENO) to capture errors
+close all unused fds
+execve(executorPath, argv, envp)
+if exec fails: _exit(1)
+Parent:
+close unused ends
+set nonblocking on the fds if you do Approach B
+write body, read output
+6) Parsing CGI output into your HTTP response
+Write one parser that accepts the CGI stdout string.
+
+Rules that work well:
+
+If output begins with HTTP/1.:
+treat it as a full HTTP response, but you may still want to enforce your own Connection header consistency.
+Else:
+split at first \r\n\r\n (or \n\n as fallback)
+parse headers section line-by-line:
+if line starts with Status: parse status code + reason
+record Content-Type if provided
+record other headers (Set-Cookie, etc.)
+remaining part is body
+build status line using your existing helpers:
+default status: 200 OK if no Status:
+If CGI didn’t provide Content-Length, you can set it yourself = body size.
+Add your standard headers (Date, Connection, etc.) consistently (similar to setStandardHeaders).
+One important choice:
+
+If CGI outputs Location: without Status:, CGI spec often implies redirect. But for simplicity you can just forward headers as-is and rely on Status: if present.
+7) How to align with your existing config (cgi_pass)
+Your cgi_pass currently maps extension → “executor path”.
+So if config has:
+
+cgi_pass .py /usr/bin/python3;
+Then:
+
+requested /cgi-bin/hello.py → executor python3, script = resolved filesystem path to hello.py.
+That matches your current parser/storage model perfectly.
+
+8) Error handling mapping (what status codes to return)
+Keep it simple and consistent with the rest of your server:
+
+If script path doesn’t exist / unreadable: 404 or 403
+If executor path invalid / not executable: 500
+If fork/pipe fails: 500
+If CGI times out: 504 (or 500 if you prefer)
+If CGI output is malformed (no header/body delimiter when needed): 500
+If CGI exits non-zero: you can still serve its stdout if it produced valid output; otherwise 500
