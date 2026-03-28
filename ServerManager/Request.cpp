@@ -1,4 +1,7 @@
 #include "Request.hpp"
+#include "../routing/ConfigResolved.hpp"
+#include "../fileResourceManagement/FileSystemHandler.hpp"
+#include "../fileResourceManagement/PathResolver.hpp"
 
 /**
  * @brief Checks if a string is valid UTF-8 and contains only printable characters.
