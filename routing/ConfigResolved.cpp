@@ -1,4 +1,5 @@
 #include "ConfigResolved.hpp"
+#include "../ServerManager/Request.hpp"
 
 ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& server)
 {

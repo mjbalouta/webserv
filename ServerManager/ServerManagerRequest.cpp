@@ -157,34 +157,25 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	else
 		client.keepAlive = (clientHeader != "close");
 	//CGI
-	if (routing.isCgi())
+	if (request.isCgi(routing))
 	{
-		std::string scriptPath = server.getRoot() + request.getPath(); //MAYBE this works ??????? request.getPath() →  "/cgi-bin/script.py" execve can't use this. "/www/cgi-bin/script.py"
-		std::string extension;
-		size_t dotPos = scriptPath.find_last_of('.');
-		if (dotPos != std::string::npos)
-			extension = scriptPath.substr(dotPos);
-
-		std::string interpreter;
-		std::map<std::string, std::string> cgiMap = routing.getCgi();
-		std::map<std::string, std::string>::const_iterator it = cgiMap.find(extension);
-		if (it != cgiMap.end()){
-			interpreter = it->second;
-			startCgi(client, scriptPath, interpreter, server);
-		}
-		else {
-			// Handle error: interpreter not found
-			client.status = 501;
-			client.keepAlive = false;
-			client.state = WRITING;
-			ResponseBuilder rb;
-			ConfigResolved config(request, server);
-			client.writeBuffer = rb.returnGenericErrorResponse(501, request, config);
-			client.totalSent = 0;
-			modClientEpoll(client, EPOLLOUT);
-		}
+		startCgi(client, request.getCgiFullPath(), request.getCgiInterpreter(), server);
 		return;
 	}
+
+	// else {
+	// 	// Handle error: interpreter not found
+	// 	client.status = 501;
+	// 	client.keepAlive = false;
+	// 	client.state = WRITING;
+	// 	ResponseBuilder rb;
+	// 	ConfigResolved config(request, server);
+	// 	client.writeBuffer = rb.returnGenericErrorResponse(501, request, config);
+	// 	client.totalSent = 0;
+	// 	modClientEpoll(client, EPOLLOUT);
+	// }
+	// return;
+	// }
 	//NORMAL
 	ResponseBuilder rb;
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
@@ -192,6 +183,7 @@ void ServerManager::processClientRequest(ClientSession &client, Request &request
 	client.responseStr.clear(); // optional, but avoids mixing old placeholder paths
 	client.state = WRITING;
 }
+
 
 /**
  * @brief Sends response bytes and handles keep-alive reset/close decisions.

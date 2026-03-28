@@ -90,9 +90,8 @@ void ConfigUtils::validateURL(std::string& url)
  */
 void ConfigUtils::validatePath(std::string& token)
 {
-/* 	if (token[0] != '/')
-		throw ConfigException("Error: Invalid path format: " + token);
- */
+ 	// if (token[0] != '/' && token[0] != '.')
+	// 	throw ConfigException("Error: Invalid path format: " + token);
 	if (token.find("..") != std::string::npos)
 		throw ConfigException("Error: Invalid path format: " + token);
 	
@@ -292,4 +291,16 @@ void ConfigUtils::validateIP(std::string& token, std::string& errorMessage)
 		if (parts[i].size() > 1 && parts[i][0] == '0')
 			throw ConfigException(errorMessage);
 	}
+}
+
+void ConfigUtils::CheckInterpreter(const std::string& extensionPath)
+{
+	FileSystemHandler fs;
+
+	if (!fs.pathExists(extensionPath))
+		throw ConfigException("Error: CGI Interpreter doesn't exist: " + extensionPath);
+	if (fs.isDirectory(extensionPath))
+		throw ConfigException("Error: CGI Interpreter is a directory: " + extensionPath);
+	if (access(extensionPath.c_str(), X_OK) != 0)
+		throw ConfigException("Error: Impossible to execute CGI Interpreter: " + extensionPath);
 }
