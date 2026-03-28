@@ -154,7 +154,6 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 
 std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
-	// Mockup: just return the raw output as the body in a minimal HTTP response
 	if (rawOutput.empty())
 	{
 		ErrorPageGenerator error;
@@ -173,8 +172,6 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 	}
 	if (rawOutput.find("HTTP/") == 0)
 	{
-		// The CGI script already included a full HTTP response (e.g. from PHP-CGI).
-		// We just need to ensure it has a proper Connection header based on keepAlive.
 		std::string response = rawOutput;
 		std::string sep = "\r\n\r\n";
 		size_t pos = response.find(sep);
@@ -188,7 +185,6 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 			std::string headers = response.substr(0, pos);
 			std::string body = response.substr(pos + sep.size());
 
-			// Check if Connection header is already present
 			if (toLower(headers).find("connection:") == std::string::npos)
 			{
 				headers += "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close");
@@ -205,8 +201,6 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		blankLine = "\n\n";
 	else
 	{
-		/* std::string contentType = "text/plain";
-		return httpVersion + " 200 OK\r\n" + contentType + "\r\n\r\n" + rawOutput; */
 		ErrorPageGenerator error;
 		std::string statusLine = httpVersion + " 500 " + error.getReasonPhrase(500) + "\r\n";
 		std::string contentType = "text/html";
@@ -268,7 +262,6 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 				}
 				headerResponse += headers[i].first + ": " + headers[i].second + "\r\n";
 			}
-			// Ensure Content-Length exists and matches actual captured body size
 			if (toLower(headerResponse).find("content-length:") == std::string::npos)
 			{
 				std::stringstream ss;
