@@ -155,12 +155,140 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
 {
 	// Mockup: just return the raw output as the body in a minimal HTTP response
-	std::ostringstream response;
-	response << httpVersion << " 200 OK\r\n";
-	response << "Content-Type: text/plain\r\n";
-	response << "Content-Length: " << rawOutput.size() << "\r\n";
-	response << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
-	response << "\r\n";
-	response << rawOutput;
-	return response.str();
+	if (rawOutput.empty())
+	{
+		ErrorPageGenerator error;
+		std::string statusLine = httpVersion + " 500 " + error.getReasonPhrase(500) + "\r\n";
+		std::string contentType = "text/html";
+		std::string body = error.generateErrorPage(500, "Internal Server Error");
+		std::stringstream ss;
+		ss << body.size();
+		std::string response = statusLine;
+		response += "Content-Type: " + contentType + "\r\n";
+		response += "Content-Length: " + ss.str() + "\r\n";
+		response += std::string("Connection: ") + (keepAlive ? "keep-alive" : "close") + "\r\n";
+		response += "\r\n";
+		response += body;
+		return response;
+	}
+	if (rawOutput.find("HTTP/") == 0)
+	{
+		// The CGI script already included a full HTTP response (e.g. from PHP-CGI).
+		// We just need to ensure it has a proper Connection header based on keepAlive.
+		std::string response = rawOutput;
+		std::string sep = "\r\n\r\n";
+		size_t pos = response.find(sep);
+		if (pos == std::string::npos)
+		{
+			sep = "\n\n";
+			pos = response.find(sep);
+		}
+		if (pos != std::string::npos)
+		{
+			std::string headers = response.substr(0, pos);
+			std::string body = response.substr(pos + sep.size());
+
+			// Check if Connection header is already present
+			if (toLower(headers).find("connection:") == std::string::npos)
+			{
+				headers += "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close");
+				response = headers + "\r\n\r\n" + body;
+			}
+		}
+		return response;
+	}
+	
+	std::string blankLine;
+	if (rawOutput.find("\r\n\r\n") != std::string::npos)
+		blankLine = "\r\n\r\n";
+	else if (rawOutput.find("\n\n") != std::string::npos)
+		blankLine = "\n\n";
+	else
+	{
+		/* std::string contentType = "text/plain";
+		return httpVersion + " 200 OK\r\n" + contentType + "\r\n\r\n" + rawOutput; */
+		ErrorPageGenerator error;
+		std::string statusLine = httpVersion + " 500 " + error.getReasonPhrase(500) + "\r\n";
+		std::string contentType = "text/html";
+		std::string body = error.generateErrorPage(500, error.getReasonPhrase(500));
+		std::stringstream ss;
+		ss << body.size();
+		std::string contentLength = ss.str();
+		std::string response = statusLine;
+		response += "Content-Type: " + contentType + "\r\n";
+		response += "Content-Length: " + contentLength + "\r\n";
+		response += std::string("Connection: ") + (keepAlive ? "keep-alive" : "close") + "\r\n";
+		response += "\r\n";
+		response += body;
+		return response;
+	}
+	std::vector<std::pair<std::string, std::string> > headers;
+
+	if (!blankLine.empty())
+	{
+		if (rawOutput.find(blankLine) != std::string::npos)
+		{
+			std::string headersPart = rawOutput.substr(0, rawOutput.find(blankLine));
+			std::string bodyPart = rawOutput.substr(rawOutput.find(blankLine) + blankLine.size());
+
+			std::istringstream headerStream(headersPart);
+			std::string line;
+			while (std::getline(headerStream, line, '\n'))
+			{
+				if (!line.empty() && line[line.size() - 1] == '\r')
+					line.erase(line.size() - 1);
+				size_t colonPos = line.find(":");
+				if (colonPos != std::string::npos)
+				{
+					std::string key = line.substr(0, colonPos);
+					std::string value = line.substr(colonPos + 1);
+					trimSpaces(key);
+					trimSpaces(value);
+					headers.push_back(std::make_pair(key, value));
+				}
+			}
+			if (headers.empty())
+				headers.push_back(std::make_pair("Content-Type", "text/plain"));
+			std::string headerResponse;
+			bool hasStatusLine = false;
+			for (size_t i = 0; i < headers.size(); ++i)
+			{
+				std::string keyLower = toLower(headers[i].first);
+				if (keyLower == "status")
+				{
+					headerResponse += httpVersion + " " + headers[i].second + "\r\n";
+					hasStatusLine = true;
+					continue;
+				}
+				if (keyLower == "content-length")
+				{
+					std::stringstream ss;
+					ss << bodyPart.size();
+					headers[i].second = ss.str();
+				}
+				headerResponse += headers[i].first + ": " + headers[i].second + "\r\n";
+			}
+			// Ensure Content-Length exists and matches actual captured body size
+			if (toLower(headerResponse).find("content-length:") == std::string::npos)
+			{
+				std::stringstream ss;
+				ss << bodyPart.size();
+				headerResponse += "Content-Length: " + ss.str() + "\r\n";
+			}
+			if (toLower(headerResponse).find("connection:") == std::string::npos)
+				headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
+			std::string response;
+			if (!hasStatusLine)
+				response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n\r\n" + bodyPart;
+			else
+				response = headerResponse + "\r\n\r\n" + bodyPart;
+			return response;
+		}
+		else
+		{
+			std::string contentType = "text/plain";
+			return httpVersion + " 200 OK\r\nContent-Type: " + contentType + "\r\nContent-Length: " + itostr(rawOutput.size()) + "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + rawOutput;
+		}
+	}
+	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + rawOutput;
 }
