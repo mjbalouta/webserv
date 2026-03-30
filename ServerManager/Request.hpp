@@ -2,6 +2,8 @@
 #include "../Includes.hpp"
 #include "../Utils.hpp"
 
+class ConfigResolved;
+
 enum Method {
 	GET,
 	POST,
@@ -37,6 +39,9 @@ class Request {
 		const std::string& getSpecificQuery(const std::string& name) const;
 		const std::map<std::string, std::string> &getHeaders() const { return _headers; };
 		std::string getHeader(const std::string &keyHeader) const;
+		bool isCgi(const ConfigResolved& routing);
+		const std::string& getCgiFullPath() const;
+		const std::string& getCgiInterpreter() const;
 
 	private:
 		void resetStateForParsing();
@@ -60,4 +65,6 @@ class Request {
 		std::map<std::string, std::string> _queryParams;
 		std::map<std::string, std::string> _headers;
 		std::string _body;
+		std::string _cgiFullPath;
+		std::string _cgiInterpreter;
 };

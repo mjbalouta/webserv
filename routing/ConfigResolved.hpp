@@ -2,7 +2,8 @@
 
 #include "../config/LocationConfig.hpp"
 #include "../config/ServerConfig.hpp"
-#include "../ServerManager/Request.hpp"
+
+class Request;
 
 class ConfigResolved
 {
@@ -15,7 +16,6 @@ class ConfigResolved
 	
 	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request) const;
 	const ServerConfig& getServerBlock() const;
-	std::vector<int> getPorts() const;
 	const std::string& getAbsolutePath() const;
 	std::string getLocationPath() const;
 	std::string getResolvedPath(const Request& request) const;
@@ -33,4 +33,7 @@ class ConfigResolved
 	std::string getReturnMessage() const;
 	const std::map<std::string, std::string>& getCgi() const;
 	std::string getUploadStore() const;
+	const std::vector<int>& getPorts() const;
+	bool isCgi() { return true; };
+
 };

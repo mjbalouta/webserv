@@ -118,6 +118,8 @@ void ServerManager::closeClient(int serverIndex, int fd)
 	{
 		printLog("⚠️ Failed to remove fd from epoll during close: " + std::string(error.what()), YEL);
 	}
+	// kill CGI child + close pipe fds if active
+	cleanupCgi(it->second);
 	// Close the socket itself and mark the session state as CLOSING.
 	closeClientSocket(it->second);
 	// Remove the reverse lookup entry fd -> serverIndex.

@@ -1,4 +1,7 @@
 #include "Request.hpp"
+#include "../routing/ConfigResolved.hpp"
+#include "../fileResourceManagement/FileSystemHandler.hpp"
+#include "../fileResourceManagement/PathResolver.hpp"
 
 /**
  * @brief Checks if a string is valid UTF-8 and contains only printable characters.
@@ -407,4 +410,73 @@ const std::string& Request::getSpecificQuery(const std::string& name) const
 	
 	static const std::string empty = "";
 	return empty;
+}
+
+const std::string& Request::getCgiFullPath() const
+{
+	return _cgiFullPath;
+}
+
+const std::string& Request::getCgiInterpreter() const
+{
+	return _cgiInterpreter;
+}
+
+/**
+ * @brief Parses request path, checks if it is safe (if it's not it sets the correct status for it)
+ * and checks if it is a CGI request or not
+ * 
+ * @param routing 
+ * @return true 
+ * @return false 
+ */
+bool Request::isCgi(const ConfigResolved& routing)
+{
+
+	// const std::string& requestPath = getPath();
+	_cgiFullPath = routing.getResolvedPath(*this);
+	
+	//checking if extension exists in the config file
+	size_t dotPos = _cgiFullPath.find_last_of('.');
+	if (dotPos == std::string::npos || dotPos == _cgiFullPath.size() - 1)
+		return false;
+	std::string requestExtension = _cgiFullPath.substr(dotPos);
+	const std::map<std::string, std::string>& cgiMap = routing.getCgi();
+	std::map<std::string, std::string>::const_iterator it = cgiMap.find(requestExtension);
+	if (it == cgiMap.end())
+		return false;
+
+	_cgiInterpreter = it->second;
+
+	FileSystemHandler fs;
+	PathResolver p;
+
+	if (routing.getAlias().empty())
+	{
+		if (!p.isPathSafe(getPath(), routing.getRoot()))
+		{
+			setStatus(403);
+			return false;
+		}
+	}
+	else
+	{
+		if (!p.isPathSafe(getPath(), routing.getAlias()))
+		{
+			setStatus(403);
+			return false;
+		}
+	}
+	if (!fs.pathExists(_cgiFullPath))
+	{
+		setStatus(404);
+		return false;
+	}
+	if (!fs.isReadable(_cgiFullPath) || fs.isDirectory(_cgiFullPath))
+	{
+		setStatus(403);
+		return false;
+	}
+		
+	return true;
 }

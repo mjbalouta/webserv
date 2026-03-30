@@ -1,4 +1,5 @@
 #include "ConfigResolved.hpp"
+#include "../ServerManager/Request.hpp"
 
 ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& server)
 {
@@ -270,16 +271,6 @@ std::string ConfigResolved::getUploadStore() const
 }
 
 /**
- * @brief Get the Ports that are listening on the server
- * 
- * @return std::vector<int>& 
- */
-std::vector<int> ConfigResolved::getPorts() const
-{
-	return _server->getPorts();
-}
-
-/**
  * @brief Gets the full server object
  * 
  * @return std::vector<ServerConfig>& 
@@ -289,7 +280,21 @@ const ServerConfig& ConfigResolved::getServerBlock() const
 	return *_server;
 }
 
+ /* @brief Returns server absolute path
+ * 
+ * @return const std::string& 
+ */
 const std::string& ConfigResolved::getAbsolutePath() const
 {
 	return _server->getAbsolutePath();
+}
+
+/**
+ * @brief Returns server ports
+ * 
+ * @return const std::vector<int>& 
+ */
+const std::vector<int>& ConfigResolved::getPorts() const
+{
+	return _server->getPorts();
 }

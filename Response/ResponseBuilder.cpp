@@ -317,8 +317,6 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	_location.clear();
 	_keepAlive = false;
 
-	// Transport/connection policy is decided by the server loop; ResponseBuilder
-	// just reflects it in the Connection header.
 	_keepAlive = keepAlive;
 
 	if (request.getStatus() != 200)
@@ -331,8 +329,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (resolvedConfig.getReturnStatusCode())	
 	{
 		return buildRedirectResponse(request, resolvedConfig);
-	} // General idea of redirect response
-	// Resolve target path using the merged config (server root or location alias/root).
+	}
 
 	std::string fileSystemPath = resolvedConfig.getResolvedPath(request);
 	if (fileSystemPath.empty())
@@ -355,7 +352,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		if (!rel.empty() && rel[0] == '/')
 			rel.erase(0, 1);
 		if (!pathResolver.isPathSafe(rel, base))
-			return returnGenericErrorResponse(403, request, resolvedConfig);
+			return returnGenericErrorResponse(400, request, resolvedConfig);
 	}
 	else
 	{
@@ -364,14 +361,24 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	} 
 	
+<<<<<<< HEAD
 	if (request.getPath() == "/api/gallery" && request.getMethodStr() == "GET")
 		return listGalleryFiles(resolvedConfig);
+=======
+/* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
+		return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
+/* 	std::string executor;
+	if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
+		return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig); */
+>>>>>>> dev
 
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
 		return buildDeleteResponse(request, fileSystemPath, resolvedConfig);
 	
+	if (fileSystemPath.find("//") != std::string::npos)
+		return returnGenericErrorResponse(400, request, resolvedConfig);
 	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
 
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
@@ -395,6 +402,23 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			return response;
 		}
 
+		// If a directory is requested, try configured index files first.
+		const std::vector<std::string> &indexes = resolvedConfig.getIndexes();
+		for (size_t i = 0; i < indexes.size(); ++i)
+		{
+			if (indexes[i].empty())
+				continue;
+			std::string indexFsPath = joinPathSimple(fileSystemPath, indexes[i]);
+			indexFsPath = pathResolver.normalizePath(indexFsPath);
+			if (fileSystemHandler.pathExists(indexFsPath)
+				&& fileSystemHandler.isReadable(indexFsPath)
+				&& !fileSystemHandler.isDirectory(indexFsPath))
+				return buildFileResponse(request, indexFsPath, resolvedConfig);
+		}
+
+		// No index: fall back to autoindex listing when enabled.
+		if (!resolvedConfig.getAutoIndex())
+			return returnGenericErrorResponse(403, request, resolvedConfig);
 		std::string uriWithSlash = ensureTrailingSlash(request.getPath());
 		return buildDirectoryListingResponse(request, uriWithSlash, fileSystemPath, resolvedConfig);
 	}
@@ -410,10 +434,22 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 {
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
-	// if (!uploadStore.empty() && uploadStore[0] != '/')
-	// 	uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
+//	if (!uploadStore.empty() && uploadStore[0] != '/')
+//		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
-		return returnGenericErrorResponse(501, request, resolvedConfig);
+	{
+		// No upload_store configured for this location: accept POST but do nothing.
+		// (Request parsing already validated Content-Length/chunking and applied body-size limits.)
+		_statusCode = 200;
+		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_contentType = "text/plain";
+		_body.clear();
+		_contentLength = 0;
+		std::string response = _statusLine;
+		setStandardHeaders(response, _contentType);
+		response += "\r\n";
+		return response;
+	}
 
 	if (!fileSystemHandler.pathExists(uploadStore) || !fileSystemHandler.isDirectory(uploadStore))
 		return returnGenericErrorResponse(500, request, resolvedConfig);
@@ -483,7 +519,8 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 		targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, rest));
 		bodyToWrite = request.getBody();
-		_location = resolvedConfig.getResolvedPath(request);
+		// Location header should be a URL path, not a filesystem path.
+		_location = request.getPath();
 	}
 
 	bool createdAny = false;
@@ -513,7 +550,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 
-	if (existed && !createdAny)
+	if (!isMultipart && existed && !createdAny)
 	{
 		_statusCode = 204;
 		_contentType = "text/plain";
@@ -718,8 +755,10 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	_statusCode = 200;
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = mimeTypeResolver.getTypeByExtension(filePath);
-	_contentLength = fileSystemHandler.getFileSize(filePath);
+	size_t fileSize = fileSystemHandler.getFileSize(filePath);
+	_contentLength = fileSize;
 	_lastModified = fileSystemHandler.getLastMODTime(filePath);
+<<<<<<< HEAD
 
 	try {
         _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
@@ -738,6 +777,19 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	catch (const std::exception& e){
 		(void)e;
 		return returnGenericErrorResponse(500, request, config);
+=======
+	_body.clear();
+	if (request.getMethodStr() != "HEAD")
+	{
+		try{
+			// client_max_body_size is a request-body limit; it should not cap GET responses.
+			_body = fileSystemHandler.readFile(filePath, fileSize);
+		}
+		catch (const std::exception& e){
+			(void)e;
+			return returnGenericErrorResponse(500, request, config);
+		}
+>>>>>>> dev
 	}
 	std::string response = _statusLine;
 	setStandardHeaders(response, _contentType);

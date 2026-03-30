@@ -5,6 +5,7 @@
 #include "../Utils.hpp"
 #include "../config/parser/ConfigParser.hpp"
 #include "../Includes.hpp"
+#include "../CGI/CGIHandler.hpp"
 
 class ServerConfig;
 
@@ -37,6 +38,10 @@ class ServerManager {
 			bool isRedirection;
 			bool headersSent;
 			int ioFailures;  // used to detect errors without errno
+			CgiProcess cgi;              // pid + pipe fds for active CGI child
+			std::string cgiOutputBuffer; // accumulates raw CGI stdout as epoll delivers it
+			std::string cgiInputBuffer;  // copy of request body waiting to be written
+			size_t cgiInputWritten; // bytes of cgiInputBuffer already written to pipe
 			Request request;
 			ClientSession();
 			explicit ClientSession(int clientFd);
@@ -48,6 +53,9 @@ class ServerManager {
 		std::vector<std::map<int, ClientSession> > _clients;
 		std::map<int, int> _listenerFdToServer;
 		std::map<int, int> _clientFdToServer;
+		std::map<int, int> _cgiReadFdToClient;  // pipe_out[0] fd → client fd
+		std::map<int, int> _cgiWriteFdToClient; // pipe_in[1]  fd → client fd
+		std::map<int, int> _cgiClientToServer;  // client fd   → server index
 
 		int buildListeningSocket(const ServerConfig &server, int port, const std::string &serverInfo);
 		bool acceptClientConnection(int fd, int serverIndex);
@@ -60,6 +68,10 @@ class ServerManager {
 		void parseClientRequest(ClientSession &client, ServerConfig &server);
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
 		void sendClientResponse(ClientSession &client, ServerConfig &server);
+		void startCgi(ClientSession &client, const std::string &scriptPath, const std::string &interpreter, ServerConfig &server);
+		void handleCgiRead(int clientFd, int serverIndex);
+		void handleCgiWrite(int clientFd, int serverIndex);
+		void cleanupCgi(ClientSession &client);
 		void handleReadyEvent(const epoll_event &event);
 		void cleanupSockets();
 		void cleanupClients();

@@ -3,6 +3,7 @@
 #include "Exception.hpp"
 #include "../ServerConfig.hpp"
 #include "../../Utils.hpp"
+#include "../../fileResourceManagement/FileSystemHandler.hpp"
 
 class ServerConfig;
 
@@ -24,4 +25,5 @@ class ConfigUtils
 	static void checksIfAlreadyExists(std::string& token, LocationConfig& location);
 	static void checkIfDirectory(std::string& token);
 	static void checkIfPortExists(std::string& token, ServerConfig& server);
+	static void CheckInterpreter(const std::string& extensionPath);
 };
