@@ -52,37 +52,38 @@
 		</div>
 		<div></div>
 
-		<div id="method-testing" class="hidden content-section w-full flex flex-wrap justify-center gap-6 px-4">
+		<div id="method-testing" class="hidden content-section w-full flex flex-wrap justify-center gap-8 px-4 mx-auto">
 			<!-- GET TEST SECTION -->
-	<div class="w-full md:w-[31%] mb-6 mt-12 bg-black-900/15 backdrop-blur-md rounded-2xl p-6 shadow-[0_0_15px_rgba(100,20,120,0.8)] flex flex-col min-w-0">
-    <h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase text-center text-sm">GET Request Test:</h3>
-    
-    <div class="w-full">
-        <form id="get-method-form" class="flex flex-col gap-3 w-full">
-            <input id="get-path-input" 
-                   class="text-[rgba(100,20,120,1)] px-4 py-2 rounded-2xl bg-black/40 border border-[rgba(100,20,120,0.3)] w-full outline-none min-w-0" 
-                   type="text" 
-                   placeholder="Enter path">
-            
-            <button class="text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] transition-all duration-300 w-full" 
-                    type="submit">
-                Search Info
-            </button>
-        </form>
-    </div>
+			<div
+				class="w-full md:w-[45%] mb-6 mt-12 bg-black-900/15 backdrop-blur-md rounded-2xl p-6 shadow-[0_0_15px_rgba(100,20,120,0.8)] flex flex-col min-w-0">
+				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase text-center text-sm">GET Request Test:</h3>
 
-    <div class="mt-6 w-full flex flex-col items-center overflow-x-hidden">
-    <p class="text-[14px] mb-1 text-[rgba(100,20,120,1)] text-center">Request Details:</p>
-    
-    <ul id="request-details" 
-        class="text-xs text-gray-500 whitespace-pre-wrap text-center">
-        {{GET_REQUEST_DETAILS}}
-    </ul>
-</div>
-</div>
+				<div class="md:w-[70%] mx-auto flex justify-center">
+					<form id="get-method-form" class="flex flex-col gap-3 items-center">
+						<input id="get-path-input"
+							class="placeholder:opacity-50 text-gray-500 px-4 py-2 rounded-full bg-black/40 border border-[rgba(100,20,120,0.3)] w-full outline-none min-w-0"
+							type="text" placeholder="Enter path">
+
+						<button
+							class="placeholder:text-gray-600 text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] transition-all duration-300 w-full"
+							type="submit">Search Info</button>
+					</form>
+				</div>
+
+				<div class="mt-6 w-full flex flex-col items-center overflow-x-hidden">
+					<p class="text-[16px] mb-1 text-[rgba(100,20,120,1)] text-center">Request Details:</p>
+
+					<ul id="request-details" class="mt-2 text-[14px] text-gray-500 whitespace-pre-wrap items-center">{{GET_REQUEST_DETAILS}}</ul>
+				</div>
+				<div>
+					<p class="text-[16px] mb-1 mt-6 text-[rgba(100,20,120,1)]">Location's Info: </p>
+					<ul id="location-details" class="mt-2 text-[14px] whitespace-pre-line break-words text-gray-500">{{LOCATION_DETAILS}}</ul>
+				</div>
+			</div>
 
 			<!-- POST TEST SECTION-->
-			<div class="flex flex-col justify-center w-full md:w-[31%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+			<div
+				class="flex flex-col justify-center w-full md:w-[45%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
 				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase text-center">POST Request Test:</h3>
 				<div class="flex justify-center">
 					<form id="upload-form" class="space-x-4 mb-2 flex items-center" enctype="multipart/form-data">
@@ -90,7 +91,7 @@
 
 						<div class="flex flex-col items-center">
 							<label for="file-upload" class="cursor-pointer self-start text-[rgba(100,20,120,1)] px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
-					   transition-all duration-300">Choose File</label>
+					   transition-all duration-300 bg-black/40">Choose File</label>
 							<span id="file-name" class="mt-2 text-xs text-gray-500 italic">No file selected</span>
 						</div>
 
@@ -104,38 +105,36 @@
 					</form>
 				</div>
 				<!-- Upload Status Display -->
-    			<div id="upload-status" class="mt-6 text-gray-500 text-xs text-center">
-        			<p id="upload-status-text">Click 'choose file' and then 'upload file'.</p>
-   				</div>
+				<div id="upload-status" class="mt-6 text-gray-500 text-xs text-center">
+					<p id="upload-status-text">Click 'choose file' and then 'upload file'.</p>
+				</div>
 
 			</div>
 
 			<!-- CGI TEST SECTION-->
-			<div class="flex flex-col justify-center w-full md:w-[31%] mb-6 mt-12 max-w-3xl bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
-				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">POST Request Test:</h3>
+			<div
+				class="flex flex-col justify-center md:w-[93%] mb-6 bg-black-900/15 backdrop-blur-md rounded-2xl p-8 shadow-[0_0_15px_rgba(100,20,120,0.8)]">
+				<h3 class="mt-2 mb-6 text-[rgba(100,20,120,1)] uppercase">CGI Request Test:</h3>
 				<div class="flex justify-center">
-					<form id="upload-form" class="space-x-4 mb-2 flex items-center" enctype="multipart/form-data">
+					<form id="cgi-form" class="space-x-4 mb-2 flex items-center" enctype="multipart/form-data">
 						<input type="file" name="file" id="file-upload" class="hidden" required>
 
 						<div class="flex flex-col items-center">
 							<label for="file-upload" class="cursor-pointer self-start text-[rgba(100,20,120,1)] px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
-					   transition-all duration-300">Choose File</label>
-							<span id="file-name" class="mt-2 text-xs text-gray-500 italic">No file selected</span>
+					   transition-all duration-300 bg-black/40">Choose Script</label>
+							<span id="file-name" class="mt-2 text-xs text-gray-500 italic">No script selected</span>
 						</div>
 
 						<div class="flex flex-col items-center">
 							<button type="submit" class="self-start text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
-					   transition-all duration-300">Upload File</button>
-							<span id="gallery-link"
-								class="mt-2 text-xs hover:text-[rgba(100,20,120,1)] text-gray-500 italic underline underline-offset-4"><a
-									href="#gallery">See file gallery</a></span>
+					   transition-all duration-300">Upload Script</button>
 						</div>
 					</form>
 				</div>
 				<!-- Upload Status Display -->
-    			<div id="upload-status" class="mt-6 text-gray-500 text-xs">
-        			<p id="upload-status-text">Click 'choose file' and then 'upload file'.</p>
-   				</div>
+				<div id="upload-status" class="mt-6 text-gray-500 text-xs">
+					<p id="upload-status-text">Click 'choose script' and then 'upload script'.</p>
+				</div>
 
 			</div>
 
