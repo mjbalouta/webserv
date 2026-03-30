@@ -7,7 +7,7 @@ fileInput.addEventListener('change', function () {
     fileNameDisplay.textContent = fileName;
 });
 
-// Keep this as the single section-switching flow
+//section-switching flow
 document.querySelectorAll('a[href^="#"]').forEach(link => {
     link.addEventListener('click', function (e) {
         const targetId = this.getAttribute('href');
@@ -64,6 +64,13 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
                         mainContainer.style.transform = "translateY(0) scale(1)";
                     }, 50);
                 });
+
+                // Refresh gallery after transition completes, regardless of how we got here
+                if (targetId === '#gallery') {
+                    setTimeout(() => {
+                        refreshGallery();
+                    }, 300);
+                }
             }
         }, 300);
     });

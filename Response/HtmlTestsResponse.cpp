@@ -375,32 +375,15 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
     std::string uploadDir = config.getUploadStore();
     std::string root = config.getRoot();
-    
+
     if (uploadDir.empty())
     {
         replaceTag(_body, "{{GALLERY_FILES}}", "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>");
         return;
     }
 
-    // Resolve to absolute filesystem path
-    std::string fullPath;
-    if (!uploadDir.empty() && uploadDir[0] == '/')
-    {
-        if (!root.empty())
-            fullPath = root + uploadDir;
-        else
-            fullPath = uploadDir;
-    }
-    else
-    {
-        if (!root.empty())
-            fullPath = root + "/" + uploadDir;
-        else
-            fullPath = config.getAbsolutePath() + uploadDir;
-    }
-
-    std::string body;
-    DIR* dir = opendir(fullPath.c_str());
+    std::string galleryList;
+    DIR* dir = opendir(uploadDir.c_str());
     if (dir)
     {
         struct dirent *ent;
@@ -409,9 +392,9 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
             std::string name = ent->d_name;
             if (name != "." && name != "..")
             {
-                body += "<li class='flex justify-between items-center'>";
-                body += "<span class='text-gray-400 font-mono'>" + name + "</span>";
-                body += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
+                galleryList += "<li class='flex justify-between items-center'>";
+                galleryList += "<span class='text-gray-400 font-mono'>" + name + "</span>";
+                galleryList += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
                                 shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
                                 transition-all duration-300' type='submit'>&#10006</button></li>";
             }
@@ -419,8 +402,8 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
         closedir(dir);
     }
     
-    if (body.empty())
-        body = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
+    if (galleryList.empty())
+        galleryList = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
     
-    replaceTag(_body, "{{GALLERY_FILES}}", body);
+    replaceTag(_body, "{{GALLERY_FILES}}", galleryList);
 }

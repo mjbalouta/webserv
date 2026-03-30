@@ -13,7 +13,8 @@ class ConfigResolved
 
 	public:
 	ConfigResolved(const Request& request, const ServerConfig& server);
-	
+	ConfigResolved(const ServerConfig& server, const LocationConfig& location);
+
 	const LocationConfig* findLocationBlock(const ServerConfig& server, const Request& request) const;
 	const ServerConfig& getServerBlock() const;
 	const std::string& getAbsolutePath() const;

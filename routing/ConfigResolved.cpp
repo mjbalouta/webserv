@@ -7,6 +7,12 @@ ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& serve
 	_location = findLocationBlock(server, request);
 }
 
+ConfigResolved::ConfigResolved(const ServerConfig& server, const LocationConfig& location)
+{
+	_server = &server;
+	_location = &location;
+}
+
 /**
  * @brief after finding the server block, we must look for the most accurate match for the request path
  * in the location block's path

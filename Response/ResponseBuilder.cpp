@@ -429,6 +429,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 {
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
+	
 //	if (!uploadStore.empty() && uploadStore[0] != '/')
 //		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
@@ -764,7 +765,19 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 			{
 				replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
 				insertServerInfo(config); //to replace the placeholder in index.html
-				listGalleryFiles(config);
+				std::cout << request.getPath() << std::endl;
+				// Find the /upload location specifically for filling "File Gallery"
+                const ServerConfig& serverBlock = config.getServerBlock();
+                const std::vector<LocationConfig>& locations = serverBlock.getLocations();
+                for (size_t i = 0; i < locations.size(); ++i)
+                {
+                    if (locations[i].getPath() == "/upload")
+                    {
+                        ConfigResolved uploadConfig(serverBlock, locations[i]);
+                        listGalleryFiles(uploadConfig);
+                        break;
+                    }
+                }
 			}
 			if (request.getMethod() == GET)
 				insertLocationInfo(request, config); //to replace the placeholder in index.html
