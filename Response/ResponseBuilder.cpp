@@ -577,6 +577,7 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 	std::string targetPath = fileSystemPath;
 
 	std::string uploadStore = resolvedConfig.getUploadStore();
+	std::cout << uploadStore << std::endl;
 	if (!uploadStore.empty() && uploadStore[0] != '/')
 		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (!uploadStore.empty())
@@ -678,6 +679,7 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 		response += "\r\n";
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
+		std::cout << "status code " << statusCode << std::endl;
 		return response;
 }
 
@@ -765,7 +767,6 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 			{
 				replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
 				insertServerInfo(config); //to replace the placeholder in index.html
-				std::cout << request.getPath() << std::endl;
 				// Find the /upload location specifically for filling "File Gallery"
                 const ServerConfig& serverBlock = config.getServerBlock();
                 const std::vector<LocationConfig>& locations = serverBlock.getLocations();

@@ -213,4 +213,43 @@ async function refreshGallery() {
     }
 }
 
+// Handle delete button clicks
+document.addEventListener('click', async function(e) {
+    if (e.target.classList.contains('delete-btn')) {
+        const filename = e.target.getAttribute('data-filename');
+        
+        // if (!filename) {
+        //     console.error('No filename found');
+        //     return;
+        // }
+        
+        // if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+        //     return;
+        // }
+        
+        try {
+            const uploadStore = window.UPLOAD_STORE || '/upload';
+            const response = await fetch(`${uploadStore}/${filename}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.status === 204) {
+                showUploadStatus(`✓ File "${filename}" deleted successfully`, 204, false);
+                
+                // Refresh gallery after deletion
+                await refreshGallery();
+            } else if (response.status === 404) {
+                showUploadStatus(`File "${filename}" not found`, 404, true);
+            } else if (response.status === 403) {
+                showUploadStatus(`Permission denied: Cannot delete "${filename}"`, 403, true);
+            } else {
+                showUploadStatus(`Failed to delete file (${response.status})`, response.status, true);
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            showUploadStatus('Network error during deletion', 0, true);
+        }
+    }
+});
+
 
