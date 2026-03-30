@@ -90,7 +90,6 @@ class ResponseBuilder{
 		void insertServerInfo(const ConfigResolved& config);
 		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
 		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
-		std::string listGalleryFiles(const ConfigResolved& config);
-		void setStandardHeaders(std::string& response, const std::string& contentType);		
+		void listGalleryFiles(const ConfigResolved& config);
 	//	std::string buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig);
 };

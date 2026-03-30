@@ -371,38 +371,56 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
  * @brief Replaces {{GALLERY_FILES}} with a list of current files inside the upload_store folder
  * 
  */
-std::string ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
+void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
-	std::string body;
-	std::string uploadDir = config.getUploadStore();
-	DIR* dir = opendir(uploadDir.c_str());
-	if (dir)
-	{
-		struct dirent *ent;
-		while ((ent = readdir(dir)) != NULL)
-		{
-			std::string name = ent->d_name;
-			//ignore hidden files and parent directory references
-			if (name != "." && name != "..")
-			{
-				body += "<li class='flex justify-between items-center'>";
-				body += "<span class='text-gray-400 font-mono'>" + name + "</span>";
-				body += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
-								shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
-								transition-all duration-300 type='submit'>&#10006</button></li>";
-			}
-		}
-		closedir(dir);
-	}
-	
-	std::stringstream ss;
-    ss << body.size();
+    std::string uploadDir = config.getUploadStore();
+    std::string root = config.getRoot();
+    
+    if (uploadDir.empty())
+    {
+        replaceTag(_body, "{{GALLERY_FILES}}", "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>");
+        return;
+    }
 
-    std::string response = "HTTP/1.1 200 OK\r\n";
-    response += "Content-Type: text/html\r\n";
-    response += "Content-Length: " + ss.str() + "\r\n";
-    response += "Connection: keep-alive\r\n\r\n";
-    response += body;
+    // Resolve to absolute filesystem path
+    std::string fullPath;
+    if (!uploadDir.empty() && uploadDir[0] == '/')
+    {
+        if (!root.empty())
+            fullPath = root + uploadDir;
+        else
+            fullPath = uploadDir;
+    }
+    else
+    {
+        if (!root.empty())
+            fullPath = root + "/" + uploadDir;
+        else
+            fullPath = config.getAbsolutePath() + uploadDir;
+    }
 
-    return response;
+    std::string body;
+    DIR* dir = opendir(fullPath.c_str());
+    if (dir)
+    {
+        struct dirent *ent;
+        while ((ent = readdir(dir)) != NULL)
+        {
+            std::string name = ent->d_name;
+            if (name != "." && name != "..")
+            {
+                body += "<li class='flex justify-between items-center'>";
+                body += "<span class='text-gray-400 font-mono'>" + name + "</span>";
+                body += "<button data-filename='" + name + "' class='delete-btn ml-3 text-gray-500 px-4 py-2 rounded-full \
+                                shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] \
+                                transition-all duration-300' type='submit'>&#10006</button></li>";
+            }
+        }
+        closedir(dir);
+    }
+    
+    if (body.empty())
+        body = "<p class='text-gray-500 italic text-center'>No files uploaded yet.</p>";
+    
+    replaceTag(_body, "{{GALLERY_FILES}}", body);
 }

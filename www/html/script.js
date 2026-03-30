@@ -69,33 +69,117 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
     });
 });
 
-// Upload handler (if you still want async upload)
-document.getElementById('upload-form').addEventListener('submit', async function (e) {
+// Handle GET form submission without page reload (to stay in the same page when clicking 'search info')
+document.getElementById('get-method-form').addEventListener('submit', async function (e) {
     e.preventDefault();
 
+    const pathInput = document.getElementById('get-path-input');
+    const path = pathInput.value;
+
+    try {
+        // Fetch with query parameter, don't navigate
+        const response = await fetch(`/index.html?path=${encodeURIComponent(path)}`, {
+            cache: 'no-store'
+        });
+        const text = await response.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        // Update the GET request details and location details from the response
+        const srcRequestDetails = doc.querySelector('#request-details');
+        const srcLocationDetails = doc.querySelector('#location-details');
+        const dstRequestDetails = document.querySelector('#request-details');
+        const dstLocationDetails = document.querySelector('#location-details');
+
+        if (srcRequestDetails && dstRequestDetails) {
+            dstRequestDetails.innerHTML = srcRequestDetails.innerHTML;
+        }
+        if (srcLocationDetails && dstLocationDetails) {
+            dstLocationDetails.innerHTML = srcLocationDetails.innerHTML;
+        }
+
+        // Stay on #method-testing section
+        const testingLink = document.querySelector('a[href="#method-testing"]');
+        if (testingLink) {
+            testingLink.click();
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+    }
+});
+
+// Helper function to show upload status
+function showUploadStatus(message, statusCode, isError = false) {
+    const statusDiv = document.getElementById('upload-status');
+    const statusText = document.getElementById('upload-status-text');
+    
+    statusText.textContent = `${message}`;
+    statusDiv.classList.remove('hidden');
+    
+    if (isError) {
+        statusDiv.classList.remove('text-green-900');
+        statusDiv.classList.add('text-red-900');
+    } else {
+        statusDiv.classList.remove('text-red-900');
+        statusDiv.classList.add('text-green-900');
+    }
+    
+    // Auto-hide after 5 seconds if successful
+    if (!isError) {
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 5000);
+    }
+}
+
+// Handle file upload
+document.getElementById('upload-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('file-upload');
     if (!fileInput.files || !fileInput.files[0]) {
-        alert('Please choose a file first.');
+        showUploadStatus('Please choose a file first.', 400, true);
         return;
     }
 
+    const fileName = fileInput.files[0].name;
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
-
+    
     try {
         const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
-
-        if (response.ok) {
+        
+        if (response.status === 201) {
+            showUploadStatus(`✓ File "${fileName}" created successfully`, 201, false);
+            
             fileInput.value = '';
-            fileNameDisplay.textContent = 'No file selected';
+            document.getElementById('file-name').textContent = 'No file selected';
+            
             await refreshGallery();
+            
+            // Navigate to gallery after 1 second
+            setTimeout(() => {
+                const galleryLink = document.querySelector('a[href="#gallery"]');
+                if (galleryLink) {
+                    galleryLink.click();
+                }
+            }, 1000);
+        } else if (response.status === 403) {
+            showUploadStatus('Permission denied: Cannot write to upload directory', 403, true);
+        } else if (response.status === 400) {
+            showUploadStatus('Bad request: Invalid file format or parameters', 400, true);
+        } else if (response.status === 500) {
+            showUploadStatus('Server error: Failed to save file', 500, true);
         } else {
-            console.error('Upload failed:', response.status, response.statusText);
+            showUploadStatus(`Upload failed with status ${response.status}`, response.status, true);
         }
     } catch (error) {
         console.error('Upload error:', error);
+        showUploadStatus('Network error occurred during upload', 0, true);
     }
 });
 
@@ -103,24 +187,23 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshGallery();
 });
 
+// Function to refresh the gallery content
 async function refreshGallery() {
     try {
-        // Keep this as /index.html so #gallery ul exists in parsed HTML
         const response = await fetch('/index.html', { cache: 'no-store' });
         const text = await response.text();
-
+        
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'text/html');
-        const srcList = doc.querySelector('#gallery ul');
-        const dstList = document.querySelector('#gallery ul');
-
-        if (!srcList || !dstList) {
-            console.error('Gallery list not found in source or destination');
-            return;
+        const newGalleryContent = doc.querySelector('#gallery ul');
+        const currentGallery = document.querySelector('#gallery ul');
+        
+        if (newGalleryContent && currentGallery) {
+            currentGallery.innerHTML = newGalleryContent.innerHTML;
         }
-        dstList.innerHTML = srcList.innerHTML;
     } catch (err) {
-        console.error('Failed to refresh gallery:', err);
+        console.error("Failed to refresh gallery:", err);
     }
 }
+
 

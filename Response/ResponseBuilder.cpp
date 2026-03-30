@@ -360,17 +360,12 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		if (request.getPath().find("..") != std::string::npos)
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	} 
-	
-<<<<<<< HEAD
-	if (request.getPath() == "/api/gallery" && request.getMethodStr() == "GET")
-		return listGalleryFiles(resolvedConfig);
-=======
+		
 /* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
 		return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
 /* 	std::string executor;
 	if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
 		return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig); */
->>>>>>> dev
 
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
@@ -452,7 +447,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	}
 
 	if (!fileSystemHandler.pathExists(uploadStore) || !fileSystemHandler.isDirectory(uploadStore))
-		return returnGenericErrorResponse(500, request, resolvedConfig);
+		return returnGenericErrorResponse(404, request, resolvedConfig);
 	if (!fileSystemHandler.isWritable(uploadStore))
 		return returnGenericErrorResponse(403, request, resolvedConfig);
 
@@ -758,38 +753,30 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	size_t fileSize = fileSystemHandler.getFileSize(filePath);
 	_contentLength = fileSize;
 	_lastModified = fileSystemHandler.getLastMODTime(filePath);
-<<<<<<< HEAD
 
-	try {
-        _body = fileSystemHandler.readFile(filePath, config.getMaxBodySize());
-		if (_contentType == "text/html")
-		{
-			replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
-			insertServerInfo(config); //to replace the placeholder in index.html
-		}
-		if (request.getMethod() == GET)
-			insertLocationInfo(request, config); //to replace the placeholder in index.html
-		if (request.getMethod() == POST)
-			insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
-		// listGalleryFiles(config);
-        _contentLength = _body.size();
-    }
-	catch (const std::exception& e){
-		(void)e;
-		return returnGenericErrorResponse(500, request, config);
-=======
-	_body.clear();
 	if (request.getMethodStr() != "HEAD")
 	{
-		try{
+		_body.clear();
+		try {
 			// client_max_body_size is a request-body limit; it should not cap GET responses.
 			_body = fileSystemHandler.readFile(filePath, fileSize);
+			if (_contentType == "text/html")
+			{
+				replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
+				insertServerInfo(config); //to replace the placeholder in index.html
+				listGalleryFiles(config);
+			}
+			if (request.getMethod() == GET)
+				insertLocationInfo(request, config); //to replace the placeholder in index.html
+			if (request.getMethod() == POST)
+				insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
+			_contentLength = _body.size();
 		}
-		catch (const std::exception& e){
+		catch (const std::exception& e)
+		{
 			(void)e;
 			return returnGenericErrorResponse(500, request, config);
 		}
->>>>>>> dev
 	}
 	std::string response = _statusLine;
 	setStandardHeaders(response, _contentType);
