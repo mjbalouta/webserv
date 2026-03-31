@@ -413,7 +413,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 
 		// No index: fall back to autoindex listing when enabled.
 		if (!resolvedConfig.getAutoIndex())
-			return returnGenericErrorResponse(403, request, resolvedConfig);
+			return returnGenericErrorResponse(404, request, resolvedConfig);
 		std::string uriWithSlash = ensureTrailingSlash(request.getPath());
 		return buildDirectoryListingResponse(request, uriWithSlash, fileSystemPath, resolvedConfig);
 	}
