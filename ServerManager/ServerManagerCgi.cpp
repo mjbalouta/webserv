@@ -124,8 +124,9 @@ void ServerManager::handleCgiWrite(int clientFd, int serverIndex)
  *
  * @param clientFd    The client socket fd that owns this CGI process.
  * @param serverIndex Index into _clients and _servers for this client.
+ * @param eventFlags  Epoll event flags (EPOLLERR, EPOLLHUP, etc.) for pipe error detection.
  */
-void ServerManager::handleCgiRead(int clientFd, int serverIndex)
+void ServerManager::handleCgiRead(int clientFd, int serverIndex, uint32_t eventFlags)
 {
 	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _clients.size())
 		return;
@@ -138,32 +139,58 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex)
 	if (client.cgi.readFd < 0)
 		return;
 
-	// Read all currently available bytes (non-blocking — stops at EAGAIN)
-	char buf[BUFFER_SIZE];
-	bool pipeEof = false;
-	ssize_t readBytes;
+	// EPOLLERR or EPOLLHUP: pipe error or remote close — treat as immediate EOF
+	bool pipeEof = (eventFlags & (EPOLLERR | EPOLLHUP)) != 0;
 
-	while (true)
+	// Read all currently available bytes (non-blocking — stops at EAGAIN)
+	// CRITICAL: Distinguish between readBytes == 0 (EOF) vs readBytes < 0 (would-block)
+	// to avoid premature EOF detection that causes deadlock with large outputs.
+	if (!pipeEof)
 	{
-		readBytes = read(client.cgi.readFd, buf, sizeof(buf));
-		if (readBytes > 0){
-			client.cgiOutputBuffer.append(buf, static_cast<size_t>(readBytes));
-			client.cgi.startTime = time(NULL);
+		char buf[BUFFER_SIZE];
+		ssize_t readBytes;
+
+		while (true)
+		{
+			readBytes = read(client.cgi.readFd, buf, sizeof(buf));
+			if (readBytes > 0)
+			{
+				client.cgiOutputBuffer.append(buf, static_cast<size_t>(readBytes));
+				client.cgi.startTime = time(NULL);
+			}
+			else if (readBytes == 0)
+			{
+				// Actual EOF: pipe closed, child exited or closed stdout
+				pipeEof = true;
+				break;
+			}
+			else
+			{
+				// readBytes < 0: would-block (EAGAIN) or other error
+				// Cannot distinguish without errno, but safe to break loop:
+				// - If EAGAIN: epoll will fire again when data available
+				// - If real error: epoll will fire EPOLLERR/EPOLLHUP
+				break;
+			}
 		}
-		else {
-			pipeEof = true;
-			break;
-		}
-		// I cannot use errno to change behavior
 	}
 
 	if (!pipeEof)
 		return; // More data may arrive, keep EPOLLIN armed
 
-	// Reap child process — WNOHANG so we never block the event loop
+	// IMPORTANT: Try to reap the child if it has exited, but DO NOT set pid to -1 yet.
+	// If the child is still running (WNOHANG returns -1), pid stays > 0 so that:
+	// - The timeout mechanism in closeIdleClients() can still kill it if needed
+	// - cleanupCgi() can properly reap and kill it when the client closes
+	// Only cleanupCgi() will set pid to -1 after actually reaping/killing.
 	int status;
-	waitpid(client.cgi.pid, &status, WNOHANG);
-	client.cgi.pid = -1;
+	pid_t reaped = waitpid(client.cgi.pid, &status, WNOHANG);
+	if (reaped > 0)
+	{
+		// Child exited successfully; mark it reaped
+		client.cgi.pid = -1;
+	}
+	// If reaped < 0 (WNOHANG didn't reap), pid stays > 0 for cleanup handling later
 
 	// Remove read-end from epoll and tracking map, close it
 	removeFromEpoll(_epollFd, client.cgi.readFd);

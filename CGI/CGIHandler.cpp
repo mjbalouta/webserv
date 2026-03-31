@@ -135,6 +135,16 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 		close(outPipe[0]);
 		close(outPipe[1]);
 
+		// CRITICAL: Reset stdin and stdout to blocking mode for the child process.
+		// We inherited non-blocking fds from the parent, but the child process expects
+		// normal blocking behavior for I/O. The parent will handle async I/O via epoll.
+		try {
+			setBlockingFd(STDIN_FILENO);
+			setBlockingFd(STDOUT_FILENO);
+		} catch (...) {
+			while (1) {} // Error resetting flags; hang and let parent timeout/kill
+		}
+
 		execve(interpreter.c_str(), args, envp.data());
 		while (1) {} //This will hang the child, but the parent can (and should) kill it with kill(pid, SIGKILL) after a timeout.
 	}
@@ -262,12 +272,12 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 			}
 			if (toLower(headerResponse).find("connection:") == std::string::npos)
 				headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
-			std::string response;
-			if (!hasStatusLine)
-				response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
-			else
-				response = headerResponse + "\r\n" + bodyPart;
-			return response;
+		std::string response;
+		if (!hasStatusLine)
+			response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
+		else
+			response = headerResponse + "\r\n" + bodyPart;
+		return response;
 	}
 	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;
 }
