@@ -409,6 +409,8 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 				&& fileSystemHandler.isReadable(indexFsPath)
 				&& !fileSystemHandler.isDirectory(indexFsPath))
 				return buildFileResponse(request, indexFsPath, resolvedConfig);
+			else
+				return returnGenericErrorResponse(404, request, resolvedConfig);
 		}
 
 		// No index: fall back to autoindex listing when enabled.
