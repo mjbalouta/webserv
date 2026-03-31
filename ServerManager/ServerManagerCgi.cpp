@@ -195,22 +195,6 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex)
 		// I cannot use errno to change behavior
 	}
 
-	// ===== NEW: Send 100 Continue if no output yet but CGI running =====
-    if (!pipeEof && client.cgiOutputBuffer.empty())
-    {
-        time_t elapsed = time(NULL) - client.cgi.startTime;
-        // Send 100 every 2 seconds while waiting for CGI output
-        if (elapsed > 0 && elapsed % 2 == 0)
-        {
-            const char* continueResponse = "HTTP/1.1 100 Continue\r\n\r\n";
-            ssize_t sent = send(client.fd, continueResponse, 25, MSG_DONTWAIT);
-            if (sent > 0)
-                printLog("✅ Sent keep-alive 100 Continue to client", BGRN);
-        }
-        return; // Keep waiting for CGI output
-    }
-    // ===== END: Keep-alive during CGI =====
-
 	if (!pipeEof)
 		return; // More data may arrive, keep EPOLLIN armed
 
