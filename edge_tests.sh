@@ -393,10 +393,10 @@ test_status "POST /upload/../escape.txt → 400 or 403" \
 section "/cgi-bin Location (GET/POST only)"
 
 test_status "GET /cgi-bin allowed" \
-	"GET /cgi-bin HTTP/1.1\r\nHost: localhost\r\n\r\n" "200"
+	"GET /cgi-bin/ HTTP/1.1\r\nHost: localhost\r\n\r\n" "200"
 
 test_status "POST /cgi-bin allowed" \
-	"POST /cgi-bin HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n" "200"
+	"POST /cgi-bin/ HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n" "200"
 
 test_status "DELETE /cgi-bin — not allowed" \
 	"DELETE /cgi-bin HTTP/1.1\r\nHost: localhost\r\n\r\n" "405"
