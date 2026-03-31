@@ -261,15 +261,63 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-			// Always parse Content-Length from headers after receiving them.
-			if (!parseContentLengthValue(headersLower, client.contentLength))
+		// Always parse Content-Length from headers after receiving them.
+		if (!parseContentLengthValue(headersLower, client.contentLength))
+		{
+			printLog("🚨 Invalid Content-Length", RED);
+			client.status = 400;
+			client.keepAlive = false;
+			client.state = WRITING;
+			return;
+		}
+
+	// Handle Expect: 100-continue header (RFC 7231 sect 5.1.1)
+	// Client can ask server to validate headers before sending body.
+	if (!client.sent100Continue)
+	{
+		size_t expectPos = headersLower.find("expect:");
+		if (expectPos != std::string::npos)
+		{
+			size_t lineEnd = headersLower.find("\r\n", expectPos);
+			if (lineEnd == std::string::npos)
+				lineEnd = headersLower.size();
+			std::string expectValue = headersLower.substr(expectPos + 7, lineEnd - (expectPos + 7));
+			
+			// Trim whitespace
+			size_t start = expectValue.find_first_not_of(" \t");
+			size_t end = expectValue.find_last_not_of(" \t");
+			if (start != std::string::npos)
+				expectValue = expectValue.substr(start, end - start + 1);
+			
+			if (expectValue == "100-continue")
 			{
-				printLog("🚨 Invalid Content-Length", RED);
-				client.status = 400;
+				// Send 100 Continue and wait for body
+				printLog("📤 Sending 100 Continue", GRN);
+				const char *continue100 = "HTTP/1.1 100 Continue\r\n\r\n";
+				ssize_t sent = send(client.fd, continue100, 25, MSG_NOSIGNAL);
+				if (sent < 0)
+					printLog("⚠️ Failed to send 100 Continue", YEL);
+				else if (sent == 25)
+				{
+					printLog("✅ 100 Continue sent", GRN);
+					client.sent100Continue = true;
+				}
+				else
+				{
+					printLog("⚠️ Partial 100 Continue sent: " + itostr(sent) + " bytes", YEL);
+				}
+			}
+			else if (!expectValue.empty())
+			{
+				// Unsupported Expect value
+				printLog("⚠️ Unsupported Expect value: " + expectValue, YEL);
+				client.status = 417;
 				client.keepAlive = false;
 				client.state = WRITING;
 				return;
 			}
+		}
+	}
 
 	// If declared body is larger than configured upload limit, fail early.
 	if (client.contentLength > maxUploadSize)
@@ -308,6 +356,13 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		size_t bodySize = client.readBuffer.size() - headerSize;
 		// Once enough body bytes have arrived, the request is complete and can be parsed.
 		if (bodySize >= client.contentLength)
+		{
+			printLog("📨 Full request received (" + itostr(bodySize) + " bytes body + " + itostr(headerSize) + " bytes headers)", BCYAN);
 			client.state = PROCESSING;
+		}
+		else if (client.contentLength > 0)
+		{
+			printLog("⏳ Waiting for body: " + itostr(bodySize) + "/" + itostr(client.contentLength) + " bytes", BYEL);
+		}
 	}
 }

@@ -205,13 +205,33 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 	}
 
 	std::string normalized = rawOutput;
-	size_t p = 0;
-	while ((p = normalized.find("\r\n", p)) != std::string::npos)
-		normalized.replace(p, 2, "\n");
-	for (size_t i = 0; i < normalized.size(); ++i)
+	
+	// Optimize: only normalize line endings if output looks like it has headers  
+	// (i.e., contains a colon which suggests HTTP headers).
+	// For binary payloads (no headers), skip normalization entirely.
+	if (normalized.find(':') != std::string::npos)
 	{
-		if (normalized[i] == '\r')
-			normalized[i] = '\n';
+		// Replace \r\n with \n and \r with \n (normalize line endings)
+		// Use a single pass through the string for efficiency
+		std::string result;
+		result.reserve(normalized.size());
+		for (size_t i = 0; i < normalized.size(); ++i)
+		{
+			if (i + 1 < normalized.size() && normalized[i] == '\r' && normalized[i+1] == '\n')
+			{
+				result += '\n';
+				++i;  // skip the \n
+			}
+			else if (normalized[i] == '\r')
+			{
+				result += '\n';
+			}
+			else
+			{
+				result += normalized[i];
+			}
+		}
+		normalized = result;
 	}
 
 	const std::string blankLine = "\n\n";
@@ -276,7 +296,9 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		if (!hasStatusLine)
 			response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
 		else
+		{
 			response = headerResponse + "\r\n" + bodyPart;
+		}
 		return response;
 	}
 	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;

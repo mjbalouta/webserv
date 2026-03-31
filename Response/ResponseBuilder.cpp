@@ -382,7 +382,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/')
 		{
 			_statusCode = 301;
-			_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 			_location = request.getPath() + "/";
 			_contentType = "text/html";
 			_body.clear();
@@ -437,7 +437,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 		// No upload_store configured for this location: accept POST but do nothing.
 		// (Request parsing already validated Content-Length/chunking and applied body-size limits.)
 		_statusCode = 200;
-		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 		_contentType = "text/plain";
 		_body.clear();
 		_contentLength = 0;
@@ -568,7 +568,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 		}
 	}
 
-	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	std::string response = _statusLine;
 	setStandardHeaders(response, _contentType);
 	if (_statusCode == 201)
@@ -624,7 +624,7 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 	}
 
 	_statusCode = 204;
-	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = "text/plain";
 	_body.clear();
 	_contentLength = 0;
@@ -643,16 +643,16 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
  * @return std::string The HTTP response.
  */
 std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& matchedLocation){
-		_statusCode = statusCode;
-		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
-		_contentType = "text/html";
-		if (matchedLocation.getLocationPath().empty() || matchedLocation.getReturnMessage().empty()){
-			_body = "";
-			_contentLength = 0;
-		}
-		else{
-			_body = matchedLocation.getReturnMessage();
-			_contentLength = _body.size();
+	_statusCode = statusCode;
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_contentType = "text/html";
+	if (matchedLocation.getLocationPath().empty() || matchedLocation.getReturnMessage().empty()){
+		_body = "";
+		_contentLength = 0;
+	}
+	else{
+		_body = matchedLocation.getReturnMessage();
+		_contentLength = _body.size();
 		}
 		std::string response = _statusLine;
 		response += "Content-Type: " + _contentType + "\r\n";
@@ -675,20 +675,20 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
  * @return std::string The HTTP response.
  */
 std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& config){
-		_statusCode = statusCode;
-		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
-		_contentType = "text/html";
-		std::string errorPage = error.loadCustomErrorPage(_statusCode, config);
-		if (errorPage.empty())
-			errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
-		_body = errorPage;
-		_contentLength = _body.size();
-		std::string response = _statusLine;
-		setStandardHeaders(response, _contentType);
-		response += "\r\n";
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+	_statusCode = statusCode;
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_contentType = "text/html";
+	std::string errorPage = error.loadCustomErrorPage(_statusCode, config);
+	if (errorPage.empty())
+		errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
+	_body = errorPage;
+	_contentLength = _body.size();
+	std::string response = _statusLine;
+	setStandardHeaders(response, _contentType);
+	response += "\r\n";
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 
@@ -723,7 +723,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 		return returnGenericErrorResponse(code, request, matched);
 	_statusCode = code;
 
-	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_location = matched.getReturnURL();
 	_contentType = "text/html";
 	if (matched.getReturnMessage().empty() || code == 304 || code == 204)
@@ -759,7 +759,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
  */
 std::string ResponseBuilder::buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& config){
 	_statusCode = 200;
-	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = mimeTypeResolver.getTypeByExtension(filePath);
 	size_t fileSize = fileSystemHandler.getFileSize(filePath);
 	_contentLength = fileSize;
@@ -819,7 +819,7 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
  */
 std::string ResponseBuilder::buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig) {
 	_statusCode = 200;
-	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+		_statusLine = getVersionString(request) + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = "text/html";
 	_body.clear();
 
@@ -888,4 +888,13 @@ size_t ResponseBuilder::getDate() {
 
 std::string ResponseBuilder::getDateString(){
 	return formatHttpDate(static_cast<std::time_t>(_date));
+}
+
+std::string ResponseBuilder::getVersionString(const Request& request) const
+{
+	std::string version = request.getVersion();
+	// Default to HTTP/1.1 if version is empty (for malformed requests)
+	if (version.empty())
+		version = "HTTP/1.1";
+	return version;
 }

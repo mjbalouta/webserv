@@ -52,6 +52,7 @@ class ResponseBuilder{
 		size_t getDate();
 		std::string getDateString();
 		std::string getLastModifiedString();
+		std::string getVersionString(const Request& request) const;
 
 //		Setters for building response
 /* 		void setStatusLine(int statusCode);
