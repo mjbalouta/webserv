@@ -146,8 +146,10 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex)
 	while (true)
 	{
 		readBytes = read(client.cgi.readFd, buf, sizeof(buf));
-		if (readBytes > 0)
+		if (readBytes > 0){
 			client.cgiOutputBuffer.append(buf, static_cast<size_t>(readBytes));
+			client.cgi.startTime = time(NULL);
+		}
 		else {
 			pipeEof = true;
 			break;

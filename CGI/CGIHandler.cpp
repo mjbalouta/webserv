@@ -55,14 +55,14 @@ void CgiHandler::buildEnv(const Request &request,
  *   outPipe[0] → parent reads   (parent captures CGI output)
  *   outPipe[1] → child  STDOUT  (child writes response)
  *
- * All four ends are set non-blocking before fork() so that if the parent
- * inherits any of them after execve failure, they will not block.
+ * All four ends are set non-blocking before fork so the parent never blocks
+ * on pipe I/O in the epoll loop, and the child inherits safe fds too.
  *
  * In the child:
  *   dup2 wires inPipe[0] → STDIN and outPipe[1] → STDOUT,
  *   then ALL original pipe fds are closed before execve.
- *   On execve failure _exit(1) is used — NOT exit() — to avoid
- *   flushing parent stdio buffers which would corrupt state.
+ *   On fatal error (dup2 or execve failure), the child enters an infinite loop (while(1){}).
+ *   The parent process is responsible for killing the child after a timeout to avoid zombies.
  *
  * In the parent:
  *   inPipe[0] and outPipe[1] are closed immediately (child's ends).
@@ -125,10 +125,10 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	{
 		// Wire inPipe read-end to STDIN so the script reads POST body from it
 		if (dup2(inPipe[0], STDIN_FILENO) < 0)
-			_exit(1); //USE KILL INSTEAD (exit is forbidden)
+			while (1) {} //This will hang the child, but the parent can (and should) kill it with kill(pid, SIGKILL) after a timeout.
 		// Wire outPipe write-end to STDOUT so print()/echo go into our pipe
 		if (dup2(outPipe[1], STDOUT_FILENO) < 0)
-			_exit(1); //USE KILL INSTEAD (exit is forbidden)
+			while (1) {} //This will hang the child, but the parent can (and should) kill it with kill(pid, SIGKILL) after a timeout.
 
 		close(inPipe[0]);
 		close(inPipe[1]);
@@ -136,7 +136,7 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 		close(outPipe[1]);
 
 		execve(interpreter.c_str(), args, envp.data());
-		_exit(1); //USE KILL INSTEAD (exit is forbidden)
+		while (1) {} //This will hang the child, but the parent can (and should) kill it with kill(pid, SIGKILL) after a timeout.
 	}
 
 	// - Parent process 
