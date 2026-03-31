@@ -577,7 +577,6 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 	std::string targetPath = fileSystemPath;
 
 	std::string uploadStore = resolvedConfig.getUploadStore();
-	std::cout << uploadStore << std::endl;
 	if (!uploadStore.empty() && uploadStore[0] != '/')
 		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (!uploadStore.empty())
@@ -679,7 +678,6 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 		response += "\r\n";
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
-		std::cout << "status code " << statusCode << std::endl;
 		return response;
 }
 
