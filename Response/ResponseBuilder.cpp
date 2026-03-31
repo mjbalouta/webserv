@@ -466,8 +466,6 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	std::map<std::string, std::string> fileToWrite;
 	const bool isMultipart = (!contentTypeHeader.empty() && fileSystemHandler.isMultipartFormData(contentTypeHeader));
 
-	// - multipart/form-data is accepted only on POST /upload (no filename in URL)
-	// - raw body uploads require POST /upload/<filename>
 	if (rest.empty())
 	{
 		if (!isMultipart)
@@ -495,8 +493,6 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	
 			targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
 			bodyToWrite = it->second;
-/* 			if (bodyToWrite.empty())
-				bodyToWrite = multipart.parts.begin()->second; */
 			fileToWrite[targetPath] = bodyToWrite;
 //			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
 			++it;
@@ -554,11 +550,21 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	}
 	else
 	{
-		_statusCode = 201;
-		_contentType = "text/plain";
-		_body = "Created\n";
-		_contentLength = _body.size();
-		// _location already set above
+		if (isMultipart && existedAny && !createdAny)
+		{
+			_statusCode = 204;
+			_contentType = "text/plain";
+			_body.clear();
+			_contentLength = 0;
+		}
+		else
+		{
+			_statusCode = 201;
+			_contentType = "text/plain";
+			_body = "Created\n";
+			_contentLength = _body.size();
+			// _location already set above (raw upload case)
+		}
 	}
 
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
@@ -601,15 +607,19 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 
 	if (fileSystemHandler.isDirectory(targetPath))
 	{
-		if (!fileSystemHandler.removeDirectory(targetPath))
-		{
+		if (!fileSystemHandler.isWritable(targetPath))
 			return returnGenericErrorResponse(403, request, resolvedConfig);
-		}
+		if (!fileSystemHandler.listDirectory(targetPath).empty())
+			return returnGenericErrorResponse(409, request, resolvedConfig);
+		if (!fileSystemHandler.removeDirectory(targetPath))
+			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 	else
 	{
-		if (!fileSystemHandler.removeFile(targetPath))
+		if (!fileSystemHandler.isWritable(targetPath))
 			return returnGenericErrorResponse(403, request, resolvedConfig);
+		if (!fileSystemHandler.removeFile(targetPath))
+			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 
 	_statusCode = 204;
@@ -757,7 +767,6 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	if (request.getMethodStr() != "HEAD")
 	{
 		try{
-			// client_max_body_size is a request-body limit; it should not cap GET responses.
 			_body = fileSystemHandler.readFile(filePath, fileSize);
 		}
 		catch (const std::exception& e){
