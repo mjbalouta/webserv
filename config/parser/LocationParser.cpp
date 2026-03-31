@@ -44,7 +44,6 @@ void ConfigParser::parseAllowMethods(LocationConfig& location)
  */
 void ConfigParser::parseUploadStore(LocationConfig& location)
 {
-	//VER, ISTO SO FAZ SENTIDO SE POST EXISTIR NOS ALLOWED_METHODS - VALIDAR NO PARSING OU MAIS TARDE NA RESPONSE?
 	++_currentToken;
 	checkIfTokenExists();
 
@@ -56,10 +55,6 @@ void ConfigParser::parseUploadStore(LocationConfig& location)
 	if (storePath[0] != '/')
 		storePath = _absolutePath + storePath;
 	location.setUploadStore(storePath);
-
-	//FALAR COM ELES E VERIFICAR AQUI SE DEVO SER EU A VERIFICAR SE O DIRETORIO EXISTE E
-	//SE TEM PERMISSAO DE EXECUCAO PARA A CRIACAO DE PASTAS
-	location.setUploadStore(_tokens[_currentToken]);
 
 	++_currentToken;
 	checkIfTokenExists();

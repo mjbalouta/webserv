@@ -7,6 +7,12 @@ ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& serve
 	_location = findLocationBlock(server, request);
 }
 
+ConfigResolved::ConfigResolved(const ServerConfig& server, const LocationConfig& location)
+{
+	_server = &server;
+	_location = &location;
+}
+
 /**
  * @brief after finding the server block, we must look for the most accurate match for the request path
  * in the location block's path
@@ -15,7 +21,7 @@ ConfigResolved::ConfigResolved(const Request& request, const ServerConfig& serve
  * @param request 
  * @return const LocationConfig* 
  */
-const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& server, const Request& request)
+const LocationConfig* ConfigResolved::findLocationBlock(const ServerConfig& server, const Request& request) const
 {
 	std::string path = request.getPath();
 
@@ -271,7 +277,16 @@ std::string ConfigResolved::getUploadStore() const
 }
 
 /**
- * @brief Returns server absolute path
+ * @brief Gets the full server object
+ * 
+ * @return std::vector<ServerConfig>& 
+ */
+const ServerConfig& ConfigResolved::getServerBlock() const
+{
+	return *_server;
+}
+
+ /* @brief Returns server absolute path
  * 
  * @return const std::string& 
  */

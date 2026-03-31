@@ -396,6 +396,22 @@ std::string Request::getMethodStr() const{
 	}
 }
 
+/**
+ * @brief Needed to extract the specific query info from the request
+ * 
+ * @param name name of the query to search for
+ * @return const std::string& 
+ */
+const std::string& Request::getSpecificQuery(const std::string& name) const
+{
+	std::map<std::string, std::string>::const_iterator it = _queryParams.find(name);
+	if (it != _queryParams.end())
+		return it->second; //returns the value for the <name> key
+	
+	static const std::string empty = "";
+	return empty;
+}
+
 const std::string& Request::getCgiFullPath() const
 {
 	return _cgiFullPath;
