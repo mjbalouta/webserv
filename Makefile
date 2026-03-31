@@ -10,7 +10,6 @@ BUILD_PATH		= .build
 
 FILES			= main.cpp \
 				  CGI/CGIHandler.cpp \
-				  CGI/CGIHandler.hpp \
 				  config/parser/ConfigParser.cpp \
 				  config/parser/ConfigUtils.cpp \
 				  config/parser/LocationParser.cpp \

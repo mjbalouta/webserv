@@ -193,44 +193,36 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		}
 		return response;
 	}
-	
-	std::string blankLine;
-	if (rawOutput.find("\r\n\r\n") != std::string::npos)
-		blankLine = "\r\n\r\n";
-	else if (rawOutput.find("\n\n") != std::string::npos)
-		blankLine = "\n\n";
-	else
+
+	std::string normalized = rawOutput;
+	size_t p = 0;
+	while ((p = normalized.find("\r\n", p)) != std::string::npos)
+		normalized.replace(p, 2, "\n");
+	for (size_t i = 0; i < normalized.size(); ++i)
 	{
-		ErrorPageGenerator error;
-		std::string statusLine = httpVersion + " 500 " + error.getReasonPhrase(500) + "\r\n";
-		std::string contentType = "text/html";
-		std::string body = error.generateErrorPage(500, error.getReasonPhrase(500));
-		std::stringstream ss;
-		ss << body.size();
-		std::string contentLength = ss.str();
-		std::string response = statusLine;
-		response += "Content-Type: " + contentType + "\r\n";
-		response += "Content-Length: " + contentLength + "\r\n";
-		response += std::string("Connection: ") + (keepAlive ? "keep-alive" : "close") + "\r\n";
-		response += "\r\n";
-		response += body;
-		return response;
+		if (normalized[i] == '\r')
+			normalized[i] = '\n';
+	}
+
+	const std::string blankLine = "\n\n";
+	size_t sepPos = normalized.find(blankLine);
+	if (sepPos == std::string::npos)
+	{
+		std::string contentType = "text/plain";
+		return httpVersion + " 200 OK\r\nContent-Type: " + contentType
+			+ "\r\nContent-Length: " + itostr(normalized.size())
+			+ "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close")
+			+ "\r\n\r\n" + normalized;
 	}
 	std::vector<std::pair<std::string, std::string> > headers;
-
-	if (!blankLine.empty())
 	{
-		if (rawOutput.find(blankLine) != std::string::npos)
-		{
-			std::string headersPart = rawOutput.substr(0, rawOutput.find(blankLine));
-			std::string bodyPart = rawOutput.substr(rawOutput.find(blankLine) + blankLine.size());
+		std::string headersPart = normalized.substr(0, sepPos);
+		std::string bodyPart = normalized.substr(sepPos + blankLine.size());
 
 			std::istringstream headerStream(headersPart);
 			std::string line;
 			while (std::getline(headerStream, line, '\n'))
 			{
-				if (!line.empty() && line[line.size() - 1] == '\r')
-					line.erase(line.size() - 1);
 				size_t colonPos = line.find(":");
 				if (colonPos != std::string::npos)
 				{
@@ -272,16 +264,10 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 				headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
 			std::string response;
 			if (!hasStatusLine)
-				response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n\r\n" + bodyPart;
+				response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
 			else
-				response = headerResponse + "\r\n\r\n" + bodyPart;
+				response = headerResponse + "\r\n" + bodyPart;
 			return response;
-		}
-		else
-		{
-			std::string contentType = "text/plain";
-			return httpVersion + " 200 OK\r\nContent-Type: " + contentType + "\r\nContent-Length: " + itostr(rawOutput.size()) + "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + rawOutput;
-		}
 	}
-	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + rawOutput;
+	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;
 }
