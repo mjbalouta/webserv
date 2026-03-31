@@ -24,6 +24,7 @@ void ServerManager::startCgi(ClientSession &client,
 		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server);
 		client.cgiOutputBuffer.clear();
 		client.cgiInputBuffer = client.request.getBody();
+		std::cout << "Input Buffer: " << client.cgiInputBuffer << std::endl;
 		client.cgiInputWritten = 0;
 
 		// Track pipe read-end: epoll fd → client fd → server index
@@ -32,8 +33,10 @@ void ServerManager::startCgi(ClientSession &client,
 
 		// Register read-end in epoll — we always want to capture output
 		addToEpoll(_epollFd, client.cgi.readFd, EPOLLIN);
-		if (!client.cgiInputBuffer.empty())
+		std::cout << "METHOD: " << client.request.getMethod() << std::endl;
+		if (client.request.getMethod() == POST)
 		{
+			printLog("ENTREI PARA MUDAR O WRITE", RED);
 			// POST: register write-end so epoll tells us when we can push body
 			_cgiWriteFdToClient[client.cgi.writeFd] = client.fd;
 
@@ -80,32 +83,67 @@ void ServerManager::startCgi(ClientSession &client,
  */
 void ServerManager::handleCgiWrite(int clientFd, int serverIndex)
 {
-	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _clients.size())
-		return;
+	std::cout << "ola" << std::endl;
+    if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _clients.size())
+        return;
 
-	std::map<int, ClientSession>::iterator it = _clients[serverIndex].find(clientFd);
-	if (it == _clients[serverIndex].end())
-		return;
-	ClientSession &client = it->second;
+    std::map<int, ClientSession>::iterator it = _clients[serverIndex].find(clientFd);
+    if (it == _clients[serverIndex].end())
+        return;
+    ClientSession &client = it->second;
 
-	if (client.cgi.writeFd < 0)
-		return;
+    if (client.cgi.writeFd < 0)
+        return;
 
-	size_t  remaining = client.cgiInputBuffer.size() - client.cgiInputWritten;
-	ssize_t written = write(client.cgi.writeFd, client.cgiInputBuffer.c_str() + client.cgiInputWritten, remaining);
+    // Refresh input buffer from request in case more data arrived
+    if (client.cgiInputBuffer.size() != client.request.getBody().size())
+    {
+        client.cgiInputBuffer = client.request.getBody();
+        std::cout << "Updated CGI input buffer, new size: " << client.cgiInputBuffer.size() << std::endl;
+    }
 
-	if (written > 0)
-		client.cgiInputWritten += static_cast<size_t>(written);
+    size_t remaining = client.cgiInputBuffer.size() - client.cgiInputWritten;
+    
+    if (remaining == 0)
+    {
+        // Check if request is complete
+        if (client.cgiInputWritten >= client.cgiInputBuffer.size())
+        {
+            // All data written and request complete → close write-end (send EOF)
+            removeFromEpoll(_epollFd, client.cgi.writeFd);
+            _cgiWriteFdToClient.erase(client.cgi.writeFd);
+            close(client.cgi.writeFd);
+            client.cgi.writeFd = -1;
+            printLog("✅ CGI stdin fully written, closed write-end", BGRN);
+        }
+        // else: more data still coming, wait for next EPOLLOUT event
+        return;
+    }
 
-	// When every byte has been delivered, close write-end → EOF to child
-	if (client.cgiInputWritten >= client.cgiInputBuffer.size())
-	{
-		removeFromEpoll(_epollFd, client.cgi.writeFd);
-		_cgiWriteFdToClient.erase(client.cgi.writeFd);
-		close(client.cgi.writeFd);
-		client.cgi.writeFd = -1;
-		printLog("✅ CGI stdin fully written, closed write-end", BGRN);
-	}
+    ssize_t written = write(client.cgi.writeFd, client.cgiInputBuffer.c_str() + client.cgiInputWritten, remaining);
+
+    if (written > 0)
+    {
+        client.cgiInputWritten += static_cast<size_t>(written);
+        std::cout << "Wrote " << written << " bytes to CGI, total: " << client.cgiInputWritten << "/" << client.cgiInputBuffer.size() << std::endl;
+    }
+    else if (written < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+    {
+        // Write error
+        printLog("❌ CGI write error", RED);
+        removeFromEpoll(_epollFd, client.cgi.writeFd);
+        _cgiWriteFdToClient.erase(client.cgi.writeFd);
+        close(client.cgi.writeFd);
+        client.cgi.writeFd = -1;
+        
+        kill(client.cgi.pid, SIGKILL);
+        waitpid(client.cgi.pid, NULL, 0);
+        client.cgi.pid = -1;
+        
+        client.status = 500;
+        client.state = WRITING;
+    }
+    // If written == 0 or EAGAIN, just return and wait for next EPOLLOUT event
 }
 
 /**
