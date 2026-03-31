@@ -106,7 +106,6 @@ void ResponseBuilder::insertLocationInfo(const Request& request, const ConfigRes
 	if (_contentType != "text/html")
         return;
 
-	std::map<std::string, std::string> queryParams = request.getQueryParams();
 	//searches for the userInput in the query path (the name of the input in the html)
 	std::string userInput = request.getSpecificQuery("path");
 	if (userInput.empty())
@@ -374,7 +373,7 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
 void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
     std::string uploadDir = config.getUploadStore();
-    std::string root = config.getRoot();
+    // std::string root = config.getRoot();
 
     if (uploadDir.empty())
     {
