@@ -84,6 +84,12 @@ class ResponseBuilder{
 		std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
 		std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
-		void setStandardHeaders(std::string& response, const std::string& contentType);		
+		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
+		void setStandardHeaders(std::string& response, const std::string& contentType);
+		void replaceTag(std::string &content, const std::string &tag, const std::string &value);
+		void insertServerInfo(const ConfigResolved& config);
+		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
+		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
+		void listGalleryFiles(const ConfigResolved& config);
 	//	std::string buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig);
 };

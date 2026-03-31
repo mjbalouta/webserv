@@ -36,6 +36,7 @@ class Request {
 		const std::string &getHost() const { return _host; };
 		bool isChunked() const { return _isChunked; };
 		const std::map<std::string, std::string> &getQueryParams() const { return _queryParams; };
+		const std::string& getSpecificQuery(const std::string& name) const;
 		const std::map<std::string, std::string> &getHeaders() const { return _headers; };
 		std::string getHeader(const std::string &keyHeader) const;
 		bool isCgi(const ConfigResolved& routing);
