@@ -91,5 +91,6 @@ class ResponseBuilder{
 		void insertLocationInfo(const Request& request, const ConfigResolved& resolvedConfig);
 		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
 		void listGalleryFiles(const ConfigResolved& config);
+		std::string returnErrorDescription() const;
 	//	std::string buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig);
 };

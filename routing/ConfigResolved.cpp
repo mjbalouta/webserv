@@ -163,7 +163,7 @@ const std::vector<std::string>& ConfigResolved::getAllowedMethods() const
 const std::map<int, std::string>& ConfigResolved::getErrorPages() const
 {
 	if (_location && !_location->getErrorPages().empty())
-		return _location->getErrorPages();
+		std::cout << "location" << std::endl;
 	return _server->getErrorPages();
 }
 

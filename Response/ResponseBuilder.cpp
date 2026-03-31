@@ -413,7 +413,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 
 		// No index: fall back to autoindex listing when enabled.
 		if (!resolvedConfig.getAutoIndex())
-			return returnGenericErrorResponse(404, request, resolvedConfig);
+			return returnGenericErrorResponse(403, request, resolvedConfig);
 		std::string uriWithSlash = ensureTrailingSlash(request.getPath());
 		return buildDirectoryListingResponse(request, uriWithSlash, fileSystemPath, resolvedConfig);
 	}
@@ -651,6 +651,12 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
 		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 		response += "\r\n";
+		replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
+		if (matchedLocation.getReturnMessage().empty())
+			replaceTag(_body, "{{ERROR_MESSAGE}}", "");
+		else
+			replaceTag(_body, "{{ERROR_MESSAGE}}", matchedLocation.getReturnMessage());
+		replaceTag(_body, "{{ERROR_DESCRIPTION}}", "ola");
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
 		return response;
@@ -676,6 +682,9 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 		std::string response = _statusLine;
 		setStandardHeaders(response, _contentType);
 		response += "\r\n";
+		replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
+		replaceTag(_body, "{{ERROR_MESSAGE}}", "");
+		replaceTag(_body, "{{ERROR_DESCRIPTION}}", returnErrorDescription());
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
 		return response;
