@@ -7,6 +7,8 @@
 #include "../Includes.hpp"
 #include "../CGI/CGIHandler.hpp"
 
+extern volatile sig_atomic_t running;
+
 class ServerConfig;
 
 class ServerManager {
@@ -37,6 +39,12 @@ class ServerManager {
 			bool keepAlive;
 			bool isRedirection;
 			bool headersSent;
+			bool chunkedDecoded;
+			std::string resolvedPath;
+			// Incremental chunked decoding state — persists across readClientRequest() calls
+			size_t chunkedBodyStart;    // offset of body in readBuffer (set once headers arrive)
+			size_t chunkedCursor;       // next byte to decode in the raw chunked body
+			std::string chunkedDecodedBody; // accumulates fully decoded chunk data
 			int ioFailures;  // used to detect errors without errno
 			CgiProcess cgi;              // pid + pipe fds for active CGI child
 			std::string cgiOutputBuffer; // accumulates raw CGI stdout as epoll delivers it
@@ -49,7 +57,6 @@ class ServerManager {
 
 		int _epollFd;
 		std::vector<ServerConfig> _servers;
-		//std::vector<Config> _configs;
 		std::vector<std::map<int, ClientSession> > _clients;
 		std::map<int, int> _listenerFdToServer;
 		std::map<int, int> _clientFdToServer;
@@ -64,7 +71,7 @@ class ServerManager {
 		void addClientToEpoll(ClientSession &client);
 		void modClientEpoll(const ClientSession &client, uint32_t events);
 		void handleClientRequest(ClientSession &client, ServerConfig &server);
-		void readClientRequest(ClientSession &client, size_t maxUploadSize);
+		void readClientRequest(ClientSession &client, size_t maxUploadSize, ServerConfig &server);
 		void parseClientRequest(ClientSession &client, ServerConfig &server);
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
 		void sendClientResponse(ClientSession &client, ServerConfig &server);

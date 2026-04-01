@@ -129,7 +129,7 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
  * @param client Client session.
  * @param maxUploadSize Max accepted body size for this endpoint.
  */
-void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSize)
+void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSize, ServerConfig &server)
 {
 	if (client.fd < 0)
 	{
@@ -138,43 +138,71 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-	// Temporary stack buffer used for one recv() call.
-	char buffer[BUFFER_SIZE];
-	int readBytes = recv(client.fd, buffer, sizeof(buffer), 0);
-	// recv() reads up to sizeof(buffer) bytes from socket _fd into buffer.
-	// The last argument is 0, which means recv() is called with no special flags.
-	if (readBytes < 0)
-	{
-		// Cannot inspect errno, so we cannot tell whether this is EAGAIN/EWOULDBLOCK/EINTR
-		//   First failure  → stay READING, return. EPOLLIN stays armed; retry next event.
-		//   Second consecutive failure, set state as CLOSING.
-		client.ioFailures++;
-		if (client.ioFailures < 2)
-		{
-			client.state = READING; // keep EPOLLIN; give the socket one more chance
+	// Read in a loop until no more data is available (EAGAIN or EWOULDBLOCK).
+	// peerClosed is set when recv() returns 0 (FIN received). We do NOT close
+	// immediately — we let the chunked/content-length logic below run first so
+	// a complete request that arrived in the same TCP segment as the FIN is
+	// still processed and answered before the connection is torn down.
+	bool peerClosed = false;
+	while (true) {
+		char buffer[BUFFER_SIZE];
+		int readBytes = recv(client.fd, buffer, sizeof(buffer), 0);
+		if (readBytes < 0) {
+			if (!client.writeBuffer.empty()) {
+				// No more data to read now
+				client.state = WRITING;
+				return;
+//				break;
+			}
+			client.ioFailures++;
+			if (client.ioFailures < 2) {
+				client.state = READING;
+				return;
+			}
+			printLog("🚨 recv() failed twice consecutively — closing connection", RED);
+			client.state = CLOSING;
 			return;
 		}
-		printLog("🚨 recv() failed twice consecutively — closing connection", RED);
-		client.state = CLOSING;
-		return;
+		if (readBytes == 0) {
+			// Peer sent FIN. Break out so the decoder gets one last chance to
+			// finish. peerClosed will close the connection further down if the
+			// request turns out to be incomplete.
+			peerClosed = true;
+			break;
+		}
+		client.ioFailures = 0;
+		client.readBuffer.append(buffer, readBytes);
+		client.totalReceived += readBytes;
+		if (readBytes < (int)sizeof(buffer))
+			break;
 	}
-	client.ioFailures = 0; // successful read: reset the consecutive-failure counter
 
-	if (readBytes == 0)
-	{
-		// recv() == 0 means the peer performed an orderly shutdown.
-		printLog("ℹ️ Client closed connection gracefully", BYEL);
-		client.state = CLOSING;
-		return;
+	// --- Stream POST body to CGI as it arrives ---
+	// If a CGI is active and we are still receiving the body, append new data to cgiInputBuffer
+	if (client.cgi.pid > 0 && client.cgi.writeFd >= 0) {
+		size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+		if (headerEnd != std::string::npos) {
+			size_t headerSize = headerEnd + 4;
+			size_t alreadyBuffered = client.cgiInputBuffer.size();
+			size_t totalBodySize = client.readBuffer.size() - headerSize;
+			if (totalBodySize > alreadyBuffered) {
+				// Append only the new bytes received
+				client.cgiInputBuffer.append(client.readBuffer.substr(headerSize + alreadyBuffered, totalBodySize - alreadyBuffered));
+			}
+		}
 	}
-
-	client.readBuffer.append(buffer, readBytes);
-	client.totalReceived += readBytes;
 
 	// Look for the HTTP header terminator: "\r\n\r\n". Until this appears, we only have a partial header block.
 	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
 	if (headerEnd == std::string::npos)
-	{
+	{		// If peer closed connection but no complete request headers received yet,
+		// close the connection immediately (especially after keep-alive: don't loop forever).
+		if (peerClosed)
+		{
+			printLog("⏳ Client closed before sending a complete request (likely after keep-alive response)", BYEL);
+			client.state = CLOSING;
+			return;
+		}
 		// DoS means Denial of Service. It’s an attack where someone makes a server unavailable by exhausting resources like
 		// Anti-DoS guard #1:
 		// If a client keeps sending bytes without finishing headers,
@@ -189,6 +217,27 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 			client.state = WRITING;
 		}
 		return;
+	}
+	// --- 100 Continue logic ---
+	// Only send 100 Continue once per request
+	if (!client.headersSent) {
+		size_t requestLineEnd = client.readBuffer.find("\r\n");
+		size_t headerStart = (requestLineEnd != std::string::npos) ? requestLineEnd + 2 : 0;
+		std::string headersLower = toLower(client.readBuffer.substr(headerStart, headerEnd - headerStart));
+		if (headersLower.find("expect: 100-continue") != std::string::npos) {
+			printLog("[EXPECT 100-CONTINUE] Detected for fd=" + itostr(client.fd), BYEL);
+			std::string continueMsg = "HTTP/1.1 100 Continue\r\n\r\n";
+			ssize_t sent = send(client.fd, continueMsg.c_str(), continueMsg.size(), MSG_NOSIGNAL);
+			if (sent == (ssize_t)continueMsg.size()) {
+				// Simple 100 Continue log (C++98 compatible)
+				printLog("[100 CONTINUE] Sent to client fd=" + itostr(client.fd), BGRN);
+				client.headersSent = true;
+			}
+			// If send fails, we do not retry here; connection will be closed on next error
+		}
+		else {
+			client.headersSent = true; // Mark as sent to avoid re-checking
+		}
 	}
 
 	// headerEnd points to the first '\r' of the terminator, so +4 includes "\r\n\r\n".
@@ -219,6 +268,46 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	size_t headerStart = requestLineEnd + 2;
 	std::string headersLower = toLower(client.readBuffer.substr(headerStart, headerEnd - headerStart));
 
+	// --- 100 Continue logic ---
+	if (headersLower.find("expect: 100-continue") != std::string::npos && !client.headersSent) {
+		const char *continueMsg = "HTTP/1.1 100 Continue\r\n\r\n";
+		ssize_t sent = send(client.fd, continueMsg, strlen(continueMsg), MSG_NOSIGNAL);
+		if (sent > 0) {
+			printLog("[100 Continue sent]", BGRN);
+		}
+		client.headersSent = true; // Prevent sending 100 Continue more than once
+	}
+
+	// Extract the path from the request line to determine location-specific maxBodySize early
+	// Format: "METHOD /path HTTP/VERSION"
+	std::string requestLine = client.readBuffer.substr(0, requestLineEnd);
+	size_t firstSpace = requestLine.find(' ');
+	size_t secondSpace = requestLine.find(' ', firstSpace + 1);
+	size_t effectiveMaxUploadSize = maxUploadSize; // Default to global size
+	
+	if (firstSpace != std::string::npos && secondSpace != std::string::npos && firstSpace < secondSpace)
+	{
+		std::string path = requestLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+		// Find query string and remove it
+		size_t queryPos = path.find('?');
+		if (queryPos != std::string::npos)
+			path = path.substr(0, queryPos);
+		
+		// Get location-specific maxBodySize by checking configured locations
+		const std::vector<LocationConfig> &locations = server.getLocations();
+		for (size_t i = 0; i < locations.size(); ++i)
+		{
+			const LocationConfig &loc = locations[i];
+			const std::string &locPath = loc.getPath();
+			// Simple path matching: if request path starts with location path
+			if (!locPath.empty() && path.find(locPath) == 0 && loc.getMaxBodySizeFlag())
+			{
+				effectiveMaxUploadSize = loc.getMaxBodySize();
+				break;
+			}
+		}
+	}
+
 	bool hasTransferEncoding = false;
 	bool isChunkedOnly = false;
 	int teResult = parseTransferEncodingHeader(headersLower, hasTransferEncoding, isChunkedOnly);
@@ -247,7 +336,17 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	//if is only chunked then decode 
 	if (hasTransferEncoding && isChunkedOnly)
 	{
-		decodeChunked(client, maxUploadSize);
+		// decodeChunked() is fully incremental: it resumes from chunkedCursor
+		// and never re-scans already-decoded data, so it is safe to call on
+		// every EPOLLIN event until state becomes PROCESSING.
+		decodeChunked(client, effectiveMaxUploadSize);
+		// If the peer already sent FIN and decoding still didn't complete,
+		// the body was truncated — close rather than wait forever.
+		if (peerClosed && client.state == READING)
+		{
+			printLog("ℹ️ Client closed connection mid-chunked-body", BYEL);
+			client.state = CLOSING;
+		}
 		return;
 	}
 
@@ -261,18 +360,18 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-			// Always parse Content-Length from headers after receiving them.
-			if (!parseContentLengthValue(headersLower, client.contentLength))
-			{
-				printLog("🚨 Invalid Content-Length", RED);
-				client.status = 400;
-				client.keepAlive = false;
-				client.state = WRITING;
-				return;
-			}
+	// Always parse Content-Length from headers after receiving them.
+	if (!parseContentLengthValue(headersLower, client.contentLength))
+	{
+		printLog("🚨 Invalid Content-Length", RED);
+		client.status = 400;
+		client.keepAlive = false;
+		client.state = WRITING;
+		return;
+	}
 
 	// If declared body is larger than configured upload limit, fail early.
-	if (client.contentLength > maxUploadSize)
+	if (client.contentLength > effectiveMaxUploadSize)
 	{
 		printLog("🚨 Content-Length exceeds maximum limit", RED);
 		client.state = WRITING;
@@ -281,9 +380,9 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-	// Overflow-safe guard before computing (headerSize + maxUploadSize).
+	// Overflow-safe guard before computing (headerSize + effectiveMaxUploadSize).
 	// Prevents wrapping size_t on pathological configuration/input combinations.
-	if (headerSize > std::numeric_limits<size_t>::max() - maxUploadSize)
+	if (headerSize > std::numeric_limits<size_t>::max() - effectiveMaxUploadSize)
 	{
 		printLog("🚨 Request size overflow guard triggered", RED);
 		client.keepAlive = false;
@@ -294,7 +393,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	// Total request budget = bounded headers + bounded body.
 	// This prevents unbounded growth even after headers are complete.
-	size_t maxRequestSize = headerSize + maxUploadSize;
+	size_t maxRequestSize = headerSize + effectiveMaxUploadSize;
 	if (client.readBuffer.size() > maxRequestSize)
 	{
 		printLog("🚨 Request exceeds configured total size", RED);
@@ -306,8 +405,23 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	{
 		size_t bodySize = client.readBuffer.size() - headerSize;
+		// Check if actual body size exceeds limit even when Content-Length is missing
+		if (bodySize > effectiveMaxUploadSize)
+		{
+			printLog("🚨 Actual body size exceeds maximum limit", RED);
+			client.keepAlive = false;
+			client.status = 413;
+			client.state = WRITING;
+			return;
+		}
 		// Once enough body bytes have arrived, the request is complete and can be parsed.
 		if (bodySize >= client.contentLength)
 			client.state = PROCESSING;
+		else if (peerClosed)
+		{
+			// Peer sent FIN before the full body arrived — request is incomplete.
+			printLog("ℹ️ Client closed connection with incomplete request body", BYEL);
+			client.state = CLOSING;
+		}
 	}
 }

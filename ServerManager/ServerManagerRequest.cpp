@@ -16,12 +16,15 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			closeClientSocket(client);
 			return;
 		case READING:
-			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
+			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()), server);
 			if (client.state == WRITING)
 			{
-				// readClientRequest() can decide an immediate error response
-				// (e.g. unsupported chunked, oversized headers/body).
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
+				break;
+			}
+			if (client.state == READING) {
+				// Explicitly re-arm EPOLLIN to keep reading as more data arrives
+				modClientEpoll(client, EPOLLIN | EPOLLRDHUP | EPOLLERR);
 				break;
 			}
 			if (client.state != PROCESSING)
@@ -34,7 +37,7 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			if (client.state == WRITING)
 				// EPOLLOUT means "wake me when this fd can be written without blocking".
 				// Once a response is ready, we switch from read readiness to write readiness.
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 			break;
 		case WRITING:
 			sendClientResponse(client, server);
@@ -53,6 +56,27 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
  */
 void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &server)
 {
+	// If an error status was already set (e.g., 413 by body size check), skip parsing
+	// and directly send the error response
+	if (client.status >= 400)
+	{
+		client.writeBuffer.clear();
+		client.keepAlive = false;
+		client.state = WRITING;
+		client.readBuffer.clear();
+		if (client.version.empty())
+			client.version = "HTTP/1.1";
+		// Use ResponseBuilder for error response
+		Request errorRequest;
+		errorRequest.setStatus(client.status);
+		errorRequest.setVersion(client.version);
+		ConfigResolved config(errorRequest, server);
+		ResponseBuilder rb;
+		client.writeBuffer = rb.returnGenericErrorResponse(client.status, errorRequest, config);
+		modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
+		return;
+	}
+
 	// Parse only the first complete request currently in readBuffer.
 	// Any trailing bytes (possible next pipelined request) are preserved.
 	size_t requestSize = std::string::npos;
@@ -81,7 +105,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			ConfigResolved config(errorRequest, server);
 			ResponseBuilder rb;
 			client.writeBuffer = rb.returnGenericErrorResponse(431, errorRequest, config);
-			modClientEpoll(client, EPOLLOUT); // Ensure response is sent
+			modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR); // Ensure response is sent
 			return;
 		}
 		// Guard bounds before computing total request bytes.
@@ -91,45 +115,61 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			requestSize = headerSize + client.contentLength;
 	}
 
-	// `requestBuffer` is what we parse now; `remainingBuffer` is queued for next cycle.
-	std::string requestBuffer = client.readBuffer;
-	std::string remainingBuffer;
-	if (requestSize != std::string::npos && requestSize <= client.readBuffer.size())
-	{
-		requestBuffer = client.readBuffer.substr(0, requestSize);
+	// Only parse the request if the full body is present
+	if (requestSize != std::string::npos && requestSize <= client.readBuffer.size()) {
+		std::string remainingBuffer;
 		if (requestSize < client.readBuffer.size())
 			remainingBuffer = client.readBuffer.substr(requestSize);
-	}
 
-	client.request = Request();
-	Request &request = client.request;
-			if (!request.parseRequest(requestBuffer, client.contentLength))
-			{
-				client.writeBuffer.clear();
-				client.path = "";
-				client.method = NONE;
-				client.status = request.getStatus();
-				printLog("⚠️ Malformed HTTP request handled", YEL);
-				client.keepAlive = false;
-				client.state = WRITING;
+		client.request = Request();
+		Request &request = client.request;
+
+		// Optimization: for chunked-decoded requests the body can be very large (100MB+).
+		// parseRequest only needs the headers + an empty body to determine the path and
+		// build routing. We feed it headers-only here and inject the real body afterwards
+		// if needed (CGI will read from cgiInputBuffer, not from request.getBody() for
+		// large bodies, so this is safe). This avoids a 100MB string copy on every request.
+		bool parseOk;
+		if (client.chunkedDecoded && headerEnd != std::string::npos)
+		{
+			// Build a synthetic request: original headers + empty body.
+			// Pass contentLength=0 so parseAndValidateBody accepts the empty body for a
+			// chunked request (_isChunked branch sets _body = "").
+			// This avoids a 100MB string copy just to parse headers and determine routing.
+			std::string headersOnly = client.readBuffer.substr(0, headerEnd + 4);
+			parseOk = request.parseRequest(headersOnly, 0);
+		}
+		else
+		{
+			std::string requestBuffer = client.readBuffer.substr(0, requestSize);
+			parseOk = request.parseRequest(requestBuffer, client.contentLength);
+		}
+
+		if (!parseOk) {
+			client.writeBuffer.clear();
+			client.path = "";
+			client.method = NONE;
+			client.status = request.getStatus();
+			printLog("⚠️ Malformed HTTP request handled", YEL);
+			client.keepAlive = false;
+			client.state = WRITING;
+			remainingBuffer.clear();
+			// Use ResponseBuilder for error response
+			ConfigResolved config(request, server);
+			ResponseBuilder rb;
+			client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
+		} else {
+			processClientRequest(client, request, server);
+			if (!client.keepAlive)
 				remainingBuffer.clear();
-				// Use ResponseBuilder for error response
-				ConfigResolved config(request, server);
-				ResponseBuilder rb;
-				client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
-			} else
-			{
-				// Person 2 hook: receive parsed Request + current ServerConfig and decide
-				// routing/config result (best location, method validation, effective path, status).
-				// For now processClientRequest() copies the parsed metadata into transport fields.
-				processClientRequest(client, request, server);
-				if (!client.keepAlive)
-					remainingBuffer.clear();
-			}
-
-	// Keep only leftover bytes that belong to future requests.
-	client.readBuffer = remainingBuffer;
-	client.contentLength = 0;
+		}
+		// Keep only leftover bytes that belong to future requests.
+		client.readBuffer = remainingBuffer;
+		// Do NOT reset client.contentLength here; it is needed for POST/CGI body handling
+	} else {
+		// Not enough data yet; wait for more
+		client.state = READING;
+	}
 	return;
 }
 
@@ -142,41 +182,54 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 void ServerManager::processClientRequest(ClientSession &client, Request &request, ServerConfig &server)
 {
 	ConfigResolved routing(request, server);
-	// Person 3 hook: use `server` error pages/root/indexes to build final body.
 	client.method = request.getMethod();
 	client.path = request.getPath();
 	client.status = request.getStatus();
 	client.isRedirection = request.isRedirect();
 	client.version = request.getVersion();
-	// Determine keep-alive behavior from HTTP version + Connection header:
-	// - HTTP/1.0 defaults to close unless Connection: keep-alive
-	// - HTTP/1.1 defaults to keep-alive unless Connection: close
 	std::string clientHeader = toLower(request.getHeader("connection"));
 	if (client.version == "HTTP/1.0")
 		client.keepAlive = (clientHeader == "keep-alive");
 	else
 		client.keepAlive = (clientHeader != "close");
-	//CGI
-	if (request.isCgi(routing))
-	{
-		startCgi(client, request.getCgiFullPath(), request.getCgiInterpreter(), server);
+
+	// Only start CGI after full body is received.
+	// For chunked-decoded requests, the body is complete by definition (decodeChunked
+	// only sets state=PROCESSING when the terminal chunk is received). For normal
+	// Content-Length requests, compare body size against declared length.
+	if (request.isCgi(routing)) {
+		bool bodyComplete = client.chunkedDecoded ||
+			(client.method != POST) ||
+			(client.request.getBody().size() >= client.contentLength);
+		if (bodyComplete) {
+			// For chunked-decoded POST CGI, feed the body from readBuffer directly.
+			// request.getBody() may be empty (optimization), so use readBuffer slice.
+			if (client.chunkedDecoded && client.method == POST && client.cgiInputBuffer.empty()) {
+				size_t hEnd = client.readBuffer.find("\r\n\r\n");
+				if (hEnd != std::string::npos)
+					client.cgiInputBuffer = client.readBuffer.substr(hEnd + 4, client.contentLength);
+			}
+			startCgi(client, request.getCgiFullPath(), request.getCgiInterpreter(), server);
+			return;
+		} else {
+			client.state = READING;
+			return;
+		}
+	}
+
+	// isCgi() may have set a 404 (file not found) or 403 (forbidden) on the request
+	// when the extension matched a CGI handler but the script path was invalid.
+	// In that case, skip normal response building and return the error directly.
+	if (request.getStatus() != 200) {
+		client.status = request.getStatus();
+		client.keepAlive = false;
+		client.state = WRITING;
+		ResponseBuilder rb;
+		client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, routing);
+		client.totalSent = 0;
 		return;
 	}
 
-	// else {
-	// 	// Handle error: interpreter not found
-	// 	client.status = 501;
-	// 	client.keepAlive = false;
-	// 	client.state = WRITING;
-	// 	ResponseBuilder rb;
-	// 	ConfigResolved config(request, server);
-	// 	client.writeBuffer = rb.returnGenericErrorResponse(501, request, config);
-	// 	client.totalSent = 0;
-	// 	modClientEpoll(client, EPOLLOUT);
-	// }
-	// return;
-	// }
-	//NORMAL
 	ResponseBuilder rb;
 	client.writeBuffer = rb.returnResponse(request, routing, client.keepAlive);
 	client.totalSent = 0;
@@ -241,10 +294,15 @@ void ServerManager::sendClientResponse(ClientSession &client, ServerConfig &serv
 		client.method = NONE;
 		client.status = 200;
 		client.contentLength = 0;
+		client.chunkedDecoded = false;
+		client.chunkedBodyStart = 0;
+		client.chunkedCursor = 0;
+		client.chunkedDecodedBody.clear();
+		client.headersSent = false;
 		client.ioFailures = 0; // reset for the next request on this keep-alive connection
 		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
 		// on this keep-alive connection.
-		modClientEpoll(client, EPOLLIN);
+		modClientEpoll(client, EPOLLIN | EPOLLRDHUP | EPOLLERR);
 	}
 	else
 		client.state = CLOSING;

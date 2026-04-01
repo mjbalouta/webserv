@@ -1,6 +1,7 @@
 #include "ResponseBuilder.hpp"
 
-MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, const std::string& boundary){
+MultipartData ResponseBuilder::parseMultipartFormData(const std::string &body, const std::string &boundary)
+{
 	MultipartData data;
 	data.boundary = boundary;
 	const std::string marker = "--" + boundary;
@@ -32,7 +33,7 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, c
 			data.parts.clear();
 			return data;
 		}
-//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
+		//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
 		std::string headers = body.substr(pos, headerEnd - pos);
 		pos = headerEnd + 4;
 
@@ -68,7 +69,8 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string& body, c
 	return data;
 }
 
-std::string ResponseBuilder::extractFilenameFromPartHeaders(const std::string& headers){
+std::string ResponseBuilder::extractFilenameFromPartHeaders(const std::string &headers)
+{
 	// Part headers are HTTP-style headers: field-names are case-insensitive.
 	// Content-Disposition parameters are also commonly varied in case/whitespace by clients.
 	std::string lower = toLower(headers);
@@ -125,7 +127,8 @@ std::string ResponseBuilder::extractFilenameFromPartHeaders(const std::string& h
 	return "";
 }
 
-std::string ResponseBuilder::sanitizeFilename(const std::string& filename){
+std::string ResponseBuilder::sanitizeFilename(const std::string &filename)
+{
 	std::string sanitized = filename;
 
 	for (size_t i = 0; i < sanitized.size(); ++i)
@@ -136,7 +139,8 @@ std::string ResponseBuilder::sanitizeFilename(const std::string& filename){
 	return sanitized;
 }
 
-std::string ResponseBuilder::findFilenameFromHeaders(const std::map<std::string, std::string>& headers){
+std::string ResponseBuilder::findFilenameFromHeaders(const std::map<std::string, std::string> &headers)
+{
 	// MultipartData::parts is a map<rawHeaders, body>.
 	// Find the first part whose headers contain a filename parameter.
 	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
@@ -148,7 +152,8 @@ std::string ResponseBuilder::findFilenameFromHeaders(const std::map<std::string,
 	return "";
 }
 
-std::string ResponseBuilder::findFilenameContent(const std::map<std::string, std::string>& headers){
+std::string ResponseBuilder::findFilenameContent(const std::map<std::string, std::string> &headers)
+{
 	// Return the body corresponding to the part that has the filename parameter.
 	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
 	{
@@ -161,7 +166,7 @@ std::string ResponseBuilder::findFilenameContent(const std::map<std::string, std
 
 /**
  * @brief Formats a time value as an HTTP date string.
- * 
+ *
  * @param t The time value to format.
  * @return std::string The formatted date string.
  */
@@ -179,7 +184,7 @@ std::string ResponseBuilder::formatHttpDate(std::time_t t)
 
 /**
  * @brief Checks if the given URI path starts with the specified location path, ensuring that it matches a location boundary.
- * 
+ *
  * @param uriPath The URI path to check.
  * @param locPath The location path to compare against.
  * @return true if the URI path starts with the location path and matches a boundary, false otherwise.
@@ -203,7 +208,7 @@ bool ResponseBuilder::startsWithLocationBoundary(const std::string &uriPath, con
  * @brief Ensures that the given path starts with a leading slash.
  * 		  If the path is empty, it returns "/". If the path already starts with a slash, it returns the path unchanged.
  * 		  Otherwise, it prepends a slash to the path and returns the modified string.
- * 
+ *
  * @param p The path to check.
  * @return std::string The path with a leading slash.
  */
@@ -218,9 +223,9 @@ std::string ResponseBuilder::ensureLeadingSlash(const std::string &p)
 
 /**
  * @brief Ensures that the given path ends with a trailing slash.
- * 		  If the path is empty or already ends with a slash, it returns the path unchanged. 
+ * 		  If the path is empty or already ends with a slash, it returns the path unchanged.
  * 		  Otherwise, it appends a slash to the path and returns the modified string.
- * 
+ *
  * @param p The path to check.
  * @return std::string The path with a trailing slash.
  */
@@ -231,10 +236,9 @@ std::string ResponseBuilder::ensureTrailingSlash(const std::string &p)
 	return p + "/";
 }
 
-
 /**
  * @brief Joins two path components into a single path.
- * 
+ *
  * @param a The first path component.
  * @param b The second path component.
  * @return std::string The joined path.
@@ -252,14 +256,13 @@ std::string ResponseBuilder::joinPathSimple(const std::string &a, const std::str
 	return a + b;
 }
 
-
 /**
  * @brief Builds an autoindex HTML body for a directory listing based on the given URI path and filesystem path.
- * 
- * @param uriPath 
- * @param dirFsPath 
- * @param fs 
- * @return std::string 
+ *
+ * @param uriPath
+ * @param dirFsPath
+ * @param fs
+ * @return std::string
  */
 std::string ResponseBuilder::buildAutoIndexBody(const std::string &uriPath, const std::string &dirFsPath, FileSystemHandler &fs)
 {
@@ -280,10 +283,9 @@ std::string ResponseBuilder::buildAutoIndexBody(const std::string &uriPath, cons
 	return body;
 }
 
-
 /**
  * @brief Checks if the given HTTP method is allowed for the current location.
- * 
+ *
  * @param method The HTTP method to check.
  * @param resolvedConfig The resolved configuration for the current location.
  * @return true if the method is allowed, false otherwise.
@@ -300,12 +302,13 @@ bool ResponseBuilder::isMethodAllowed(const std::string &method, const ConfigRes
 
 /**
  * @brief Returns the appropriate response for the given request and configuration.
- * 
+ *
  * @param request The incoming HTTP request.
  * @param resolvedConfig The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::returnResponse(const Request& request, const ConfigResolved& resolvedConfig, bool keepAlive) {
+std::string ResponseBuilder::returnResponse(const Request &request, const ConfigResolved &resolvedConfig, bool keepAlive)
+{
 	// Reset state (ResponseBuilder may be reused across requests).
 	_statusCode = 0;
 	_statusLine.clear();
@@ -326,7 +329,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		return returnGenericErrorResponse(405, request, resolvedConfig);
 
 	// 3) Handle explicit "return" directive (redirect/custom response).
-	if (resolvedConfig.getReturnStatusCode())	
+	if (resolvedConfig.getReturnStatusCode())
 	{
 		return buildRedirectResponse(request, resolvedConfig);
 	}
@@ -335,7 +338,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (fileSystemPath.empty())
 		return returnGenericErrorResponse(404, request, resolvedConfig);
 
- 	std::string base;
+	std::string base;
 	if (resolvedConfig.getAlias().empty())
 		base = resolvedConfig.getRoot();
 	else
@@ -359,19 +362,19 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		// With no base directory configured, conservative approach about traversal attempts.
 		if (request.getPath().find("..") != std::string::npos)
 			return returnGenericErrorResponse(403, request, resolvedConfig);
-	} 
-		
-/* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
-		return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
-/* 	std::string executor;
-	if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
-		return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig); */
+	}
+
+	/* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
+			return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
+	/* 	std::string executor;
+		if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
+			return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig); */
 
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
 		return buildDeleteResponse(request, fileSystemPath, resolvedConfig);
-	
+
 	if (fileSystemPath.find("//") != std::string::npos)
 		return returnGenericErrorResponse(400, request, resolvedConfig);
 	fileSystemPath = pathResolver.normalizePath(fileSystemPath);
@@ -379,7 +382,8 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
 	{
 		// nginx-like: if URI doesn't end with '/', redirect to add it.
-		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/')
+		// BUT: only redirect for GET/HEAD/OPTIONS, not for methods that modify state (POST, DELETE, PUT, PATCH)
+		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/' && (request.getMethodStr() == "GET" || request.getMethodStr() == "HEAD" || request.getMethodStr() == "OPTIONS"))
 		{
 			_statusCode = 301;
 			_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
@@ -393,6 +397,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			response += "Content-Length: " + getContentLengthString() + "\r\n";
 			response += "Location: " + _location + "\r\n";
 			response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+			response += "Server: webserv\r\n";
 			response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 			return response;
 		}
@@ -405,9 +410,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 				continue;
 			std::string indexFsPath = joinPathSimple(fileSystemPath, indexes[i]);
 			indexFsPath = pathResolver.normalizePath(indexFsPath);
-			if (fileSystemHandler.pathExists(indexFsPath)
-				&& fileSystemHandler.isReadable(indexFsPath)
-				&& !fileSystemHandler.isDirectory(indexFsPath))
+			if (fileSystemHandler.pathExists(indexFsPath) && fileSystemHandler.isReadable(indexFsPath) && !fileSystemHandler.isDirectory(indexFsPath))
 				return buildFileResponse(request, indexFsPath, resolvedConfig);
 			else
 				return returnGenericErrorResponse(404, request, resolvedConfig);
@@ -427,13 +430,13 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 		return returnGenericErrorResponse(404, request, resolvedConfig);
 }
 
-std::string ResponseBuilder::buildPostResponse(const Request& request, const ConfigResolved& resolvedConfig)
+std::string ResponseBuilder::buildPostResponse(const Request &request, const ConfigResolved &resolvedConfig)
 {
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
-	
-//	if (!uploadStore.empty() && uploadStore[0] != '/')
-//		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
+
+	//	if (!uploadStore.empty() && uploadStore[0] != '/')
+	//		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
 	{
 		// No upload_store configured for this location: accept POST but do nothing.
@@ -495,13 +498,13 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 				return returnGenericErrorResponse(400, request, resolvedConfig);
 			if (!pathResolver.isPathSafe(filename, uploadStore))
 				return returnGenericErrorResponse(403, request, resolvedConfig);
-	
+
 			targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
 			bodyToWrite = it->second;
-/* 			if (bodyToWrite.empty())
-				bodyToWrite = multipart.parts.begin()->second; */
+			/* 			if (bodyToWrite.empty())
+							bodyToWrite = multipart.parts.begin()->second; */
 			fileToWrite[targetPath] = bodyToWrite;
-//			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
+			//			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
 			++it;
 		}
 		if (fileToWrite.empty())
@@ -574,7 +577,7 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	return response;
 }
 
-std::string ResponseBuilder::buildDeleteResponse(const Request& request, const std::string& fileSystemPath, const ConfigResolved& resolvedConfig)
+std::string ResponseBuilder::buildDeleteResponse(const Request &request, const std::string &fileSystemPath, const ConfigResolved &resolvedConfig)
 {
 	std::string targetPath = fileSystemPath;
 
@@ -628,97 +631,110 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 
 /**
  * @brief Returns a redirect error response for the given status code and request.
- * 
+ *
  * @param statusCode The HTTP status code for the error.
  * @param request The incoming HTTP request.
  * @param matchedLocation The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const Request& request, const ConfigResolved& matchedLocation){
-		_statusCode = statusCode;
-		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
-		_contentType = "text/html";
-		if (matchedLocation.getLocationPath().empty() || matchedLocation.getReturnMessage().empty()){
-			_body = "";
-			_contentLength = 0;
-		}
-		else{
-			_body = matchedLocation.getReturnMessage();
-			_contentLength = _body.size();
-		}
-		std::string response = _statusLine;
-		response += "Content-Type: " + _contentType + "\r\n";
-		response += "Content-Length: " + getContentLengthString() + "\r\n";
-		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
-		response += "\r\n";
-		replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
-		if (matchedLocation.getReturnMessage().empty())
-			replaceTag(_body, "{{ERROR_MESSAGE}}", "");
-		else
-			replaceTag(_body, "{{ERROR_MESSAGE}}", matchedLocation.getReturnMessage());
-		replaceTag(_body, "{{ERROR_DESCRIPTION}}", "ola");
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const Request &request, const ConfigResolved &matchedLocation)
+{
+	_statusCode = statusCode;
+	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_contentType = "text/html";
+	if (matchedLocation.getLocationPath().empty() || matchedLocation.getReturnMessage().empty())
+	{
+		_body = "";
+		_contentLength = 0;
+	}
+	else
+	{
+		_body = matchedLocation.getReturnMessage();
+		_contentLength = _body.size();
+	}
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
+	if (matchedLocation.getReturnMessage().empty())
+		replaceTag(_body, "{{ERROR_MESSAGE}}", "");
+	else
+		replaceTag(_body, "{{ERROR_MESSAGE}}", matchedLocation.getReturnMessage());
+	replaceTag(_body, "{{ERROR_DESCRIPTION}}", "ola");
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 /**
  * @brief Returns a generic error response for the given status code and request.
- * 
+ *
  * @param statusCode The HTTP status code for the error.
  * @param request The incoming HTTP request.
  * @param config The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Request& request, const ConfigResolved& config){
-		_statusCode = statusCode;
-		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
-		_contentType = "text/html";
-		std::string errorPage = error.loadCustomErrorPage(_statusCode, config);
-		if (errorPage.empty())
-			errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
-		_body = errorPage;
-		_contentLength = _body.size();
-		std::string response = _statusLine;
-		setStandardHeaders(response, _contentType);
-		response += "\r\n";
-		replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
-		replaceTag(_body, "{{ERROR_MESSAGE}}", "");
-		replaceTag(_body, "{{ERROR_DESCRIPTION}}", returnErrorDescription());
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Request &request, const ConfigResolved &config)
+{
+	_statusCode = statusCode;
+	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
+	_contentType = "text/html";
+	std::string errorPage = error.loadCustomErrorPage(_statusCode, config);
+	if (errorPage.empty())
+		errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
+	_body = errorPage;
+	_contentLength = _body.size();
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	if (_date == 0)
+		_date = static_cast<size_t>(std::time(NULL));
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	replaceTag(_body, "{{ERROR_CODE}}", itostr(_statusCode));
+	replaceTag(_body, "{{ERROR_MESSAGE}}", "");
+	replaceTag(_body, "{{ERROR_DESCRIPTION}}", returnErrorDescription());
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
-
 
 /**
  * @brief Sets the standard headers for the HTTP response.
- * 
+ *
  * @param response The HTTP response string.
  * @param contentType The content type for the response.
  */
-void ResponseBuilder::setStandardHeaders(std::string& response, const std::string& contentType) {
+void ResponseBuilder::setStandardHeaders(std::string &response, const std::string &contentType)
+{
 	response += "Content-Type: " + contentType + "\r\n";
 	response += "Content-Length: " + getContentLengthString() + "\r\n";
 	if (_date == 0)
 		_date = static_cast<size_t>(std::time(NULL));
 	if (_lastModified == 0)
 		_lastModified = static_cast<std::time_t>(_date);
-	response += "Date: " + formatHttpDate(static_cast<std::time_t>(_date)) + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
 	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
+	response += "Server: webserv\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 }
 
 /**
  * @brief Builds a redirect response based on the given request and matched configuration.
- * 
+ *
  * @param request The incoming HTTP request.
  * @param matched The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::buildRedirectResponse(const Request& request, const ConfigResolved& matched) {
+std::string ResponseBuilder::buildRedirectResponse(const Request &request, const ConfigResolved &matched)
+{
 	int code = matched.getReturnStatusCode();
 	if (code >= 400)
 		return returnGenericErrorResponse(code, request, matched);
@@ -744,6 +760,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 	if (!_location.empty())
 		response += "Location: " + _location + "\r\n";
 	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv/1.0\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 	if (request.getMethodStr() != "HEAD")
 		response += _body;
@@ -752,13 +769,14 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 
 /**
  * @brief Builds a file response based on the given request, file path, and configuration.
- * 
+ *
  * @param request The incoming HTTP request.
  * @param filePath The path to the file to serve.
  * @param config The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& config){
+std::string ResponseBuilder::buildFileResponse(const Request &request, const std::string &filePath, const ConfigResolved &config)
+{
 	_statusCode = 200;
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = mimeTypeResolver.getTypeByExtension(filePath);
@@ -769,33 +787,34 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 	if (request.getMethodStr() != "HEAD")
 	{
 		_body.clear();
-		try {
+		try
+		{
 			// client_max_body_size is a request-body limit; it should not cap GET responses.
 			_body = fileSystemHandler.readFile(filePath, fileSize);
 			if (_contentType == "text/html")
 			{
 				replaceTag(_body, "{{POST_REQUEST_DETAILS}}", "Waiting for a request...");
-				insertServerInfo(config); //to replace the placeholder in index.html
+				insertServerInfo(config); // to replace the placeholder in index.html
 				// Find the /upload location specifically for filling "File Gallery"
-                const ServerConfig& serverBlock = config.getServerBlock();
-                const std::vector<LocationConfig>& locations = serverBlock.getLocations();
-                for (size_t i = 0; i < locations.size(); ++i)
-                {
-                    if (locations[i].getPath() == "/upload")
-                    {
-                        ConfigResolved uploadConfig(serverBlock, locations[i]);
-                        listGalleryFiles(uploadConfig);
-                        break;
-                    }
-                }
+				const ServerConfig &serverBlock = config.getServerBlock();
+				const std::vector<LocationConfig> &locations = serverBlock.getLocations();
+				for (size_t i = 0; i < locations.size(); ++i)
+				{
+					if (locations[i].getPath() == "/upload")
+					{
+						ConfigResolved uploadConfig(serverBlock, locations[i]);
+						listGalleryFiles(uploadConfig);
+						break;
+					}
+				}
 			}
 			if (request.getMethod() == GET)
-				insertLocationInfo(request, config); //to replace the placeholder in index.html
+				insertLocationInfo(request, config); // to replace the placeholder in index.html
 			if (request.getMethod() == POST)
 				insertRequestInfo(request, "", "", "{{POST_REQUEST_DETAILS}}");
 			_contentLength = _body.size();
 		}
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
 			(void)e;
 			return returnGenericErrorResponse(500, request, config);
@@ -811,24 +830,25 @@ std::string ResponseBuilder::buildFileResponse(const Request& request, const std
 
 /**
  * @brief Builds a directory listing response based on the given request and configuration.
- * 
+ *
  * @param request The incoming HTTP request.
  * @param uriPath The URI path for the directory.
  * @param dirFsPath The file system path for the directory.
  * @param resolvedConfig The resolved configuration for the current location.
  * @return std::string The HTTP response.
  */
-std::string ResponseBuilder::buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig) {
+std::string ResponseBuilder::buildDirectoryListingResponse(const Request &request, const std::string &uriPath, const std::string &dirFsPath, const ConfigResolved &resolvedConfig)
+{
 	_statusCode = 200;
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 	_contentType = "text/html";
 	_body.clear();
 
 	// Serve the first configured index file that exists.
-	const std::vector<std::string>& indexes = resolvedConfig.getIndexes();
+	const std::vector<std::string> &indexes = resolvedConfig.getIndexes();
 	for (size_t i = 0; i < indexes.size(); ++i)
 	{
-		const std::string& indexName = indexes[i];
+		const std::string &indexName = indexes[i];
 		if (indexName.empty())
 			continue;
 		std::string indexFsPath = joinPathSimple(dirFsPath, indexName);
@@ -851,42 +871,51 @@ std::string ResponseBuilder::buildDirectoryListingResponse(const Request& reques
 	return returnGenericErrorResponse(403, request, resolvedConfig);
 }
 
-std::string ResponseBuilder::getStatusCodeString() {
+std::string ResponseBuilder::getStatusCodeString()
+{
 	std::stringstream ss;
 	ss << _statusCode;
 	return ss.str();
 }
 
-std::string ResponseBuilder::getStatusLine() {
+std::string ResponseBuilder::getStatusLine()
+{
 	return _statusLine;
 }
 
-std::string ResponseBuilder::getContentType() {
+std::string ResponseBuilder::getContentType()
+{
 	return _contentType;
 }
 
-size_t ResponseBuilder::getContentLength() {
+size_t ResponseBuilder::getContentLength()
+{
 	return _contentLength;
 }
 
-std::string ResponseBuilder::getContentLengthString() {
+std::string ResponseBuilder::getContentLengthString()
+{
 	std::stringstream ss;
 	ss << _contentLength;
 	return ss.str();
 }
 
-std::time_t ResponseBuilder::getLastModified() {
+std::time_t ResponseBuilder::getLastModified()
+{
 	return _lastModified;
 }
 
-std::string ResponseBuilder::getLastModifiedString() {
+std::string ResponseBuilder::getLastModifiedString()
+{
 	return formatHttpDate(_lastModified);
 }
 
-size_t ResponseBuilder::getDate() {
+size_t ResponseBuilder::getDate()
+{
 	return _date;
 }
 
-std::string ResponseBuilder::getDateString(){
+std::string ResponseBuilder::getDateString()
+{
 	return formatHttpDate(static_cast<std::time_t>(_date));
 }

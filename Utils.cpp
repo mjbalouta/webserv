@@ -157,3 +157,11 @@ std::string toLower(const std::string &value)
 		result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
 	return result;
 }
+
+std::string normalization(std::string &name){
+	std::string result = name;
+	for(size_t i = 0; i < result.size(); i++){
+		result[i] = (result[i] == '-') ? '_' : std::toupper(result[i]);
+	}
+	return result;
+}
