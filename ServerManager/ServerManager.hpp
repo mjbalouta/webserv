@@ -37,6 +37,7 @@ class ServerManager {
 			bool keepAlive;
 			bool isRedirection;
 			bool headersSent;
+			bool sent100Continue;  // track if 100-continue was already sent
 			int ioFailures;  // used to detect errors without errno
 			CgiProcess cgi;              // pid + pipe fds for active CGI child
 			std::string cgiOutputBuffer; // accumulates raw CGI stdout as epoll delivers it
@@ -69,7 +70,7 @@ class ServerManager {
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
 		void sendClientResponse(ClientSession &client, ServerConfig &server);
 		void startCgi(ClientSession &client, const std::string &scriptPath, const std::string &interpreter, ServerConfig &server);
-		void handleCgiRead(int clientFd, int serverIndex);
+		void handleCgiRead(int clientFd, int serverIndex, uint32_t eventFlags);
 		void handleCgiWrite(int clientFd, int serverIndex);
 		void cleanupCgi(ClientSession &client);
 		void handleReadyEvent(const epoll_event &event);
