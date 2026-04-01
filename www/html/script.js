@@ -218,15 +218,6 @@ document.addEventListener('click', async function(e) {
     if (e.target.classList.contains('delete-btn')) {
         const filename = e.target.getAttribute('data-filename');
         
-        // if (!filename) {
-        //     console.error('No filename found');
-        //     return;
-        // }
-        
-        // if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
-        //     return;
-        // }
-        
         try {
             const uploadStore = window.UPLOAD_STORE || '/upload';
             const response = await fetch(`${uploadStore}/${filename}`, {
