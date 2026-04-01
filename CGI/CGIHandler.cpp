@@ -135,16 +135,6 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 		close(outPipe[0]);
 		close(outPipe[1]);
 
-		// CRITICAL: Reset stdin and stdout to blocking mode for the child process.
-		// We inherited non-blocking fds from the parent, but the child process expects
-		// normal blocking behavior for I/O. The parent will handle async I/O via epoll.
-		try {
-			setBlockingFd(STDIN_FILENO);
-			setBlockingFd(STDOUT_FILENO);
-		} catch (...) {
-			while (1) {} // Error resetting flags; hang and let parent timeout/kill
-		}
-
 		execve(interpreter.c_str(), args, envp.data());
 		while (1) {} //This will hang the child, but the parent can (and should) kill it with kill(pid, SIGKILL) after a timeout.
 	}
@@ -205,33 +195,13 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 	}
 
 	std::string normalized = rawOutput;
-	
-	// Optimize: only normalize line endings if output looks like it has headers  
-	// (i.e., contains a colon which suggests HTTP headers).
-	// For binary payloads (no headers), skip normalization entirely.
-	if (normalized.find(':') != std::string::npos)
+	size_t p = 0;
+	while ((p = normalized.find("\r\n", p)) != std::string::npos)
+		normalized.replace(p, 2, "\n");
+	for (size_t i = 0; i < normalized.size(); ++i)
 	{
-		// Replace \r\n with \n and \r with \n (normalize line endings)
-		// Use a single pass through the string for efficiency
-		std::string result;
-		result.reserve(normalized.size());
-		for (size_t i = 0; i < normalized.size(); ++i)
-		{
-			if (i + 1 < normalized.size() && normalized[i] == '\r' && normalized[i+1] == '\n')
-			{
-				result += '\n';
-				++i;  // skip the \n
-			}
-			else if (normalized[i] == '\r')
-			{
-				result += '\n';
-			}
-			else
-			{
-				result += normalized[i];
-			}
-		}
-		normalized = result;
+		if (normalized[i] == '\r')
+			normalized[i] = '\n';
 	}
 
 	const std::string blankLine = "\n\n";
@@ -292,14 +262,12 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 			}
 			if (toLower(headerResponse).find("connection:") == std::string::npos)
 				headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
-		std::string response;
-		if (!hasStatusLine)
-			response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
-		else
-		{
-			response = headerResponse + "\r\n" + bodyPart;
-		}
-		return response;
+			std::string response;
+			if (!hasStatusLine)
+				response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
+			else
+				response = headerResponse + "\r\n" + bodyPart;
+			return response;
 	}
 	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;
 }

@@ -241,7 +241,6 @@ void ServerManager::sendClientResponse(ClientSession &client, ServerConfig &serv
 		client.method = NONE;
 		client.status = 200;
 		client.contentLength = 0;
-		client.sent100Continue = false;  // reset for next request
 		client.ioFailures = 0; // reset for the next request on this keep-alive connection
 		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
 		// on this keep-alive connection.
