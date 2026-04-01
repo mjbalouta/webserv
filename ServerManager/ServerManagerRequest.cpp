@@ -19,12 +19,12 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
 			if (client.state == WRITING)
 			{
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 				break;
 			}
 			if (client.state == READING) {
 				// Explicitly re-arm EPOLLIN to keep reading as more data arrives
-				modClientEpoll(client, EPOLLIN);
+				modClientEpoll(client, EPOLLIN | EPOLLRDHUP | EPOLLERR);
 				break;
 			}
 			if (client.state != PROCESSING)
@@ -37,7 +37,7 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			if (client.state == WRITING)
 				// EPOLLOUT means "wake me when this fd can be written without blocking".
 				// Once a response is ready, we switch from read readiness to write readiness.
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 			break;
 		case WRITING:
 			sendClientResponse(client, server);
@@ -84,7 +84,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			ConfigResolved config(errorRequest, server);
 			ResponseBuilder rb;
 			client.writeBuffer = rb.returnGenericErrorResponse(431, errorRequest, config);
-			modClientEpoll(client, EPOLLOUT); // Ensure response is sent
+			modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR); // Ensure response is sent
 			return;
 		}
 		// Guard bounds before computing total request bytes.
@@ -281,7 +281,7 @@ void ServerManager::sendClientResponse(ClientSession &client, ServerConfig &serv
 		client.ioFailures = 0; // reset for the next request on this keep-alive connection
 		// Switch back to EPOLLIN so epoll wakes us when the next request arrives
 		// on this keep-alive connection.
-		modClientEpoll(client, EPOLLIN);
+		modClientEpoll(client, EPOLLIN | EPOLLRDHUP | EPOLLERR);
 	}
 	else
 		client.state = CLOSING;

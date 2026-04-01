@@ -25,7 +25,8 @@ void CgiHandler::buildEnv(const Request &request,
 			queryString += "&";
 		queryString += it->first + "=" + it->second;
 	}
-	envStrings.push_back("QUERY_STRING=" + queryString);	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
+	envStrings.push_back("QUERY_STRING=" + queryString);
+	envStrings.push_back("SCRIPT_FILENAME=" + scriptPath);
 	envStrings.push_back("PATH_INFO=" + request.getPath());
 	envStrings.push_back("PATH_TRANSLATED=" + scriptPath);
 	envStrings.push_back("SERVER_PROTOCOL=" + request.getVersion());
@@ -211,79 +212,108 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		return response;
 	}
 
+	// CRITICAL: First normalize line endings in a way that preserves body integrity
+	// Convert \r\n to \n, then \r to \n to handle any mixed line endings
 	std::string normalized = rawOutput;
+	
+	// First pass: convert \r\n to \n (properly iterating after replacements)
 	size_t p = 0;
 	while ((p = normalized.find("\r\n", p)) != std::string::npos)
+	{
 		normalized.replace(p, 2, "\n");
+		p += 1;  // Move past the replacement to avoid reprocessing
+	}
+	
+	// Second pass: convert remaining \r to \n
 	for (size_t i = 0; i < normalized.size(); ++i)
 	{
 		if (normalized[i] == '\r')
 			normalized[i] = '\n';
 	}
 
+	// Find the blank line separator - but be careful about false positives
+	// The separator should be TWO newlines with no content between them
 	const std::string blankLine = "\n\n";
 	size_t sepPos = normalized.find(blankLine);
+	
 	if (sepPos == std::string::npos)
 	{
+		// No separator found - treat entire output as body with implicit Content-Type
 		std::string contentType = "text/plain";
 		return httpVersion + " 200 OK\r\nContent-Type: " + contentType
 			+ "\r\nContent-Length: " + itostr(normalized.size())
 			+ "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close")
 			+ "\r\n\r\n" + normalized;
 	}
+	
+	// Extract headers and body parts
+	std::string headersPart = normalized.substr(0, sepPos);
+	std::string bodyPart = normalized.substr(sepPos + blankLine.size());
+	
 	std::vector<std::pair<std::string, std::string> > headers;
 	{
-		std::string headersPart = normalized.substr(0, sepPos);
-		std::string bodyPart = normalized.substr(sepPos + blankLine.size());
-
-			std::istringstream headerStream(headersPart);
-			std::string line;
-			while (std::getline(headerStream, line, '\n'))
+		std::istringstream headerStream(headersPart);
+		std::string line;
+		while (std::getline(headerStream, line, '\n'))
+		{
+			size_t colonPos = line.find(":");
+			if (colonPos != std::string::npos)
 			{
-				size_t colonPos = line.find(":");
-				if (colonPos != std::string::npos)
-				{
-					std::string key = line.substr(0, colonPos);
-					std::string value = line.substr(colonPos + 1);
-					trimSpaces(key);
-					trimSpaces(value);
-					headers.push_back(std::make_pair(key, value));
-				}
+				std::string key = line.substr(0, colonPos);
+				std::string value = line.substr(colonPos + 1);
+				trimSpaces(key);
+				trimSpaces(value);
+				headers.push_back(std::make_pair(key, value));
 			}
-			if (headers.empty())
-				headers.push_back(std::make_pair("Content-Type", "text/plain"));
-			std::string headerResponse;
-			bool hasStatusLine = false;
-			for (size_t i = 0; i < headers.size(); ++i)
+		}
+		
+		if (headers.empty())
+			headers.push_back(std::make_pair("Content-Type", "text/plain"));
+		
+		std::string headerResponse;
+		bool hasStatusLine = false;
+		bool hasContentLength = false;
+		
+		// First pass: process headers and record if we have Content-Length
+		for (size_t i = 0; i < headers.size(); ++i)
+		{
+			std::string keyLower = toLower(headers[i].first);
+			if (keyLower == "status")
 			{
-				std::string keyLower = toLower(headers[i].first);
-				if (keyLower == "status")
-				{
-					headerResponse += httpVersion + " " + headers[i].second + "\r\n";
-					hasStatusLine = true;
-					continue;
-				}
-				if (keyLower == "content-length")
-				{
-					std::stringstream ss;
-					ss << bodyPart.size();
-					headers[i].second = ss.str();
-				}
-				headerResponse += headers[i].first + ": " + headers[i].second + "\r\n";
+				headerResponse += httpVersion + " " + headers[i].second + "\r\n";
+				hasStatusLine = true;
+				continue;
 			}
-			if (toLower(headerResponse).find("content-length:") == std::string::npos)
+			if (keyLower == "content-length")
 			{
+				hasContentLength = true;
+				// Always recalculate Content-Length based on actual body size
 				std::stringstream ss;
 				ss << bodyPart.size();
-				headerResponse += "Content-Length: " + ss.str() + "\r\n";
+				headers[i].second = ss.str();
 			}
-			if (toLower(headerResponse).find("connection:") == std::string::npos)
-				headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
+			headerResponse += headers[i].first + ": " + headers[i].second + "\r\n";
+		}
+		
+		// Add Content-Length if not present (should always be the case for CGI)
+		if (!hasContentLength)
+		{
+			std::stringstream ss;
+			ss << bodyPart.size();
+			headerResponse += "Content-Length: " + ss.str() + "\r\n";
+		}
+		
+		// Add Connection header if not present
+		if (toLower(headerResponse).find("connection:") == std::string::npos)
+			headerResponse += "Connection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n";
+		
+		// Build final response
 		std::string response;
 		if (!hasStatusLine)
 			response = httpVersion + " 200 OK\r\n" + headerResponse + "\r\n" + bodyPart;
 		else
 			response = headerResponse + "\r\n" + bodyPart;
+		
 		return response;
 	}
 	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;

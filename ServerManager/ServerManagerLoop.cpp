@@ -20,7 +20,7 @@ void ServerManager::closeIdleClients(time_t now)
 			// difftime(now, lastActive) returns how many seconds the client has been idle.
 			if (difftime(now, client.lastActive) > KEEP_ALIVE_TIMEOUT)
 			{
-				printLog("⏳ Closing idle connection: " + itostr(fd), BYEL);
+				printLog("⏳ Closing idle connection fd=" + itostr(fd), BYEL);
 				closeClient(static_cast<int>(serverIndex), fd);
 				continue; // client erased — do not access it again
 			}
@@ -40,7 +40,7 @@ void ServerManager::closeIdleClients(time_t now)
 				client.writeBuffer = rb.returnGenericErrorResponse(504, errorReq, config);
 				client.totalSent = 0;
 				client.state = WRITING;
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 			}
 		}
 	}

@@ -193,7 +193,14 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 	// Look for the HTTP header terminator: "\r\n\r\n". Until this appears, we only have a partial header block.
 	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
 	if (headerEnd == std::string::npos)
-	{
+	{		// If peer closed connection but no complete request headers received yet,
+		// close the connection immediately (especially after keep-alive: don't loop forever).
+		if (peerClosed)
+		{
+			printLog("⏳ Client closed before sending a complete request (likely after keep-alive response)", BYEL);
+			client.state = CLOSING;
+			return;
+		}
 		// DoS means Denial of Service. It’s an attack where someone makes a server unavailable by exhausting resources like
 		// Anti-DoS guard #1:
 		// If a client keeps sending bytes without finishing headers,

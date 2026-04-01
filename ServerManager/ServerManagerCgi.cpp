@@ -67,7 +67,7 @@ void ServerManager::startCgi(ClientSession &client,
 		client.status = 500;
 		client.keepAlive = false;
 		client.state = WRITING;
-		modClientEpoll(client, EPOLLOUT);
+		modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 	}
 }
 
@@ -216,7 +216,7 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex, uint32_t eventF
 
 	// Switch client socket to write-ready so the response is sent
 	client.state = WRITING;
-	modClientEpoll(client, EPOLLOUT);
+	modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 	printLog("✅ CGI response ready, switching to WRITING fd=" + itostr(client.fd), BGRN);
 }
 
