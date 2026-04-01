@@ -390,13 +390,14 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			_body.clear();
 			_contentLength = 0;
 
-			std::string response = _statusLine;
-			response += "Content-Type: " + _contentType + "\r\n";
-			response += "Content-Length: " + getContentLengthString() + "\r\n";
-			response += "Location: " + _location + "\r\n";
-			response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-			response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
-			return response;
+		std::string response = _statusLine;
+		response += "Content-Type: " + _contentType + "\r\n";
+		response += "Content-Length: " + getContentLengthString() + "\r\n";
+		response += "Location: " + _location + "\r\n";
+		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+		response += "Server: webserv\r\n";
+		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
+		return response;
 		}
 
 		// If a directory is requested, try configured index files first.
@@ -656,16 +657,17 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 			_body = matchedLocation.getReturnMessage();
 			_contentLength = _body.size();
 		}
-		std::string response = _statusLine;
-		response += "Content-Type: " + _contentType + "\r\n";
-		response += "Content-Length: " + getContentLengthString() + "\r\n";
-		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
-		response += "\r\n";
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 /**
@@ -685,17 +687,18 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 			errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
 		_body = errorPage;
 		_contentLength = _body.size();
-		std::string response = _statusLine;
-		response += "Content-Type: " + _contentType + "\r\n";
-		response += "Content-Length: " + getContentLengthString() + "\r\n";
-		if (_date == 0)
-			_date = static_cast<size_t>(std::time(NULL));
-		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
-		response += "\r\n";
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	if (_date == 0)
+		_date = static_cast<size_t>(std::time(NULL));
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 
@@ -714,6 +717,7 @@ void ResponseBuilder::setStandardHeaders(std::string& response, const std::strin
 		_lastModified = static_cast<std::time_t>(_date);
 	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
 	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
+	response += "Server: webserv\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 }
 
@@ -750,6 +754,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 	if (!_location.empty())
 		response += "Location: " + _location + "\r\n";
 	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv/1.0\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 	if (request.getMethodStr() != "HEAD")
 		response += _body;
