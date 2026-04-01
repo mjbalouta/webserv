@@ -23,7 +23,11 @@ void ServerManager::startCgi(ClientSession &client,
 		// forks, and execs. Parent's unused pipe ends are already closed inside.
 		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server);
 		client.cgiOutputBuffer.clear();
-		client.cgiInputBuffer = client.request.getBody();
+		// cgiInputBuffer may have been pre-populated from readBuffer for chunked-decoded
+		// POST requests (where request.getBody() is empty as an optimization). Only
+		// overwrite it when it hasn't already been set by the caller.
+		if (client.cgiInputBuffer.empty())
+			client.cgiInputBuffer = client.request.getBody();
 		client.cgiInputWritten = 0;
 
 		// Track pipe read-end: epoll fd → client fd → server index
@@ -94,8 +98,14 @@ void ServerManager::handleCgiWrite(int clientFd, int serverIndex)
 	size_t  remaining = client.cgiInputBuffer.size() - client.cgiInputWritten;
 	ssize_t written = write(client.cgi.writeFd, client.cgiInputBuffer.c_str() + client.cgiInputWritten, remaining);
 
-	if (written > 0)
+	if (written > 0) {
 		client.cgiInputWritten += static_cast<size_t>(written);
+		// Reset CGI start time and lastActive while actively writing
+		// This prevents both CGI timeout and keep-alive timeout during large body upload
+		time_t now = time(NULL);
+		client.cgi.startTime = now;
+		client.lastActive = now;
+	}
 
 	// When every byte has been delivered, close write-end → EOF to child
 	if (client.cgiInputWritten >= client.cgiInputBuffer.size())
@@ -200,7 +210,7 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex, uint32_t eventF
 	_cgiClientToServer.erase(client.fd);
 
 	// Build HTTP response from raw CGI output
-	client.writeBuffer = CgiHandler::buildResponse(client.cgiOutputBuffer, client.version, client.keepAlive);
+	client.writeBuffer = CgiHandler::buildResponse(client.cgiOutputBuffer, client.version, client.keepAlive, client.request);
 	client.totalSent = 0;
 	client.cgiOutputBuffer.clear();
 

@@ -126,7 +126,7 @@ test_no_response() {
 	fi
 }
 
-section() { echo -e "\n${BLD}${CYN}━━━  $1  ━━━${RST}"; }
+section() { echo -e "\n${BLD}${CYAN}━━━  $1  ━━━${RST}"; }
 
 # ─────────────────────────────────────────────
 # SECTION 1 — Request line validation

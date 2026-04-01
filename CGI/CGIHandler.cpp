@@ -36,9 +36,14 @@ void CgiHandler::buildEnv(const Request &request,
 	// REDIRECT_STATUS is required by PHP-CGI; harmless for Python/shell
 	envStrings.push_back("REDIRECT_STATUS=200");
 
-	// POST-specific variables — safe to add for all methods; empty string is fine
+	// POST-specific variables — safe to add for all methods; empty string is fine.
+	// For chunked-decoded requests, Content-Length header is absent (only
+	// Transfer-Encoding: chunked was present). Use the body size as the real length.
 	envStrings.push_back("CONTENT_TYPE=" + request.getHeader("content-type"));
-	envStrings.push_back("CONTENT_LENGTH=" + request.getHeader("content-length"));
+	std::string contentLengthVal = request.getHeader("content-length");
+	if (contentLengthVal.empty() && request.isChunked())
+		contentLengthVal = itostr(request.getBody().size() > 0 ? request.getBody().size() : 0);
+	envStrings.push_back("CONTENT_LENGTH=" + contentLengthVal);
 
 	// Build the NULL-terminated char* array for execve()
 	for (size_t i = 0; i < envStrings.size(); ++i)
@@ -162,8 +167,10 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	return cgi;
 }
 
-std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive)
+std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request &request)
 {
+	std::string resolvedPath = request.getPath();
+	std::cout << "[SAIDHSAUDGASUDGASUD] " << resolvedPath << std::endl;
 	if (rawOutput.empty())
 	{
 		ErrorPageGenerator error;

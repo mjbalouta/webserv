@@ -270,7 +270,7 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 	// A POST request must declare body length either via Content-Length,
 	// or via Transfer-Encoding: chunked already decoded by transport.
 	if (_method == POST && contentLengthIt == _headers.end() && !_isChunked)
-		return (printLog("⚠️ Content-Length header missing", RED), _status = 411, false);
+		return (printLog("⚠️ Content-Length header missing", RED), _status = 404, false);
 
 	if (_isChunked) {
 /* 		std::string decoded;
@@ -432,7 +432,6 @@ const std::string& Request::getCgiInterpreter() const
  */
 bool Request::isCgi(const ConfigResolved& routing)
 {
-
 	// const std::string& requestPath = getPath();
 	_cgiFullPath = routing.getResolvedPath(*this);
 	
@@ -467,12 +466,9 @@ bool Request::isCgi(const ConfigResolved& routing)
 			return false;
 		}
 	}
-	if (!fs.pathExists(_cgiFullPath))
-	{
-		setStatus(404);
-		return false;
-	}
-	if (!fs.isReadable(_cgiFullPath) || fs.isDirectory(_cgiFullPath))
+	// For CGI, we don't need the file to exist - the CGI interpreter handles the request.
+	// Only check that it's not a directory (we can't execute a directory as CGI).
+	if (fs.isDirectory(_cgiFullPath))
 	{
 		setStatus(403);
 		return false;
