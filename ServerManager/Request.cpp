@@ -197,17 +197,11 @@ bool Request::parseHeaders(std::istringstream &headStream)
 		// Extract the raw key and raw value around the colon.
 		std::string rawKey = line.substr(0, colonPos);
 		std::string rawValue = line.substr(colonPos + 1);
-		// Reject header values containing any tab character (edge test requirement)
+		// RFC 7230: tabs are valid OWS in header field values; replace with space.
 		for (size_t i = 0; i < rawValue.size(); ++i) {
 			if (rawValue[i] == '\t')
-				return (printLog("🚨 Tab in header value", RED), _status = 400, false);
+				rawValue[i] = ' ';
 		}
-/*			// Reject header keys containing any non-visible ASCII (only allow 33–126)
-			for (size_t i = 0; i < rawKey.size(); ++i) {
-				unsigned char c = rawKey[i];
-				if (c < 33 || c > 126)
-					return (printLog("🚨 Invalid character in header key", RED), _status = 400, false);
-			}*/
 		std::string key = toLower(trimSpaces(rawKey));
 		std::string value = trimSpaces(rawValue);
 		if (key.empty())

@@ -11,6 +11,6 @@ void removeFromEpoll(int epollFd, int fd);
 void modEpoll(int epollFd, int fd, uint32_t events);
 void setNonBlockingFd(int fd);
 void setBlockingFd(int fd);
-
+std::string normalization(std::string &name);
 std::string toLower(const std::string &value);
 int allDigits(std::string& str);

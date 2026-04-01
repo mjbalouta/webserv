@@ -24,9 +24,10 @@ class CgiHandler {
 public:
 
 	static CgiProcess start(const Request &request,
-				    const std::string &scriptPath,
-				    const std::string &interpreter,
-				    const ServerConfig &server);
+					const std::string &scriptPath,
+					const std::string &interpreter,
+					const ServerConfig &server,
+					size_t contentLengthOverride = 0);
 
 	static std::string buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request &request);
 
@@ -35,6 +36,6 @@ private:
 							const std::string &scriptPath,
 							const ServerConfig &server,
 							std::vector<std::string> &envStrings,
-							std::vector<char *> &envp);
-
+						std::vector<char *> &envp,
+						size_t contentLengthOverride = 0);
 };

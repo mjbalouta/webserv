@@ -21,7 +21,7 @@ void ServerManager::startCgi(ClientSession &client,
 	{
 		// CgiHandler::start() creates pipes, sets them non-blocking,
 		// forks, and execs. Parent's unused pipe ends are already closed inside.
-		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server);
+		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server, client.contentLength);
 		client.cgiOutputBuffer.clear();
 		// cgiInputBuffer may have been pre-populated from readBuffer for chunked-decoded
 		// POST requests (where request.getBody() is empty as an optimization). Only

@@ -12,7 +12,8 @@ void CgiHandler::buildEnv(const Request &request,
 						  const std::string &scriptPath,
 						  const ServerConfig &server,
 						  std::vector<std::string> &envStrings,
-						  std::vector<char *> &envp)
+					  std::vector<char *> &envp,
+					  size_t contentLengthOverride)
 {
 	envStrings.clear();
 	envp.clear();
@@ -39,19 +40,30 @@ void CgiHandler::buildEnv(const Request &request,
 
 	// POST-specific variables — safe to add for all methods; empty string is fine.
 	// For chunked-decoded requests, Content-Length header is absent (only
-	// Transfer-Encoding: chunked was present). Use the body size as the real length.
+	// Transfer-Encoding: chunked was present). Use the override if provided.
 	envStrings.push_back("CONTENT_TYPE=" + request.getHeader("content-type"));
 	std::string contentLengthVal = request.getHeader("content-length");
-	if (contentLengthVal.empty() && request.isChunked())
-		contentLengthVal = itostr(request.getBody().size() > 0 ? request.getBody().size() : 0);
+	if (contentLengthVal.empty())
+	{
+		if (contentLengthOverride > 0)
+			contentLengthVal = itostr(contentLengthOverride);
+		else if (request.isChunked())
+			contentLengthVal = itostr(request.getBody().size());
+	}
 	envStrings.push_back("CONTENT_LENGTH=" + contentLengthVal);
 
+	const std::map<std::string, std::string> &headers = request.getHeaders();
+	std::map<std::string, std::string>::const_iterator it;
+	for (it = headers.begin(); it != headers.end(); ++it)
+	{
+		std::string headerName = it->first;
+		envStrings.push_back("HTTP_" + normalization(headerName) + "=" + it->second);
+	}
 	// Build the NULL-terminated char* array for execve()
 	for (size_t i = 0; i < envStrings.size(); ++i)
 		envp.push_back(const_cast<char *>(envStrings[i].c_str()));
 	envp.push_back(NULL);
 }
-
 /**
  * @brief Creates pipes, forks, and execs the CGI script.
  *
@@ -74,7 +86,7 @@ void CgiHandler::buildEnv(const Request &request,
  *   inPipe[0] and outPipe[1] are closed immediately (child's ends).
  *   The caller receives readFd=outPipe[0] and writeFd=inPipe[1].
  */
-CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPath, const std::string &interpreter, const ServerConfig &server)
+CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPath, const std::string &interpreter, const ServerConfig &server, size_t contentLengthOverride)
 {
 	int inPipe[2];
 	int outPipe[2];
@@ -107,7 +119,7 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	// After fork the child gets a copy; execve replaces the process image.
 	std::vector<std::string> envStrings;
 	std::vector<char *> envp;
-	buildEnv(request, scriptPath, server, envStrings, envp);
+	buildEnv(request, scriptPath, server, envStrings, envp, contentLengthOverride);
 
 	// Build args: { interpreter, scriptPath, NULL }
 	// The interpreter is argv[0]; the script path is argv[1].
@@ -168,10 +180,8 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	return cgi;
 }
 
-std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request &request)
+std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request & /* request */)
 {
-	std::string resolvedPath = request.getPath();
-	std::cout << "[SAIDHSAUDGASUDGASUD] " << resolvedPath << std::endl;
 	if (rawOutput.empty())
 	{
 		ErrorPageGenerator error;
@@ -212,47 +222,81 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		return response;
 	}
 
-	// CRITICAL: First normalize line endings in a way that preserves body integrity
-	// Convert \r\n to \n, then \r to \n to handle any mixed line endings
-	std::string normalized = rawOutput;
+	// CRITICAL: Find the headers/body separator WITHOUT normalizing the entire output
+	// (to preserve binary body integrity). We need to find \r\n\r\n or \n\n separator
+	// that marks the end of CGI headers.
 	
-	// First pass: convert \r\n to \n (properly iterating after replacements)
-	size_t p = 0;
-	while ((p = normalized.find("\r\n", p)) != std::string::npos)
+	// First, look for the separator in the original output
+	size_t sepPos = rawOutput.find("\r\n\r\n");
+	std::string separator;
+	if (sepPos != std::string::npos)
 	{
-		normalized.replace(p, 2, "\n");
-		p += 1;  // Move past the replacement to avoid reprocessing
+		separator = "\r\n\r\n";
 	}
-	
-	// Second pass: convert remaining \r to \n
-	for (size_t i = 0; i < normalized.size(); ++i)
+	else
 	{
-		if (normalized[i] == '\r')
-			normalized[i] = '\n';
+		sepPos = rawOutput.find("\n\n");
+		if (sepPos != std::string::npos)
+			separator = "\n\n";
 	}
-
-	// Find the blank line separator - but be careful about false positives
-	// The separator should be TWO newlines with no content between them
-	const std::string blankLine = "\n\n";
-	size_t sepPos = normalized.find(blankLine);
 	
 	if (sepPos == std::string::npos)
 	{
-		// No separator found - treat entire output as body with implicit Content-Type
-		std::string contentType = "text/plain";
-		return httpVersion + " 200 OK\r\nContent-Type: " + contentType
-			+ "\r\nContent-Length: " + itostr(normalized.size())
-			+ "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close")
-			+ "\r\n\r\n" + normalized;
+		// No clear separator found. Normalize and search again as fallback
+		std::string normalized = rawOutput;
+		
+		// First pass: convert \r\n to \n (up to a reasonable limit for headers only)
+		size_t p = 0;
+		while ((p = normalized.find("\r\n", p)) != std::string::npos && p < 8192)
+		{
+			normalized.replace(p, 2, "\n");
+			p += 1;
+		}
+		
+		// Second pass: convert remaining \r to \n (headers only section)
+		for (size_t i = 0; i < std::min(normalized.size(), (size_t)8192); ++i)
+		{
+			if (normalized[i] == '\r')
+				normalized[i] = '\n';
+		}
+		
+		const std::string blankLine = "\n\n";
+		sepPos = normalized.find(blankLine);
+		if (sepPos == std::string::npos)
+		{
+			// Still no separator - treat entire output as body with implicit Content-Type
+			std::string contentType = "text/plain";
+			return httpVersion + " 200 OK\r\nContent-Type: " + contentType
+				+ "\r\nContent-Length: " + itostr(rawOutput.size())
+				+ "\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close")
+				+ "\r\n\r\n" + rawOutput;
+		}
+		
+		separator = "\n\n";
 	}
 	
-	// Extract headers and body parts
-	std::string headersPart = normalized.substr(0, sepPos);
-	std::string bodyPart = normalized.substr(sepPos + blankLine.size());
+	// Extract headers and body parts from the ORIGINAL output (not normalized)
+	std::string headersPart = rawOutput.substr(0, sepPos);
+	std::string bodyPart = rawOutput.substr(sepPos + separator.size());
 	
 	std::vector<std::pair<std::string, std::string> > headers;
 	{
-		std::istringstream headerStream(headersPart);
+		// Normalize headers locally to handle \r\n vs \n differences  
+		// but keep the body completely unchanged
+		std::string normalizedHeaders = headersPart;
+		size_t p = 0;
+		while ((p = normalizedHeaders.find("\r\n", p)) != std::string::npos)
+		{
+			normalizedHeaders.replace(p, 2, "\n");
+			p += 1;
+		}
+		for (size_t i = 0; i < normalizedHeaders.size(); ++i)
+		{
+			if (normalizedHeaders[i] == '\r')
+				normalizedHeaders[i] = '\n';
+		}
+		
+		std::istringstream headerStream(normalizedHeaders);
 		std::string line;
 		while (std::getline(headerStream, line, '\n'))
 		{
@@ -316,5 +360,5 @@ std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::s
 		
 		return response;
 	}
-	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + normalized;
+	return httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nConnection: " + std::string(keepAlive ? "keep-alive" : "close") + "\r\n\r\n" + rawOutput;
 }

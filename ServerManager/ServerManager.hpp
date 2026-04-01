@@ -69,7 +69,7 @@ class ServerManager {
 		void addClientToEpoll(ClientSession &client);
 		void modClientEpoll(const ClientSession &client, uint32_t events);
 		void handleClientRequest(ClientSession &client, ServerConfig &server);
-		void readClientRequest(ClientSession &client, size_t maxUploadSize);
+		void readClientRequest(ClientSession &client, size_t maxUploadSize, ServerConfig &server);
 		void parseClientRequest(ClientSession &client, ServerConfig &server);
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
 		void sendClientResponse(ClientSession &client, ServerConfig &server);

@@ -129,7 +129,7 @@ static bool parseContentLengthValue(const std::string &headersLower, size_t &out
  * @param client Client session.
  * @param maxUploadSize Max accepted body size for this endpoint.
  */
-void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSize)
+void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSize, ServerConfig &server)
 {
 	if (client.fd < 0)
 	{
@@ -338,8 +338,39 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
+	// Extract the path from the request line to determine location-specific maxBodySize
+	// Format: "METHOD /path HTTP/VERSION"
+	std::string requestLine = client.readBuffer.substr(0, requestLineEnd);
+	size_t firstSpace = requestLine.find(' ');
+	size_t secondSpace = requestLine.find(' ', firstSpace + 1);
+	size_t effectiveMaxUploadSize = maxUploadSize; // Default to global size
+	
+	if (firstSpace != std::string::npos && secondSpace != std::string::npos && firstSpace < secondSpace)
+	{
+		std::string path = requestLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+		// Find query string and remove it
+		size_t queryPos = path.find('?');
+		if (queryPos != std::string::npos)
+			path = path.substr(0, queryPos);
+		
+		// Get location-specific maxBodySize by checking configured locations
+		// (simplified: check /post_body, /directory, etc.)
+		const std::vector<LocationConfig> &locations = server.getLocations();
+		for (size_t i = 0; i < locations.size(); ++i)
+		{
+			const LocationConfig &loc = locations[i];
+			const std::string &locPath = loc.getPath();
+			// Simple path matching: if request path starts with location path
+			if (!locPath.empty() && path.find(locPath) == 0 && loc.getMaxBodySizeFlag())
+			{
+				effectiveMaxUploadSize = loc.getMaxBodySize();
+				break;
+			}
+		}
+	}
+
 	// If declared body is larger than configured upload limit, fail early.
-	if (client.contentLength > maxUploadSize)
+	if (client.contentLength > effectiveMaxUploadSize)
 	{
 		printLog("🚨 Content-Length exceeds maximum limit", RED);
 		client.state = WRITING;
@@ -348,9 +379,9 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		return;
 	}
 
-	// Overflow-safe guard before computing (headerSize + maxUploadSize).
+	// Overflow-safe guard before computing (headerSize + effectiveMaxUploadSize).
 	// Prevents wrapping size_t on pathological configuration/input combinations.
-	if (headerSize > std::numeric_limits<size_t>::max() - maxUploadSize)
+	if (headerSize > std::numeric_limits<size_t>::max() - effectiveMaxUploadSize)
 	{
 		printLog("🚨 Request size overflow guard triggered", RED);
 		client.keepAlive = false;
@@ -361,7 +392,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	// Total request budget = bounded headers + bounded body.
 	// This prevents unbounded growth even after headers are complete.
-	size_t maxRequestSize = headerSize + maxUploadSize;
+	size_t maxRequestSize = headerSize + effectiveMaxUploadSize;
 	if (client.readBuffer.size() > maxRequestSize)
 	{
 		printLog("🚨 Request exceeds configured total size", RED);

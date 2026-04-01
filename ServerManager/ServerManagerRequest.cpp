@@ -16,7 +16,7 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
 			closeClientSocket(client);
 			return;
 		case READING:
-			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()));
+			readClientRequest(client, static_cast<size_t>(server.getMaxBodySize()), server);
 			if (client.state == WRITING)
 			{
 				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
@@ -56,6 +56,27 @@ void ServerManager::handleClientRequest(ClientSession &client, ServerConfig &ser
  */
 void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &server)
 {
+	// If an error status was already set (e.g., 413 by body size check), skip parsing
+	// and directly send the error response
+	if (client.status >= 400)
+	{
+		client.writeBuffer.clear();
+		client.keepAlive = false;
+		client.state = WRITING;
+		client.readBuffer.clear();
+		if (client.version.empty())
+			client.version = "HTTP/1.1";
+		// Use ResponseBuilder for error response
+		Request errorRequest;
+		errorRequest.setStatus(client.status);
+		errorRequest.setVersion(client.version);
+		ConfigResolved config(errorRequest, server);
+		ResponseBuilder rb;
+		client.writeBuffer = rb.returnGenericErrorResponse(client.status, errorRequest, config);
+		modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
+		return;
+	}
+
 	// Parse only the first complete request currently in readBuffer.
 	// Any trailing bytes (possible next pipelined request) are preserved.
 	size_t requestSize = std::string::npos;
