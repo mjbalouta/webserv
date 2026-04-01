@@ -379,7 +379,9 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
 	{
 		// nginx-like: if URI doesn't end with '/', redirect to add it.
-		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/')
+		// BUT: only redirect for GET/HEAD/OPTIONS, not for methods that modify state (POST, DELETE, PUT, PATCH)
+		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/'
+			&& (request.getMethodStr() == "GET" || request.getMethodStr() == "HEAD" || request.getMethodStr() == "OPTIONS"))
 		{
 			_statusCode = 301;
 			_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
@@ -684,7 +686,12 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 		_body = errorPage;
 		_contentLength = _body.size();
 		std::string response = _statusLine;
-		setStandardHeaders(response, _contentType);
+		response += "Content-Type: " + _contentType + "\r\n";
+		response += "Content-Length: " + getContentLengthString() + "\r\n";
+		if (_date == 0)
+			_date = static_cast<size_t>(std::time(NULL));
+		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 		response += "\r\n";
 		if (request.getMethodStr() != "HEAD")
 			response += _body;
@@ -705,7 +712,7 @@ void ResponseBuilder::setStandardHeaders(std::string& response, const std::strin
 		_date = static_cast<size_t>(std::time(NULL));
 	if (_lastModified == 0)
 		_lastModified = static_cast<std::time_t>(_date);
-	response += "Date: " + formatHttpDate(static_cast<std::time_t>(_date)) + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
 	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 }
