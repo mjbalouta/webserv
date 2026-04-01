@@ -60,11 +60,10 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 	std::map<int, int>::iterator cgiReadIt = _cgiReadFdToClient.find(fd);
 	if (cgiReadIt != _cgiReadFdToClient.end())
 	{
-		printLog("ENTREI CGI READ", RED);
 		int clientFd = cgiReadIt->second;
 		std::map<int, int>::iterator ownerIt = _cgiClientToServer.find(clientFd);
 		int serverIndex = (ownerIt != _cgiClientToServer.end()) ? ownerIt->second : -1;
-		handleCgiRead(clientFd, serverIndex);
+		handleCgiRead(clientFd, serverIndex, event.events);
 		return;
 	}
 
@@ -75,9 +74,7 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 		int clientFd = cgiWriteIt->second;
 		std::map<int, int>::iterator ownerIt = _cgiClientToServer.find(clientFd);
 		int serverIndex = (ownerIt != _cgiClientToServer.end()) ? ownerIt->second : -1;
-		printLog("ENTREI NO HANDLE CGI WRITE", RED);
 		handleCgiWrite(clientFd, serverIndex);
-		printLog("SAI DO HANDLE CGI WRITE", RED);
 		return;
 	}
 

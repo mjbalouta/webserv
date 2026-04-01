@@ -76,7 +76,7 @@ class ServerManager {
 		void processClientRequest(ClientSession &client, Request &request, ServerConfig &server);
 		void sendClientResponse(ClientSession &client, ServerConfig &server);
 		void startCgi(ClientSession &client, const std::string &scriptPath, const std::string &interpreter, ServerConfig &server);
-		void handleCgiRead(int clientFd, int serverIndex);
+		void handleCgiRead(int clientFd, int serverIndex, uint32_t eventFlags);
 		void handleCgiWrite(int clientFd, int serverIndex);
 		void cleanupCgi(ClientSession &client);
 		void handleReadyEvent(const epoll_event &event);
