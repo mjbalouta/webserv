@@ -379,7 +379,9 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 	if (fileSystemHandler.pathExists(fileSystemPath) && fileSystemHandler.isDirectory(fileSystemPath))
 	{
 		// nginx-like: if URI doesn't end with '/', redirect to add it.
-		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/')
+		// BUT: only redirect for GET/HEAD/OPTIONS, not for methods that modify state (POST, DELETE, PUT, PATCH)
+		if (!request.getPath().empty() && request.getPath()[request.getPath().size() - 1] != '/'
+			&& (request.getMethodStr() == "GET" || request.getMethodStr() == "HEAD" || request.getMethodStr() == "OPTIONS"))
 		{
 			_statusCode = 301;
 			_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
@@ -388,13 +390,14 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 			_body.clear();
 			_contentLength = 0;
 
-			std::string response = _statusLine;
-			response += "Content-Type: " + _contentType + "\r\n";
-			response += "Content-Length: " + getContentLengthString() + "\r\n";
-			response += "Location: " + _location + "\r\n";
-			response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-			response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
-			return response;
+		std::string response = _statusLine;
+		response += "Content-Type: " + _contentType + "\r\n";
+		response += "Content-Length: " + getContentLengthString() + "\r\n";
+		response += "Location: " + _location + "\r\n";
+		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+		response += "Server: webserv\r\n";
+		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
+		return response;
 		}
 
 		// If a directory is requested, try configured index files first.
@@ -413,7 +416,7 @@ std::string ResponseBuilder::returnResponse(const Request& request, const Config
 
 		// No index: fall back to autoindex listing when enabled.
 		if (!resolvedConfig.getAutoIndex())
-			return returnGenericErrorResponse(403, request, resolvedConfig);
+			return returnGenericErrorResponse(404, request, resolvedConfig);
 		std::string uriWithSlash = ensureTrailingSlash(request.getPath());
 		return buildDirectoryListingResponse(request, uriWithSlash, fileSystemPath, resolvedConfig);
 	}
@@ -467,8 +470,6 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	std::map<std::string, std::string> fileToWrite;
 	const bool isMultipart = (!contentTypeHeader.empty() && fileSystemHandler.isMultipartFormData(contentTypeHeader));
 
-	// - multipart/form-data is accepted only on POST /upload (no filename in URL)
-	// - raw body uploads require POST /upload/<filename>
 	if (rest.empty())
 	{
 		if (!isMultipart)
@@ -496,8 +497,6 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	
 			targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
 			bodyToWrite = it->second;
-/* 			if (bodyToWrite.empty())
-				bodyToWrite = multipart.parts.begin()->second; */
 			fileToWrite[targetPath] = bodyToWrite;
 //			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
 			++it;
@@ -555,11 +554,21 @@ std::string ResponseBuilder::buildPostResponse(const Request& request, const Con
 	}
 	else
 	{
-		_statusCode = 201;
-		_contentType = "text/plain";
-		_body = "Created\n";
-		_contentLength = _body.size();
-		// _location already set above
+		if (isMultipart && existedAny && !createdAny)
+		{
+			_statusCode = 204;
+			_contentType = "text/plain";
+			_body.clear();
+			_contentLength = 0;
+		}
+		else
+		{
+			_statusCode = 201;
+			_contentType = "text/plain";
+			_body = "Created\n";
+			_contentLength = _body.size();
+			// _location already set above (raw upload case)
+		}
 	}
 
 	_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
@@ -602,15 +611,19 @@ std::string ResponseBuilder::buildDeleteResponse(const Request& request, const s
 
 	if (fileSystemHandler.isDirectory(targetPath))
 	{
-		if (!fileSystemHandler.removeDirectory(targetPath))
-		{
+		if (!fileSystemHandler.isWritable(targetPath))
 			return returnGenericErrorResponse(403, request, resolvedConfig);
-		}
+		if (!fileSystemHandler.listDirectory(targetPath).empty())
+			return returnGenericErrorResponse(409, request, resolvedConfig);
+		if (!fileSystemHandler.removeDirectory(targetPath))
+			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 	else
 	{
-		if (!fileSystemHandler.removeFile(targetPath))
+		if (!fileSystemHandler.isWritable(targetPath))
 			return returnGenericErrorResponse(403, request, resolvedConfig);
+		if (!fileSystemHandler.removeFile(targetPath))
+			return returnGenericErrorResponse(500, request, resolvedConfig);
 	}
 
 	_statusCode = 204;
@@ -644,16 +657,17 @@ std::string ResponseBuilder::returnRedirectErrorResponse(int statusCode, const R
 			_body = matchedLocation.getReturnMessage();
 			_contentLength = _body.size();
 		}
-		std::string response = _statusLine;
-		response += "Content-Type: " + _contentType + "\r\n";
-		response += "Content-Length: " + getContentLengthString() + "\r\n";
-		response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
-		response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
-		response += "\r\n";
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Last-Modified: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 /**
@@ -673,12 +687,18 @@ std::string ResponseBuilder::returnGenericErrorResponse(int statusCode, const Re
 			errorPage = error.generateErrorPage(_statusCode, error.getReasonPhrase(_statusCode));
 		_body = errorPage;
 		_contentLength = _body.size();
-		std::string response = _statusLine;
-		setStandardHeaders(response, _contentType);
-		response += "\r\n";
-		if (request.getMethodStr() != "HEAD")
-			response += _body;
-		return response;
+	std::string response = _statusLine;
+	response += "Content-Type: " + _contentType + "\r\n";
+	response += "Content-Length: " + getContentLengthString() + "\r\n";
+	if (_date == 0)
+		_date = static_cast<size_t>(std::time(NULL));
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv\r\n";
+	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
+	response += "\r\n";
+	if (request.getMethodStr() != "HEAD")
+		response += _body;
+	return response;
 }
 
 
@@ -695,8 +715,9 @@ void ResponseBuilder::setStandardHeaders(std::string& response, const std::strin
 		_date = static_cast<size_t>(std::time(NULL));
 	if (_lastModified == 0)
 		_lastModified = static_cast<std::time_t>(_date);
-	response += "Date: " + formatHttpDate(static_cast<std::time_t>(_date)) + "\r\n";
+	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
 	response += "Last-Modified: " + formatHttpDate(_lastModified) + "\r\n";
+	response += "Server: webserv\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n";
 }
 
@@ -733,6 +754,7 @@ std::string ResponseBuilder::buildRedirectResponse(const Request& request, const
 	if (!_location.empty())
 		response += "Location: " + _location + "\r\n";
 	response += "Date: " + formatHttpDate(std::time(NULL)) + "\r\n";
+	response += "Server: webserv/1.0\r\n";
 	response += std::string("Connection: ") + (_keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
 	if (request.getMethodStr() != "HEAD")
 		response += _body;

@@ -21,9 +21,13 @@ void ServerManager::startCgi(ClientSession &client,
 	{
 		// CgiHandler::start() creates pipes, sets them non-blocking,
 		// forks, and execs. Parent's unused pipe ends are already closed inside.
-		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server);
+		client.cgi = CgiHandler::start(client.request, scriptPath, interpreter, server, client.contentLength);
 		client.cgiOutputBuffer.clear();
-		client.cgiInputBuffer = client.request.getBody();
+		// cgiInputBuffer may have been pre-populated from readBuffer for chunked-decoded
+		// POST requests (where request.getBody() is empty as an optimization). Only
+		// overwrite it when it hasn't already been set by the caller.
+		if (client.cgiInputBuffer.empty())
+			client.cgiInputBuffer = client.request.getBody();
 		client.cgiInputWritten = 0;
 
 		// Track pipe read-end: epoll fd → client fd → server index
@@ -63,7 +67,7 @@ void ServerManager::startCgi(ClientSession &client,
 		client.status = 500;
 		client.keepAlive = false;
 		client.state = WRITING;
-		modClientEpoll(client, EPOLLOUT);
+		modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 	}
 }
 
@@ -94,8 +98,14 @@ void ServerManager::handleCgiWrite(int clientFd, int serverIndex)
 	size_t  remaining = client.cgiInputBuffer.size() - client.cgiInputWritten;
 	ssize_t written = write(client.cgi.writeFd, client.cgiInputBuffer.c_str() + client.cgiInputWritten, remaining);
 
-	if (written > 0)
+	if (written > 0) {
 		client.cgiInputWritten += static_cast<size_t>(written);
+		// Reset CGI start time and lastActive while actively writing
+		// This prevents both CGI timeout and keep-alive timeout during large body upload
+		time_t now = time(NULL);
+		client.cgi.startTime = now;
+		client.lastActive = now;
+	}
 
 	// When every byte has been delivered, close write-end → EOF to child
 	if (client.cgiInputWritten >= client.cgiInputBuffer.size())
@@ -124,8 +134,9 @@ void ServerManager::handleCgiWrite(int clientFd, int serverIndex)
  *
  * @param clientFd    The client socket fd that owns this CGI process.
  * @param serverIndex Index into _clients and _servers for this client.
+ * @param eventFlags  Epoll event flags (EPOLLERR, EPOLLHUP, etc.) for pipe error detection.
  */
-void ServerManager::handleCgiRead(int clientFd, int serverIndex)
+void ServerManager::handleCgiRead(int clientFd, int serverIndex, uint32_t eventFlags)
 {
 	if (serverIndex < 0 || static_cast<size_t>(serverIndex) >= _clients.size())
 		return;
@@ -138,32 +149,58 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex)
 	if (client.cgi.readFd < 0)
 		return;
 
-	// Read all currently available bytes (non-blocking — stops at EAGAIN)
-	char buf[BUFFER_SIZE];
-	bool pipeEof = false;
-	ssize_t readBytes;
+	// EPOLLERR or EPOLLHUP: pipe error or remote close — treat as immediate EOF
+	bool pipeEof = (eventFlags & (EPOLLERR | EPOLLHUP)) != 0;
 
-	while (true)
+	// Read all currently available bytes (non-blocking — stops at EAGAIN)
+	// CRITICAL: Distinguish between readBytes == 0 (EOF) vs readBytes < 0 (would-block)
+	// to avoid premature EOF detection that causes deadlock with large outputs.
+	if (!pipeEof)
 	{
-		readBytes = read(client.cgi.readFd, buf, sizeof(buf));
-		if (readBytes > 0){
-			client.cgiOutputBuffer.append(buf, static_cast<size_t>(readBytes));
-			client.cgi.startTime = time(NULL);
+		char buf[BUFFER_SIZE];
+		ssize_t readBytes;
+
+		while (true)
+		{
+			readBytes = read(client.cgi.readFd, buf, sizeof(buf));
+			if (readBytes > 0)
+			{
+				client.cgiOutputBuffer.append(buf, static_cast<size_t>(readBytes));
+				client.cgi.startTime = time(NULL);
+			}
+			else if (readBytes == 0)
+			{
+				// Actual EOF: pipe closed, child exited or closed stdout
+				pipeEof = true;
+				break;
+			}
+			else
+			{
+				// readBytes < 0: would-block (EAGAIN) or other error
+				// Cannot distinguish without errno, but safe to break loop:
+				// - If EAGAIN: epoll will fire again when data available
+				// - If real error: epoll will fire EPOLLERR/EPOLLHUP
+				break;
+			}
 		}
-		else {
-			pipeEof = true;
-			break;
-		}
-		// I cannot use errno to change behavior
 	}
 
 	if (!pipeEof)
 		return; // More data may arrive, keep EPOLLIN armed
 
-	// Reap child process — WNOHANG so we never block the event loop
+	// IMPORTANT: Try to reap the child if it has exited, but DO NOT set pid to -1 yet.
+	// If the child is still running (WNOHANG returns -1), pid stays > 0 so that:
+	// - The timeout mechanism in closeIdleClients() can still kill it if needed
+	// - cleanupCgi() can properly reap and kill it when the client closes
+	// Only cleanupCgi() will set pid to -1 after actually reaping/killing.
 	int status;
-	waitpid(client.cgi.pid, &status, WNOHANG);
-	client.cgi.pid = -1;
+	pid_t reaped = waitpid(client.cgi.pid, &status, WNOHANG);
+	if (reaped > 0)
+	{
+		// Child exited successfully; mark it reaped
+		client.cgi.pid = -1;
+	}
+	// If reaped < 0 (WNOHANG didn't reap), pid stays > 0 for cleanup handling later
 
 	// Remove read-end from epoll and tracking map, close it
 	removeFromEpoll(_epollFd, client.cgi.readFd);
@@ -173,13 +210,13 @@ void ServerManager::handleCgiRead(int clientFd, int serverIndex)
 	_cgiClientToServer.erase(client.fd);
 
 	// Build HTTP response from raw CGI output
-	client.writeBuffer = CgiHandler::buildResponse(client.cgiOutputBuffer, client.version, client.keepAlive);
+	client.writeBuffer = CgiHandler::buildResponse(client.cgiOutputBuffer, client.version, client.keepAlive, client.request);
 	client.totalSent = 0;
 	client.cgiOutputBuffer.clear();
 
 	// Switch client socket to write-ready so the response is sent
 	client.state = WRITING;
-	modClientEpoll(client, EPOLLOUT);
+	modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 	printLog("✅ CGI response ready, switching to WRITING fd=" + itostr(client.fd), BGRN);
 }
 

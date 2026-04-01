@@ -121,7 +121,7 @@ void ServerManager::addClientToEpoll(ClientSession &client)
 	memset(&ev, 0, sizeof(ev));
 	// EPOLLIN means "wake me when this fd can be read without blocking".
 	// For client sockets, that means incoming request data is available.
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
 	ev.data.fd = client.fd;
 	// EPOLL_CTL_ADD tells epoll_ctl() to add this fd as a new watched entry
 	// in the epoll interest list (as opposed to modifying or deleting it).

@@ -20,8 +20,9 @@ void ServerManager::closeIdleClients(time_t now)
 			// difftime(now, lastActive) returns how many seconds the client has been idle.
 			if (difftime(now, client.lastActive) > KEEP_ALIVE_TIMEOUT)
 			{
-				printLog("⏳ Closing idle connection: " + itostr(fd), BYEL);
+				printLog("⏳ Closing idle connection fd=" + itostr(fd), BYEL);
 				closeClient(static_cast<int>(serverIndex), fd);
+				continue; // client erased — do not access it again
 			}
 			// CGI timeout: if a child process has been running > CGI_TIMEOUT seconds, kill it
 			if (client.cgi.pid > 0 && difftime(now, client.cgi.startTime) > CGI_TIMEOUT)
@@ -39,7 +40,7 @@ void ServerManager::closeIdleClients(time_t now)
 				client.writeBuffer = rb.returnGenericErrorResponse(504, errorReq, config);
 				client.totalSent = 0;
 				client.state = WRITING;
-				modClientEpoll(client, EPOLLOUT);
+				modClientEpoll(client, EPOLLOUT | EPOLLRDHUP | EPOLLERR);
 			}
 		}
 	}
@@ -62,7 +63,7 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 		int clientFd = cgiReadIt->second;
 		std::map<int, int>::iterator ownerIt = _cgiClientToServer.find(clientFd);
 		int serverIndex = (ownerIt != _cgiClientToServer.end()) ? ownerIt->second : -1;
-		handleCgiRead(clientFd, serverIndex);
+		handleCgiRead(clientFd, serverIndex, event.events);
 		return;
 	}
 
@@ -107,13 +108,27 @@ void ServerManager::handleReadyEvent(const epoll_event &event)
 		return;
 
 	ClientSession &client = clientIt->second;
-	// EPOLLERR: the socket entered an error state.
-	// EPOLLHUP: the connection was fully hung up / disconnected.
-	// EPOLLRDHUP: the peer closed its write side, so no more data will arrive.
-	// In all three cases, this client is no longer safe to keep active.
-	if (event.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+	// EPOLLERR / EPOLLHUP: hard socket errors — always fatal.
+	// EPOLLRDHUP: peer closed its write side (sent FIN). This is NOT immediately
+	// fatal — clients routinely half-close after a large upload while still
+	// expecting our response. We only mark CLOSING here when there is nothing
+	// left to send. If we already have a response buffered (WRITING) or a
+	// complete request ready to process (PROCESSING), let the normal dispatch
+	// path below handle it; sendClientResponse will set CLOSING when done.
+	if (event.events & (EPOLLERR | EPOLLHUP))
 		client.state = CLOSING;
-	else
+	else if (event.events & EPOLLRDHUP)
+	{
+		if ((client.state == WRITING && !client.writeBuffer.empty()) ||
+			client.state == PROCESSING)
+		{
+			// fall through — dispatch will build/send the response then close
+		}
+		else
+			client.state = CLOSING;
+	}
+
+	if (client.state != CLOSING)
 	{
 		// Extra safety check before dereferencing the owner server.
 		if (static_cast<size_t>(ownerIndex) >= _servers.size())
@@ -137,7 +152,7 @@ void ServerManager::runEventLoop()
 {
 	struct epoll_event events[MAX_EVENTS];
 
-	while (true)
+	while (running)
 	{
 		// epoll_wait() blocks until:
 		// - at least one fd becomes ready,

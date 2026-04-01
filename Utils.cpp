@@ -95,6 +95,19 @@ void setNonBlockingFd(int fd)
 }
 
 /**
+ * @brief Sets a file descriptor to blocking mode.
+ * Clears the O_NONBLOCK flag so the fd will block on I/O operations.
+ */
+void setBlockingFd(int fd)
+{
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0)
+		throw std::runtime_error("fcntl F_GETFL failed");
+	if (fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) < 0)
+		throw std::runtime_error("fcntl F_SETFL failed");
+}
+
+/**
  * @brief Adds a file descriptor to the epoll instance for monitoring
  * @param fd File descriptor to add
  * @param events Epoll events to monitor (e.g., EPOLLIN for read readiness)
@@ -155,5 +168,13 @@ std::string toLower(const std::string &value)
 	std::string result = value;
 	for (size_t i = 0; i < result.size(); ++i)
 		result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
+	return result;
+}
+
+std::string normalization(std::string &name){
+	std::string result = name;
+	for(size_t i = 0; i < result.size(); i++){
+		result[i] = (result[i] == '-') ? '_' : std::toupper(result[i]);
+	}
 	return result;
 }

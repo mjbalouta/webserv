@@ -2,10 +2,6 @@
 
 /**
  * @brief Validates Transfer-Encoding lines and reports whether they are exactly "chunked".
- * @param headersLower Lowercased header lines (without request line).
- * @param hasTransferEncoding Output flag indicating presence of Transfer-Encoding header.
- * @param isChunkedOnly Output flag indicating only supported TE values are present.
- * @return the error code.
  */
 int ServerManager::parseTransferEncodingHeader(const std::string &headersLower, bool &hasTransferEncoding, bool &isChunkedOnly)
 {
@@ -13,100 +9,120 @@ int ServerManager::parseTransferEncodingHeader(const std::string &headersLower, 
 	isChunkedOnly = false;
 	const std::string headerName = "transfer-encoding:";
 
-	// loop through each header line.
 	for (size_t lineStart = 0; lineStart < headersLower.size(); )
 	{
-		// find the end of the current header line.
 		size_t lineEnd = headersLower.find("\r\n", lineStart);
 		if (lineEnd == std::string::npos)
 			lineEnd = headersLower.size();
 
-		// if this line starts with "transfer-encoding:"
 		if (lineEnd > lineStart
 			&& headersLower.compare(lineStart, headerName.size(), headerName) == 0)
 		{
-			// if has more then 1 transfer-encoding, reject
 			if (hasTransferEncoding)
-				return 1; //Malformed: multiple TE
+				return 1;
 			hasTransferEncoding = true;
 
-			// get the value part after "transfer-encoding:"
 			std::string value = headersLower.substr(lineStart + headerName.size(), lineEnd - (lineStart + headerName.size()));
 			value = trimSpaces(value);
 			if (value.empty())
-				return 1; //Malformed, empty value
+				return 1;
 
-			// parse comma-separated tokens in the value
 			bool seenChunked = false;
 			size_t tokenStart = 0;
 			while (tokenStart <= value.size())
 			{
-				// find the next comma
 				size_t commaPos = value.find(',', tokenStart);
 				size_t tokenEnd = (commaPos == std::string::npos) ? value.size() : commaPos;
-				// get and trim the token
 				std::string token = value.substr(tokenStart, tokenEnd - tokenStart);
 				token = trimSpaces(token);
 				if (token.empty())
-					return 1; //Malformed, empty token
-				// only chunked,reject any other value
+					return 1;
 				if (token != "chunked")
-					return 2; //Unsuported TE
-				// reject if has more then 1 chunked
+					return 2;
 				if (seenChunked)
-					return 1; //Malformed, duplicated
+					return 1;
 				seenChunked = true;
-
-				// if has no more commas, break
 				if (commaPos == std::string::npos)
 					break;
 				tokenStart = commaPos + 1;
 			}
-
-			// if no chunk, reject
 			if (!seenChunked)
-				return 1; //Malformed, its not  chunked
+				return 1;
 			isChunkedOnly = true;
 		}
 
-		// if is the last line, break
 		if (lineEnd == headersLower.size())
 			break;
-		// start of the next line
 		lineStart = lineEnd + 2;
 	}
-
-	// is valid
 	return 0;
 }
 
+/**
+ * @brief Incrementally decodes a chunked transfer-encoded body.
+ *
+ * KEY DESIGN: this function resumes exactly where it stopped on the previous
+ * call.  Three ClientSession fields survive across calls:
+ *
+ *   chunkedBodyStart    - absolute offset in readBuffer where the chunked
+ *                         body begins (set once when headers are complete).
+ *   chunkedCursor       - body-relative offset of the NEXT chunk-size line
+ *                         to decode.  Advanced only after a full chunk has
+ *                         been consumed (data + trailing CRLF).  When data
+ *                         is incomplete the cursor stays at the start of the
+ *                         current chunk-size line so we re-parse it next call.
+ *   chunkedDecodedBody  - accumulates decoded payload; appended chunk-by-chunk.
+ *
+ * When the terminal chunk (size 0) is fully buffered, readBuffer is rebuilt
+ * as:  <original headers>  +  <decoded body>  +  <any pipelined remainder>
+ * and state is set to PROCESSING.
+ */
 void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 {
 	client.state = READING;
 
-	size_t headerEnd = client.readBuffer.find("\r\n\r\n");
-	if (headerEnd == std::string::npos)
-		return; // Wait for complete headers.
+	// On the very first call for this request, locate the body start.
+	if (client.chunkedBodyStart == 0)
+	{
+		size_t headerEnd = client.readBuffer.find("\r\n\r\n");
+		if (headerEnd == std::string::npos)
+			return;
+		client.chunkedBodyStart = headerEnd + 4;
+		// chunkedCursor and chunkedDecodedBody are already 0/"" from construction/reset.
+	}
 
-	size_t bodyStart = headerEnd + 4; // Body starts after header terminator.
-	std::string body = client.readBuffer.substr(bodyStart); // Extract body bytes.
-	std::string decodedBody; // Will hold the decoded chunked payload.
-	size_t cursor = 0; // Cursor tracks position in body.
+	const std::string &buf = client.readBuffer;
+	const size_t bodyStart = client.chunkedBodyStart;
 
 	for (;;)
 	{
-		size_t lineEnd = body.find("\r\n", cursor);
-		if (lineEnd == std::string::npos)
-			return; // Wait for complete chunk size line.
+		// Save cursor at the top of each iteration.
+		// If data is incomplete we leave chunkedCursor == iterStart so the
+		// next call re-parses this chunk-size line (safe; parsing is idempotent).
+		size_t iterStart = client.chunkedCursor;
+		size_t absPos    = bodyStart + iterStart;
 
-		std::string sizeLine = body.substr(cursor, lineEnd - cursor); // Get chunk size line.
-		size_t extensionPos = sizeLine.find(';');
-		if (extensionPos != std::string::npos)
-			sizeLine = sizeLine.substr(0, extensionPos); // Ignore chunk extensions.
-		sizeLine = trimSpaces(sizeLine); // Remove whitespace.
+		if (absPos >= buf.size()) {
+			return;
+		}
+
+		// Find the CRLF terminating the chunk-size line.
+		size_t lineEnd = buf.find("\r\n", absPos);
+		if (lineEnd == std::string::npos) {
+			//printLog("[CHUNKED] Waiting for chunk-size CRLF (cursor " + itostr(iterStart) + ")", BYEL);
+			return;
+		}
+
+		// Parse size token (strip optional chunk extensions after ';').
+		std::string sizeLine = buf.substr(absPos, lineEnd - absPos);
+		size_t extPos = sizeLine.find(';');
+		if (extPos != std::string::npos)
+			sizeLine = sizeLine.substr(0, extPos);
+		sizeLine = trimSpaces(sizeLine);
+
 		if (sizeLine.empty())
 		{
-			client.status = 400; // Empty chunk size line is invalid.
+			client.status = 400;
 			client.keepAlive = false;
 			client.state = WRITING;
 			return;
@@ -115,15 +131,15 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		size_t chunkSize = 0;
 		std::istringstream iss(sizeLine);
 		iss >> std::hex >> chunkSize;
-		if (iss.fail()) {
+		if (iss.fail())
+		{
 			client.status = 400;
 			client.keepAlive = false;
 			client.state = WRITING;
 			return;
 		}
-		// Reject any trailing non-whitespace garbage after the hex number.
-		std::string leftovers;
-		if (iss >> leftovers)
+		std::string garbage;
+		if (iss >> garbage)
 		{
 			client.status = 400;
 			client.keepAlive = false;
@@ -131,58 +147,81 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 			return;
 		}
 
-		cursor = lineEnd + 2; // Move cursor past chunk size line.
+		// Body-relative offset of the first data byte (past chunk-size line + CRLF).
+		size_t dataStart = (lineEnd + 2) - bodyStart;
 
+		// --- Terminal chunk (chunkSize == 0) ---
 		if (chunkSize == 0)
 		{
-			// Last chunk: trailers are terminated by an empty line (CRLF).
-			// If there are no trailer headers, the next bytes are immediately "\r\n".
-			if (cursor + 2 > body.size())
-				return; // Wait for complete trailer terminator.
+			if (bodyStart + dataStart + 2 > buf.size()) {
+				//printLog("[CHUNKED] Waiting for terminal CRLF", BYEL);
+				// cursor stays at iterStart
+				return;
+			}
 
-			size_t consumedBodyBytes = 0;
-			if (body.compare(cursor, 2, "\r\n") == 0)
-				consumedBodyBytes = cursor + 2;
+			size_t consumedBodyBytes;
+			if (buf.compare(bodyStart + dataStart, 2, "\r\n") == 0)
+			{
+				consumedBodyBytes = dataStart + 2;
+			}
 			else
 			{
-				// One or more trailer header lines: consume through the final CRLFCRLF.
-				size_t trailerTerminator = body.find("\r\n\r\n", cursor);
-				if (trailerTerminator == std::string::npos)
-					return; // Wait for complete trailers/terminator.
-				consumedBodyBytes = trailerTerminator + 4;
+				size_t trailerEnd = buf.find("\r\n\r\n", bodyStart + dataStart);
+				if (trailerEnd == std::string::npos) {
+					//printLog("[CHUNKED] Waiting for trailer terminator", BYEL);
+					return;
+				}
+				consumedBodyBytes = (trailerEnd + 4) - bodyStart;
 			}
-			std::string remaining = body.substr(consumedBodyBytes); // Any pipelined requests after chunked body.
-			std::string headersPart = client.readBuffer.substr(0, bodyStart); // Preserve headers.
-			client.contentLength = decodedBody.size(); // Set decoded body size.
-			client.readBuffer = headersPart + decodedBody + remaining; // Replace buffer with decoded body.
-			client.state = PROCESSING; // Ready to process request.
+
+			// Rebuild readBuffer: headers + decoded body + pipelined remainder.
+			std::string remaining   = buf.substr(bodyStart + consumedBodyBytes);
+			std::string headersPart = buf.substr(0, bodyStart);
+			client.contentLength    = client.chunkedDecodedBody.size();
+			client.readBuffer       = headersPart + client.chunkedDecodedBody + remaining;
+
+			//printLog("[CHUNKED] Done. Decoded body: " + itostr(client.contentLength) + " bytes", BYEL);
+
+			// Reset incremental state for future requests on this keep-alive connection.
+			client.chunkedDecodedBody.clear();
+			client.chunkedCursor    = 0;
+			client.chunkedBodyStart = 0;
+			client.chunkedDecoded   = true;
+			client.state            = PROCESSING;
 			return;
 		}
 
-		// Wait for full chunk data and trailing CRLF.
-		if (cursor + chunkSize + 2 > body.size())
-			return;
-
-		// Enforce max upload size.
-		if (decodedBody.size() > maxUploadSize - chunkSize)
+		// --- Normal chunk: need all data + trailing CRLF buffered ---
+		if (bodyStart + dataStart + chunkSize + 2 > buf.size())
 		{
-			client.status = 413; // Payload Too Large.
+			//printLog("[CHUNKED] Waiting for chunk data (cursor " + itostr(iterStart) +
+				//", need " + itostr(chunkSize) + " + 2 bytes, have " +
+				//itostr(buf.size() > bodyStart + dataStart ? buf.size() - bodyStart - dataStart : 0) + ")", BYEL);
+			// Leave chunkedCursor == iterStart; re-parse size line next call.
+			return;
+		}
+
+		// Enforce upload size limit.
+		if (client.chunkedDecodedBody.size() + chunkSize > maxUploadSize)
+		{
+			client.status = 413;
 			client.keepAlive = false;
 			client.state = WRITING;
 			return;
 		}
 
-		decodedBody.append(body, cursor, chunkSize); // Append chunk data.
-		cursor += chunkSize; // Move cursor past chunk data.
-
-		// Validate chunk terminator.
-		if (body.compare(cursor, 2, "\r\n") != 0)
+		// Validate trailing CRLF.
+		if (buf.compare(bodyStart + dataStart + chunkSize, 2, "\r\n") != 0)
 		{
-			client.status = 400; // Missing chunk CRLF.
+			client.status = 400;
 			client.keepAlive = false;
 			client.state = WRITING;
 			return;
 		}
-		cursor += 2; // Move cursor past chunk CRLF.
+
+		// Consume the chunk and advance cursor past data + trailing CRLF.
+		//printLog("[CHUNKED] Chunk ok cursor=" + itostr(iterStart) + " size=" + itostr(chunkSize), BYEL);
+		client.chunkedDecodedBody.append(buf, bodyStart + dataStart, chunkSize);
+		client.chunkedCursor = dataStart + chunkSize + 2;
 	}
 }

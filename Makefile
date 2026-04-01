@@ -62,9 +62,6 @@ help:
 	@echo "\n"
 
 all: $(NAME) 	## Compile
-	@echo "\t$(BGRN)✓ Build complete!$(D)"
-	@echo "\t  Run ./$(NAME) to start the server"
-	@echo "\n"
 
 $(NAME): $(OBJS) ## Link
 	@echo "\t$(BGOLD)Linking ...$(D)"
