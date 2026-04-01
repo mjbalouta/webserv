@@ -148,9 +148,11 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		char buffer[BUFFER_SIZE];
 		int readBytes = recv(client.fd, buffer, sizeof(buffer), 0);
 		if (readBytes < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			if (!client.writeBuffer.empty()) {
 				// No more data to read now
-				break;
+				client.state = WRITING;
+				return;
+//				break;
 			}
 			client.ioFailures++;
 			if (client.ioFailures < 2) {
@@ -276,6 +278,36 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		client.headersSent = true; // Prevent sending 100 Continue more than once
 	}
 
+	// Extract the path from the request line to determine location-specific maxBodySize early
+	// Format: "METHOD /path HTTP/VERSION"
+	std::string requestLine = client.readBuffer.substr(0, requestLineEnd);
+	size_t firstSpace = requestLine.find(' ');
+	size_t secondSpace = requestLine.find(' ', firstSpace + 1);
+	size_t effectiveMaxUploadSize = maxUploadSize; // Default to global size
+	
+	if (firstSpace != std::string::npos && secondSpace != std::string::npos && firstSpace < secondSpace)
+	{
+		std::string path = requestLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+		// Find query string and remove it
+		size_t queryPos = path.find('?');
+		if (queryPos != std::string::npos)
+			path = path.substr(0, queryPos);
+		
+		// Get location-specific maxBodySize by checking configured locations
+		const std::vector<LocationConfig> &locations = server.getLocations();
+		for (size_t i = 0; i < locations.size(); ++i)
+		{
+			const LocationConfig &loc = locations[i];
+			const std::string &locPath = loc.getPath();
+			// Simple path matching: if request path starts with location path
+			if (!locPath.empty() && path.find(locPath) == 0 && loc.getMaxBodySizeFlag())
+			{
+				effectiveMaxUploadSize = loc.getMaxBodySize();
+				break;
+			}
+		}
+	}
+
 	bool hasTransferEncoding = false;
 	bool isChunkedOnly = false;
 	int teResult = parseTransferEncodingHeader(headersLower, hasTransferEncoding, isChunkedOnly);
@@ -307,7 +339,7 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		// decodeChunked() is fully incremental: it resumes from chunkedCursor
 		// and never re-scans already-decoded data, so it is safe to call on
 		// every EPOLLIN event until state becomes PROCESSING.
-		decodeChunked(client, maxUploadSize);
+		decodeChunked(client, effectiveMaxUploadSize);
 		// If the peer already sent FIN and decoding still didn't complete,
 		// the body was truncated — close rather than wait forever.
 		if (peerClosed && client.state == READING)
@@ -336,37 +368,6 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 		client.keepAlive = false;
 		client.state = WRITING;
 		return;
-	}
-
-	// Extract the path from the request line to determine location-specific maxBodySize
-	// Format: "METHOD /path HTTP/VERSION"
-	std::string requestLine = client.readBuffer.substr(0, requestLineEnd);
-	size_t firstSpace = requestLine.find(' ');
-	size_t secondSpace = requestLine.find(' ', firstSpace + 1);
-	size_t effectiveMaxUploadSize = maxUploadSize; // Default to global size
-	
-	if (firstSpace != std::string::npos && secondSpace != std::string::npos && firstSpace < secondSpace)
-	{
-		std::string path = requestLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-		// Find query string and remove it
-		size_t queryPos = path.find('?');
-		if (queryPos != std::string::npos)
-			path = path.substr(0, queryPos);
-		
-		// Get location-specific maxBodySize by checking configured locations
-		// (simplified: check /post_body, /directory, etc.)
-		const std::vector<LocationConfig> &locations = server.getLocations();
-		for (size_t i = 0; i < locations.size(); ++i)
-		{
-			const LocationConfig &loc = locations[i];
-			const std::string &locPath = loc.getPath();
-			// Simple path matching: if request path starts with location path
-			if (!locPath.empty() && path.find(locPath) == 0 && loc.getMaxBodySizeFlag())
-			{
-				effectiveMaxUploadSize = loc.getMaxBodySize();
-				break;
-			}
-		}
 	}
 
 	// If declared body is larger than configured upload limit, fail early.
@@ -404,6 +405,15 @@ void ServerManager::readClientRequest(ClientSession &client, size_t maxUploadSiz
 
 	{
 		size_t bodySize = client.readBuffer.size() - headerSize;
+		// Check if actual body size exceeds limit even when Content-Length is missing
+		if (bodySize > effectiveMaxUploadSize)
+		{
+			printLog("🚨 Actual body size exceeds maximum limit", RED);
+			client.keepAlive = false;
+			client.status = 413;
+			client.state = WRITING;
+			return;
+		}
 		// Once enough body bytes have arrived, the request is complete and can be parsed.
 		if (bodySize >= client.contentLength)
 			client.state = PROCESSING;

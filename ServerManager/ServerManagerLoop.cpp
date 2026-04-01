@@ -152,7 +152,7 @@ void ServerManager::runEventLoop()
 {
 	struct epoll_event events[MAX_EVENTS];
 
-	while (true)
+	while (running)
 	{
 		// epoll_wait() blocks until:
 		// - at least one fd becomes ready,

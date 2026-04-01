@@ -7,6 +7,8 @@
 #include "../Includes.hpp"
 #include "../CGI/CGIHandler.hpp"
 
+extern volatile sig_atomic_t running;
+
 class ServerConfig;
 
 class ServerManager {
