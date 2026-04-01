@@ -93,7 +93,7 @@ fclean: clean			## Remove executable and build artifacts
 re: fclean all	## Purge & Recompile
 
 run: $(NAME)
-	@./$(NAME) configurations/default.conf
+	@./$(NAME) default.conf
 
 .PHONY: help all clean fclean re run
 

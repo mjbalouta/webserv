@@ -35,7 +35,7 @@ AI tools were used during this project's development to assist with task organiz
 ## From our Notebooks
 
 ### What is Nginx?   
-It's a high-performance, open-source HTTP server and reverse proxy. It is used as a reference in this project because, while old servers often create a new "thread" or "process" for every single visitor (which consumes a lot of memory), Nginx revolutionized the field with an Asynchronous, Event-Driven Architecture. Our project also uses Non-Blocking I/O (single process to handle thousands of connections simultaneously); Modular Configuration (a hierarchical "block" system - server and location blocks); Efficiency (high concurrency with very low memory usage, achieved through the same multiplexing logic - epoll - used in this project).
+It's a high-performance, open-source HTTP server and reverse proxy. It is used as a reference in this project because, while old servers often create a new "thread" or "process" for every single visitor (which consumes a lot of memory), Nginx revolutionized the field with an Asynchronous, Event-Driven Architecture. Our project also uses Non-Blocking I/O (single process to handle thousands of connections simultaneously); Modular Configuration (a hierarchical "block" system - server and location blocks); Efficiency (high currency with very low memory usage, achieved through the same multiplexing logic - epoll - used in this project).
 
 ### WEBSERVER FLOW
 "building a webserver is like building a high-speed post office that never sleeps."   
@@ -51,7 +51,7 @@ It's a high-performance, open-source HTTP server and reverse proxy. It is used a
 a) Creation: you tell the OS "I need a socket for IPv4 and TCP".      
 b) Binding: you attach that socket to a specific port and an IP address.   
 c) Listening: you put the socket into a "passive" state, waiting for someone to knock.   
-d) Accepting: when a client (like chrome or curl) connects, accept creates a new socket specifically for that one client. The original "listening" socket stays open to wait for the next person.   
+d) Accepting: when a client (like chrome or curl) connects, accept creates a new socket specifically for that one client. The original "listening" sokcet stays open to wait for the next person.   
 e) Communication: you read the HTTP request from the client socket and send back to HTTP response.   
 
 **Types of sockets:**   
