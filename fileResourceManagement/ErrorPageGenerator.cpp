@@ -96,22 +96,5 @@ std::string ErrorPageGenerator::loadCustomErrorPage(int statusCode, const Config
             return content;
         }
     }
-/*        std::vector<std::string> errorPages = locIt->getIndexes();
-        std::vector<std::string>::const_iterator pageIt = errorPages.begin();
-        for (; pageIt != errorPages.end(); ++pageIt) 
-        {
-            if (*pageIt == std::to_string(statusCode) + ".html") 
-            {
-                std::string filePath = locIt->getRoot() + "/" + *pageIt; // Assumindo que a root não tem uma barra no final
-                std::ifstream file(filePath);
-                if (file.is_open()) 
-                {
-                    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                    file.close();
-                    return content;
-                }
-            }                    
-        }
-    }    */ 
     return generateErrorPage(statusCode, getReasonPhrase(statusCode)); // Fallback para a página de erro genérica se não houver uma personalizada
 }

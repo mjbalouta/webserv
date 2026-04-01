@@ -9,8 +9,8 @@ class ServerConfig
 {
 	private:
 	int _fd;
-	std::vector<int> _ports; //should it be a vector of ports???
-	bool _portDefined; //config file defined a port?
+	std::vector<int> _ports; 
+	bool _portDefined; 
 	std::string _root; //base directory where files are served from'
 	bool _rootDefined;
 	std::vector<std::string> _indexes; //the default file served when a directory is requested 

@@ -267,10 +267,6 @@ bool Request::parseAndValidateBody(const std::string &body, size_t contentLength
 		return (printLog("⚠️ Content-Length header missing", RED), _status = 404, false);
 
 	if (_isChunked) {
-/* 		std::string decoded;
-		if (!decodeChunkedBody(body, decoded))
-			return (printLog("🚨 Malformed chunked body", RED), _status = 400, false); 
-		_body = decoded;*/
 		_body = body;
 	} else if (contentLengthIt != _headers.end()) {
 		// If buffer is not enough bytes yet the request is incomplete.
@@ -426,7 +422,6 @@ const std::string& Request::getCgiInterpreter() const
  */
 bool Request::isCgi(const ConfigResolved& routing)
 {
-	// const std::string& requestPath = getPath();
 	_cgiFullPath = routing.getResolvedPath(*this);
 	
 	//checking if extension exists in the config file

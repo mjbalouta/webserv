@@ -63,19 +63,10 @@ bool PathResolver::isPathSafe(const std::string& requested, const std::string& r
     if (requested == "path is not safe")
         return false;
 
-//    std::string normalizedRequest;
     std::string normalizedRoot;
     std::string combined = root;
     
     normalizedRoot = normalizePath(root);
-/*    normalizedRequest = resolver.normalizePath(requested);
-    
-    if (!normalizedRoot.empty())
-        combined = normalizedRoot + "/" + normalizedRequest;
-    else
-        combined = normalizedRequest;
-    
-    combined = resolver.normalizePath(combined); */
 
     if (!root.empty())
         combined = root + "/" + requested;

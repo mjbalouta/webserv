@@ -109,7 +109,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		// Find the CRLF terminating the chunk-size line.
 		size_t lineEnd = buf.find("\r\n", absPos);
 		if (lineEnd == std::string::npos) {
-			//printLog("[CHUNKED] Waiting for chunk-size CRLF (cursor " + itostr(iterStart) + ")", BYEL);
 			return;
 		}
 
@@ -154,7 +153,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		if (chunkSize == 0)
 		{
 			if (bodyStart + dataStart + 2 > buf.size()) {
-				//printLog("[CHUNKED] Waiting for terminal CRLF", BYEL);
 				// cursor stays at iterStart
 				return;
 			}
@@ -168,7 +166,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 			{
 				size_t trailerEnd = buf.find("\r\n\r\n", bodyStart + dataStart);
 				if (trailerEnd == std::string::npos) {
-					//printLog("[CHUNKED] Waiting for trailer terminator", BYEL);
 					return;
 				}
 				consumedBodyBytes = (trailerEnd + 4) - bodyStart;
@@ -179,8 +176,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 			std::string headersPart = buf.substr(0, bodyStart);
 			client.contentLength    = client.chunkedDecodedBody.size();
 			client.readBuffer       = headersPart + client.chunkedDecodedBody + remaining;
-
-			//printLog("[CHUNKED] Done. Decoded body: " + itostr(client.contentLength) + " bytes", BYEL);
 
 			// Reset incremental state for future requests on this keep-alive connection.
 			client.chunkedDecodedBody.clear();
@@ -194,9 +189,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		// --- Normal chunk: need all data + trailing CRLF buffered ---
 		if (bodyStart + dataStart + chunkSize + 2 > buf.size())
 		{
-			//printLog("[CHUNKED] Waiting for chunk data (cursor " + itostr(iterStart) +
-				//", need " + itostr(chunkSize) + " + 2 bytes, have " +
-				//itostr(buf.size() > bodyStart + dataStart ? buf.size() - bodyStart - dataStart : 0) + ")", BYEL);
 			// Leave chunkedCursor == iterStart; re-parse size line next call.
 			return;
 		}
@@ -220,7 +212,6 @@ void ServerManager::decodeChunked(ClientSession &client, size_t maxUploadSize)
 		}
 
 		// Consume the chunk and advance cursor past data + trailing CRLF.
-		//printLog("[CHUNKED] Chunk ok cursor=" + itostr(iterStart) + " size=" + itostr(chunkSize), BYEL);
 		client.chunkedDecodedBody.append(buf, bodyStart + dataStart, chunkSize);
 		client.chunkedCursor = dataStart + chunkSize + 2;
 	}

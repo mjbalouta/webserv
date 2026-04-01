@@ -53,14 +53,6 @@ class ResponseBuilder{
 		std::string getDateString();
 		std::string getLastModifiedString();
 
-//		Setters for building response
-/* 		void setStatusLine(int statusCode);
-		void setContentType(const std::string& filePath);
-		void setContentLength(size_t contentLength);
-		void setDate(std::time_t date);
-		void setLastModified(std::time_t lastModified);
-		void setBody(const std::string& body); */
-
 // 		Helper functions for response building
 		bool isMethodAllowed(const std::string &method, const ConfigResolved &resolvedConfig);
 		std::string buildAutoIndexBody(const std::string &uriPath, const std::string &dirFsPath, FileSystemHandler &fs);
@@ -84,7 +76,6 @@ class ResponseBuilder{
 		std::string buildRedirectResponse(const Request &request, const ConfigResolved &matched);
 		std::string buildFileResponse(const Request& request, const std::string& filePath, const ConfigResolved& resolvedConfig);
 		std::string buildDirectoryListingResponse(const Request& request, const std::string& uriPath, const std::string& dirFsPath, const ConfigResolved& resolvedConfig);
-		//std::string buildCGIResponse(const std::string& scriptPath, const ConfigResolved& resolvedConfig);
 		void setStandardHeaders(std::string& response, const std::string& contentType);
 		void replaceTag(std::string &content, const std::string &tag, const std::string &value);
 		void insertServerInfo(const ConfigResolved& config);
@@ -92,5 +83,4 @@ class ResponseBuilder{
 		void insertRequestInfo(const Request& request, const std::string& userInput, const std::string& locPath, const std::string& block);
 		void listGalleryFiles(const ConfigResolved& config);
 		std::string returnErrorDescription() const;
-	//	std::string buildCGIResponse(const std::string& scriptPath, const std::string& executor, const Request& request, const ConfigResolved& resolvedConfig);
 };

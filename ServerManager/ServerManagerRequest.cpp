@@ -98,7 +98,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			client.readBuffer.clear();
 			client.contentLength = 0;
 			client.version = "HTTP/1.1";
-			// Use ResponseBuilder for error response
+
 			Request errorRequest;
 			errorRequest.setStatus(431);
 			errorRequest.setVersion(client.version);
@@ -154,7 +154,7 @@ void ServerManager::parseClientRequest(ClientSession &client, ServerConfig &serv
 			client.keepAlive = false;
 			client.state = WRITING;
 			remainingBuffer.clear();
-			// Use ResponseBuilder for error response
+
 			ConfigResolved config(request, server);
 			ResponseBuilder rb;
 			client.writeBuffer = rb.returnGenericErrorResponse(request.getStatus(), request, config);
@@ -251,7 +251,6 @@ void ServerManager::sendClientResponse(ClientSession &client, ServerConfig &serv
 	}
 
 	if (client.writeBuffer.empty()) {
-		// Use ResponseBuilder for error responses if writeBuffer is empty
 		Request errorRequest;
 		errorRequest.setStatus(client.status);
 		errorRequest.setVersion(client.version);

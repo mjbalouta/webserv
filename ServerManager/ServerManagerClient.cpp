@@ -159,6 +159,5 @@ ServerManager::~ServerManager()
 		close(_epollFd);
 		_epollFd = -1;
 	}
-	//_configs.clear();
 	printLog("👋 BYE BYE 🔒 Server shut down", CYAN);
 }

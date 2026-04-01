@@ -25,7 +25,6 @@ MimeTypeResolver::MimeTypeResolver() {
     mimeTypes[".ogg"] = "audio/ogg";
     mimeTypes[".mp4"] = "video/mp4";
     mimeTypes[".webm"] = "video/webm";
-    // Add more as needed
 }
 
 /**

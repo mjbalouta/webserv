@@ -373,7 +373,6 @@ void ResponseBuilder::insertServerInfo(const ConfigResolved& config)
 void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
 {
     std::string uploadDir = config.getUploadStore();
-    // std::string root = config.getRoot();
 
     if (uploadDir.empty())
     {

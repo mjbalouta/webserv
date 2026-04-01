@@ -31,7 +31,6 @@ void ServerManager::closeIdleClients(time_t now)
 				cleanupCgi(client);
 				client.status = 504;
 				client.keepAlive = false;
-				// Build a 504 error response and switch to writing
 				Request errorReq;
 				errorReq.setStatus(504);
 				errorReq.setVersion(client.version);

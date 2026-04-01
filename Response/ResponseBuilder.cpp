@@ -33,7 +33,7 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string &body, c
 			data.parts.clear();
 			return data;
 		}
-		//		std::string headers = toLower(body.substr(pos, headerEnd - pos));
+
 		std::string headers = body.substr(pos, headerEnd - pos);
 		pos = headerEnd + 4;
 
@@ -46,7 +46,6 @@ MultipartData ResponseBuilder::parseMultipartFormData(const std::string &body, c
 		}
 		data.parts[headers] = body.substr(pos, bodyEnd - pos);
 
-		// delimiter begins with CRLF; boundary starts at bodyEnd + 2
 		size_t afterMarker = bodyEnd + 2 + marker.size();
 		if (afterMarker + 2 > body.size())
 		{
@@ -364,12 +363,6 @@ std::string ResponseBuilder::returnResponse(const Request &request, const Config
 			return returnGenericErrorResponse(403, request, resolvedConfig);
 	}
 
-	/* 	if (request.getMethodStr() == "GET" && !resolvedConfig.getCgi().empty())
-			return buildCGIResponse(fileSystemPath, request, resolvedConfig); */
-	/* 	std::string executor;
-		if (isCgiRequest(request, resolvedConfig, fileSystemPath, executor))
-			return buildCGIResponse(fileSystemPath, executor, request, resolvedConfig); */
-
 	if (request.getMethodStr() == "POST")
 		return buildPostResponse(request, resolvedConfig);
 	if (request.getMethodStr() == "DELETE")
@@ -428,6 +421,7 @@ std::string ResponseBuilder::returnResponse(const Request &request, const Config
 		return returnGenericErrorResponse(403, request, resolvedConfig);
 	else
 		return returnGenericErrorResponse(404, request, resolvedConfig);
+
 }
 
 std::string ResponseBuilder::buildPostResponse(const Request &request, const ConfigResolved &resolvedConfig)
@@ -435,8 +429,6 @@ std::string ResponseBuilder::buildPostResponse(const Request &request, const Con
 	_location.clear();
 	std::string uploadStore = resolvedConfig.getUploadStore();
 
-	//	if (!uploadStore.empty() && uploadStore[0] != '/')
-	//		uploadStore = resolvedConfig.getAbsolutePath() + uploadStore;
 	if (uploadStore.empty())
 	{
 		// No upload_store configured for this location: accept POST but do nothing.
@@ -501,10 +493,7 @@ std::string ResponseBuilder::buildPostResponse(const Request &request, const Con
 
 			targetPath = pathResolver.normalizePath(joinPathSimple(uploadStore, filename));
 			bodyToWrite = it->second;
-			/* 			if (bodyToWrite.empty())
-							bodyToWrite = multipart.parts.begin()->second; */
 			fileToWrite[targetPath] = bodyToWrite;
-			//			_location = ensureTrailingSlash(locationPath.empty() ? fileSystemPath : locationPath) + filename;
 			++it;
 		}
 		if (fileToWrite.empty())
@@ -536,9 +525,6 @@ std::string ResponseBuilder::buildPostResponse(const Request &request, const Con
 			existedAny = existedAny || existedThis;
 			if (!existedThis)
 				createdAny = true;
-			// else if (!fileSystemHandler.isWritable(it->first))
-			// 	return returnGenericErrorResponse(403, request, resolvedConfig);
-
 			if (!fileSystemHandler.writeFile(it->first, it->second))
 				return returnGenericErrorResponse(500, request, resolvedConfig);
 		}
