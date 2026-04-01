@@ -406,3 +406,9 @@ void ResponseBuilder::listGalleryFiles(const ConfigResolved& config)
     
     replaceTag(_body, "{{GALLERY_FILES}}", galleryList);
 }
+
+std::string ResponseBuilder::returnErrorDescription() const
+{
+	std::string errorDescription = _statusLine.substr(_statusLine.find_last_of("0123456789") + 1);
+	return errorDescription;
+}

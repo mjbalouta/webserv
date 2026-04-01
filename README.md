@@ -51,7 +51,7 @@ It's a high-performance, open-source HTTP server and reverse proxy. It is used a
 a) Creation: you tell the OS "I need a socket for IPv4 and TCP".      
 b) Binding: you attach that socket to a specific port and an IP address.   
 c) Listening: you put the socket into a "passive" state, waiting for someone to knock.   
-d) Accepting: when a client (like chrome or curl) connects, accept creates a new socket specifically for that one client. The original "listening" sokcet stays open to wait for the next person.   
+d) Accepting: when a client (like chrome or curl) connects, accept creates a new socket specifically for that one client. The original "listening" socket stays open to wait for the next person.   
 e) Communication: you read the HTTP request from the client socket and send back to HTTP response.   
 
 **Types of sockets:**   
