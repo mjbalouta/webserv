@@ -1,0 +1,15 @@
+*.o
+*.obj
+*.a
+*.lib
+.build/
+/webserv
+/a.out
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+main_Maria.cpp
+webserv

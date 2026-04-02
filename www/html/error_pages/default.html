@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ERROR_CODE}} {{ERROR_DESCRIPTION}}</title>
+	<link rel="stylesheet" href="/html/style.css">
+	<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col items-center justify-center bg-black text-gray-200 font-googlesans min-h-screen flex flex-col items-center overflow-x-hidden">
+	<div>
+		<h1 class="text-[350px] font-bitcount font-[350] text-techpurple mt-24 mb-0 leading-none tracking-tight uppercase">{{ERROR_CODE}}</h1>
+	</div>
+	<div>
+		<p class="text-[20px] text-gray-500 mb-2 text-[rgba(100,20,120,1)]">{{ERROR_DESCRIPTION}}</p>
+	</div>
+	<div>
+		<p class="text-[16px] mt-8 mb-2 text-[rgba(100,20,120,1)]">{{ERROR_MESSAGE}}</p>
+	</div>
+	<div>
+		<a href="/">
+			<button type="submit" class="mt-12 self-start text-gray-500 px-4 py-2 rounded-full shadow-[0_0_15px_rgba(100,20,120,0.8)] hover:shadow-[0_0_8px_rgba(100,20,120,0.80)] 
+			transition-all duration-300">Back Home</button>
+		</a>
+	</div>
+	<script src="/html/script.js"></script>
+</body>
+</html>
