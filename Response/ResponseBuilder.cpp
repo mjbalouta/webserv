@@ -433,7 +433,7 @@ std::string ResponseBuilder::buildPostResponse(const Request &request, const Con
 	{
 		// No upload_store configured for this location: accept POST but do nothing.
 		// (Request parsing already validated Content-Length/chunking and applied body-size limits.)
-		_statusCode = 200;
+		_statusCode = 400;
 		_statusLine = request.getVersion() + " " + getStatusCodeString() + " " + error.getReasonPhrase(_statusCode) + "\r\n";
 		_contentType = "text/plain";
 		_body.clear();

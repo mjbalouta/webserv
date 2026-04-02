@@ -180,8 +180,25 @@ CgiProcess CgiHandler::start(const Request &request, const std::string &scriptPa
 	return cgi;
 }
 
-std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request & /* request */)
+std::string CgiHandler::buildResponse(const std::string &rawOutput, const std::string &httpVersion, bool keepAlive, Request & request)
 {
+ 	FileSystemHandler fs;
+	if (!fs.pathExists(request.getCgiFullPath()))
+	{
+		ErrorPageGenerator error;
+		std::string statusLine = httpVersion + " 404 " + error.getReasonPhrase(404) + "\r\n";
+		std::string contentType = "text/html";
+		std::string body = error.generateErrorPage(404, "File Not Found");
+		std::stringstream ss;
+		ss << body.size();
+		std::string response = statusLine;
+		response += "Content-Type: " + contentType + "\r\n";
+		response += "Content-Length: " + ss.str() + "\r\n";
+		response += std::string("Connection: ") + (keepAlive ? "keep-alive" : "close") + "\r\n";
+		response += "\r\n";
+		response += body;
+		return response;
+	} 
 	if (rawOutput.empty())
 	{
 		ErrorPageGenerator error;
